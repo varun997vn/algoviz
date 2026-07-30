@@ -1,0 +1,56 @@
+{
+  "name": "algoviz",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @algoviz/web dev",
+    "build": "pnpm --filter @algoviz/web build",
+    "preview": "pnpm --filter @algoviz/web preview",
+    "typecheck": "tsc -b --pretty",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "test": "vitest run --project unit --project integration-node --project integration-dom",
+    "test:unit": "vitest run --project unit",
+    "test:integration": "vitest run --project integration-node --project integration-dom",
+    "test:watch": "vitest --project unit",
+    "test:coverage": "vitest run --project unit --project integration-node --project integration-dom --coverage",
+    "test:ui": "playwright test",
+    "test:ui:headed": "playwright test --headed",
+    "roadmap:generate": "tsx packages/roadmap/src/cli.ts generate",
+    "roadmap:check": "tsx packages/roadmap/src/cli.ts check",
+    "mcp": "tsx packages/mcp-server/src/index.ts",
+    "verify": "pnpm lint && pnpm typecheck && pnpm roadmap:check && pnpm test",
+    "verify:all": "pnpm verify && pnpm build && pnpm test:ui"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["esbuild"]
+  },
+  "devDependencies": {
+    "@eslint/js": "9.39.5",
+    "@playwright/test": "1.56.1",
+    "@testing-library/dom": "10.4.1",
+    "@testing-library/jest-dom": "6.9.1",
+    "@testing-library/react": "16.3.2",
+    "@testing-library/user-event": "14.6.1",
+    "@types/d3-hierarchy": "3.1.7",
+    "@types/node": "22.14.0",
+    "@types/react": "19.2.0",
+    "@types/react-dom": "19.2.0",
+    "@vitejs/plugin-react": "5.2.0",
+    "@vitest/coverage-v8": "3.2.7",
+    "eslint": "9.39.5",
+    "eslint-plugin-react-hooks": "5.2.0",
+    "globals": "16.4.0",
+    "jsdom": "30.0.1",
+    "tsx": "4.23.1",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.65.0",
+    "vite": "7.3.6",
+    "vitest": "3.2.7"
+  }
+}
