@@ -24,25 +24,35 @@ export function reference(head: number[], viz: Viz): number[] {
   const list = viz.list(head, { name: 'list' })
   let current = list.head
   let prev: typeof current = null
-  list.cursor('prev', prev)
-  list.cursor('current', current)
+  // Hoisted so the watch panel can show it. The stash is the crux of this problem — the hint says
+  // so — and with it scoped inside the loop the animation showed only two of the three references.
+  let next: typeof current = null
+
+  list.setCursors({ prev, current })
   viz.watch(() => ({
     prev: prev ? prev.rawValue : 'null',
     current: current ? current.rawValue : 'null',
+    next: next ? next.rawValue : 'null',
   }))
 
+  if (!current) viz.step('empty list — nothing to reverse')
+
   while (current) {
-    const next = current.rawNext // stash the rest of the list before clobbering the link
+    next = current.rawNext // stash the rest of the list before clobbering the link
     current.next = prev // the entire algorithm is this one rewire
+
+    // Recorded *before* the locals advance, so the carets on screen still describe the state this
+    // frame is about. `current` is the node just rewired, which is exactly the new head — writing
+    // it as `prev` after advancing said the same thing but drew both carets one step stale, and
+    // the canvas then contradicted the watch panel rendered right beside it.
+    list.head = current
+
     prev = current
     current = next
 
-    // Everything from `prev` backwards is already reversed, so `prev` is the head now.
-    list.head = prev
-    // `current` is moved before `prev`: one cursor per frame means whichever goes second
-    // would otherwise share a node with the other for a frame and both labels would pile up.
-    list.cursor('current', current)
-    list.cursor('prev', prev)
+    // Both pointers move as one frame, so there is no instant where one has advanced and the
+    // other has not, and no instant where they appear to collide.
+    list.setCursors({ prev, current })
     viz.step(
       current
         ? `reversed ${prev.rawValue}, next up ${current.rawValue}`
@@ -50,6 +60,7 @@ export function reference(head: number[], viz: Viz): number[] {
     )
   }
 
+  next = null
   if (prev) list.mark(prev, 'result', 'new head')
   return list.toArray()
 }

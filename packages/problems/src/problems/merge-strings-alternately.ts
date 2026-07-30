@@ -16,25 +16,34 @@ export function reference(word1: string, word2: string, viz: Viz): string {
   const a = viz.string(word1, { name: 'word1' })
   const b = viz.string(word2, { name: 'word2' })
   const merged = viz.string('', { name: 'merged' })
-  // Cursors attach by structure id — `VizString` exposes `.id`, so pass `a.id`, not `a`.
-  const i = viz.cursor('i', 0, a.id)
-  const j = viz.cursor('j', 0, b.id)
+  const i = viz.cursor('i', 0, a)
+  const j = viz.cursor('j', 0, b)
   viz.watch(() => ({ i: i.value, j: j.value, merged: merged.toString() }))
 
   // Invariant: `merged` holds word1[0..i) and word2[0..j) interleaved, word1 first in each
   // pair, so i and j never differ by more than one while both strings still have characters.
   while (i.value < a.length || j.value < b.length) {
-    if (i.value < a.length) {
+    const takeA = i.value < a.length
+    const takeB = j.value < b.length
+
+    if (takeA) {
       merged.append(a.charAt(i.value))
       a.mark(i.value, 'visited')
       i.inc()
     }
-    if (j.value < b.length) {
+    if (takeB) {
       merged.append(b.charAt(j.value))
       b.mark(j.value, 'visited')
       j.inc()
     }
-    viz.step(`merged: ${merged}`)
+
+    // Narrate the *decision*, not the accumulator. Labelling every step `merged: <whole string>`
+    // duplicated the panel beside it and never once said why the pattern changed — so the moment
+    // the merge stops alternating and starts draining a tail, which is the only interesting event
+    // in this problem, was invisible in the timeline.
+    if (takeA && takeB) viz.step(`take from both: ${a.peek(i.value - 1)} then ${b.peek(j.value - 1)}`)
+    else if (takeA) viz.step(`word2 exhausted — draining word1's tail from index ${i.value - 1}`)
+    else viz.step(`word1 exhausted — draining word2's tail from index ${j.value - 1}`)
   }
 
   return merged.toString()

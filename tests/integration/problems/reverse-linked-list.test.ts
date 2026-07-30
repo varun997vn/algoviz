@@ -176,3 +176,52 @@ describe('Reverse Linked List trace semantics', () => {
     }
   })
 })
+
+describe('the canvas agrees with the watch panel', () => {
+  // The audit's highest-severity finding: cursor labels were one step stale on two frames in five,
+  // and frame 24 drew `current` on a node while the panel beside it read `current=null` — the
+  // picture claimed one more rewire was pending on an already-finished list. Both are on screen
+  // simultaneously, so disagreement is not a nuance, it is the animation contradicting itself.
+  it('never shows a caret position the watch panel disagrees with', () => {
+    const result = executeRun({ problem: 'reverse-linked-list', useReference: true, caseIndex: 0 })
+    const trace = result.results[0]!.trace
+    const reader = new TraceReader(trace)
+    const listId = trace.structures.find((s) => s.kind === 'list')!.id
+
+    const disagreements: string[] = []
+    for (let i = 0; i < reader.frameCount; i += 1) {
+      const snap = reader.structureAt(listId, i)
+      const watch = reader.watchAt(i)
+      if (!snap || snap.kind !== 'list' || !watch) continue
+
+      const valueOf = (id: string | null | undefined): string =>
+        id ? String(snap.nodes.find((n) => n.id === id)?.value ?? 'null') : 'null'
+      const caret = new Map(snap.cursors.map((c) => [c.name, c.id]))
+
+      for (const name of ['prev', 'current']) {
+        const onCanvas = valueOf(caret.get(name))
+        const inPanel = String(watch[name])
+        if (onCanvas !== inPanel) {
+          disagreements.push(`frame ${i}: canvas ${name}=${onCanvas}, panel ${name}=${inPanel}`)
+        }
+      }
+    }
+    expect(disagreements).toEqual([])
+  })
+
+  it('shows all three references, including the stashed next', () => {
+    // The problem's own hint calls the stash the crux; the animation used to show only two.
+    const result = executeRun({ problem: 'reverse-linked-list', useReference: true, caseIndex: 0 })
+    const reader = new TraceReader(result.results[0]!.trace)
+    const mid = Math.floor(reader.frameCount / 2)
+    expect(Object.keys(reader.watchAt(mid) ?? {}).sort()).toEqual(['current', 'next', 'prev'])
+  })
+
+  it('narrates the empty list instead of saying nothing at all', () => {
+    const empty = executeRun({ problem: 'reverse-linked-list', useReference: true })
+    const emptyCase = empty.results.find((r) => Array.isArray(r.expected) && r.expected.length === 0)
+    expect(emptyCase).toBeDefined()
+    const steps = new TraceReader(emptyCase!.trace).stepFrames()
+    expect(steps.length).toBeGreaterThan(0)
+  })
+})
