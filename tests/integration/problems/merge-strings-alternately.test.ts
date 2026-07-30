@@ -219,8 +219,22 @@ describe('Merge Strings Alternately — every case', () => {
   })
 
   it('scales linearly across cases, measured rather than assumed', () => {
-    const perChar = cases.map(({ word1, word2, caseResult }) => caseResult.frameCount / (word1.length + word2.length))
-    // If growth were quadratic, frames-per-character would rise with n; it must stay flat.
-    expect(Math.max(...perChar) - Math.min(...perChar)).toBeLessThan(2)
+    // Frames-per-character must not *grow* with n. Comparing the spread across all cases would be
+    // the wrong test: a fixed per-run cost (three structure inits, two cursor declarations) is
+    // amortised over the input, so it inflates the ratio on the smallest cases and a constant
+    // overhead would read as non-linearity. Quadratic growth shows up as the ratio rising, so
+    // that is what to assert.
+    const sized = cases
+      .map(({ word1, word2, caseResult }) => ({
+        n: word1.length + word2.length,
+        perChar: caseResult.frameCount / (word1.length + word2.length),
+      }))
+      .sort((x, y) => x.n - y.n)
+    const smallest = sized[0]!
+    const largest = sized[sized.length - 1]!
+    expect(largest.n).toBeGreaterThan(smallest.n * 10)
+    expect(largest.perChar).toBeLessThanOrEqual(smallest.perChar)
+    // And the ratio itself is bounded, so "flat" cannot mean "flat and enormous".
+    expect(largest.perChar).toBeLessThan(6)
   })
 })

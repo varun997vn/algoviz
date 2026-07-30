@@ -85,6 +85,14 @@ test('running the reference solution passes every case and renders the array', a
   await page.getByRole('button', { name: 'Last frame' }).click()
   await expect(page.getByTestId('cursor-left')).toBeVisible()
   await expect(page.getByTestId('cursor-right')).toBeVisible()
+
+  // A caret is on screen from the frame that declares it, not from the next frame that happens to
+  // change the array. Declaring used to record nothing, so the opening frames showed an array with
+  // no pointers on it while the watch panel beside it already reported their values.
+  await seek(page, 1)
+  await expect(page.getByTestId('cursor-left')).toBeVisible()
+  await seek(page, 2)
+  await expect(page.getByTestId('cursor-right')).toBeVisible()
 })
 
 test('stepping and scrubbing change the rendered state', async ({ page }) => {

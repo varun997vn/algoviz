@@ -1,5 +1,5 @@
 import { Recorder } from './recorder.js'
-import { VizArrayStructure, type VizArray } from './structures/array.js'
+import { VizArrayStructure, type ArrayInit, type VizArray } from './structures/array.js'
 import { VizCursor } from './structures/cursor.js'
 import { VizDpTable, VizMatrix } from './structures/grid.js'
 import { VizHeap, type HeapInit } from './structures/heap.js'
@@ -34,8 +34,20 @@ export class Viz {
 
   // ---- structure factories -------------------------------------------------
 
-  array<T extends Primitive>(values: readonly T[] | number, init: StructureInit = {}): VizArray<T> {
-    const seed = typeof values === 'number' ? (new Array<T>(values).fill(0 as T) as T[]) : [...values]
+  /**
+   * A tracked array, from values or from a size.
+   *
+   * A sized array zero-fills by default. Pass `{ fill: null }` when the array is an *output* the
+   * solution builds: an untouched cell then renders blank rather than as a `0` indistinguishable
+   * from a decided one, and `toArray()` throws instead of inventing a default. See `ArrayInit`.
+   */
+  array<T extends Primitive>(
+    values: readonly T[] | number,
+    init: ArrayInit<T> = {},
+  ): VizArray<T> {
+    const fill = init.fill === undefined ? (0 as T) : init.fill
+    const seed: (T | null)[] =
+      typeof values === 'number' ? new Array<T | null>(values).fill(fill) : [...values]
     const s = new VizArrayStructure<T>(this.rec, seed, init)
     this.rec.register(s)
     return s.proxy()

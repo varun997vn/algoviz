@@ -99,6 +99,12 @@ export class Recorder {
 
   registerCursor(cursor: CursorLike): void {
     this.cursors.push(cursor)
+    // Re-snapshot whatever the caret attached to, so it is on screen from the frame that declares
+    // it rather than from the next frame that happens to touch that structure. Cursors resolve at
+    // snapshot time, so a caret declared here was previously invisible until something else moved
+    // — which meant the opening frames of every array and string problem showed a structure with
+    // no pointers on it while the watch panel beside it already reported their values.
+    this.recordCursorMove(cursor, `declare ${cursor.toSnapshot().name}`)
   }
 
   /**

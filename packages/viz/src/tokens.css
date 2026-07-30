@@ -50,7 +50,10 @@
     --av-cell-bg: #e9ecf1;
     --av-cell-text: #1c1f26;
     --av-visited: #a7aeba;
-    --av-excluded: #c8ccd4;
+    /* Was #c8ccd4, barely a shade off --av-cell-bg (#e9ecf1) — so on a grid whose answer is "these
+       oranges are unreachable", the cells carrying that answer were near-indistinguishable from
+       the empty cells around them. `excluded` is a conclusion, not a background. */
+    --av-excluded: #9aa1b0;
     --av-edge: #b6bcc7;
   }
 }

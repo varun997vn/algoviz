@@ -93,10 +93,21 @@ describe('cursors', () => {
       return [left.value, right.value]
     })
 
+    // Two declarations plus two moves. Declaring re-snapshots too, so a caret is on screen from
+    // the frame that creates it rather than from the next frame that happens to touch the array —
+    // otherwise the opening frames show an array with no pointers while the watch panel beside it
+    // already reports their values.
     const cursorFrames = t.frames.filter((f) => f.op === 'cursor')
-    expect(cursorFrames).toHaveLength(2)
+    expect(cursorFrames.map((f) => f.label)).toEqual([
+      'declare left',
+      'declare right',
+      'left -> 1',
+      'right -> 2',
+    ])
     // A cursor move must re-snapshot the array, or the caret would visibly lag.
     expect(cursorFrames.every((f) => f.snapshots['arr1'] !== undefined)).toBe(true)
+    // The caret exists from its own declaration frame, not one frame later.
+    expect(arraySnapshot(t, cursorFrames[0]!.index).cursors.map((c) => c.name)).toEqual(['left'])
 
     const final = arraySnapshot(t, t.frames[t.frames.length - 1]!.index)
     expect(final.cursors).toEqual([

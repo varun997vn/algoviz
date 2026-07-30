@@ -600,6 +600,40 @@ describe('VizList', () => {
     expect(snap.marks).toHaveLength(1)
   })
 
+  it('moves several cursors as one frame, so no frame catches them half-updated', () => {
+    // Its whole reason to exist. One cursor per frame forces an order, and every order leaves a
+    // frame where one caret has moved and the other has not — on a list reversal that was two
+    // frames in five showing a stale pointer, contradicting the watch panel beside it. It also
+    // creates an instant where two pointers look collided when they never were.
+    const { trace: t } = trace((viz) => {
+      const l = viz.list([1, 2, 3])
+      const first = l.head
+      const second = first?.rawNext ?? null
+      const third = second?.rawNext ?? null
+      l.setCursors({ prev: first, current: second })
+      l.setCursors({ prev: second, current: third })
+      return 0
+    })
+
+    const ids = new TraceReader(t)
+    const pairs: string[] = []
+    for (let i = 0; i < ids.frameCount; i += 1) {
+      const snap = ids.structureAt('lst1', i)
+      if (snap?.kind !== 'list') continue
+      const by = new Map(snap.cursors.map((c) => [c.name, c.id]))
+      if (by.has('prev') && by.has('current')) {
+        pairs.push(`${String(by.get('prev'))}/${String(by.get('current'))}`)
+      }
+      // Never both on the same node, not even for the frame in between.
+      if (by.get('prev') !== undefined) expect(by.get('prev')).not.toBe(by.get('current'))
+    }
+    // Two distinct pairs, and nothing in between: n1/n2 then n2/n3, never n2/n2 or n1/n3.
+    expect([...new Set(pairs)]).toEqual(['n1/n2', 'n2/n3'])
+    // One frame per batch, not one per pointer.
+    expect(t.frames.filter((f) => f.op === 'cursor')).toHaveLength(2)
+    expect(labels(t)).toContain('prev -> n2, current -> n3')
+  })
+
   it('supports a doubly-linked list', () => {
     const { trace: t } = trace((viz) => {
       viz.list([1, 2], { doubly: true })
@@ -839,6 +873,74 @@ describe('VizArray extras', () => {
       return a.toArray()
     })
     expect(value).toEqual([0, 0, 0])
+  })
+
+  it('seeds a blank array so an untouched cell is not a plausible-looking zero', () => {
+    // Zero-filled, an output panel asserts `0` for every cell from the first frame, and those
+    // zeros are indistinguishable from the ones that are the real answer.
+    const { trace: t } = trace((viz) => {
+      const a = viz.array<number>(3, { fill: null })
+      a[1] = 7
+      return 0
+    })
+    expect(finalOf(t, 'arr1', 'array').values).toEqual([null, 7, null])
+  })
+
+  it('refuses to hand back a blank cell instead of inventing a default for it', () => {
+    expect(() =>
+      trace((viz) => {
+        const a = viz.array<number>(3, { fill: null })
+        a[0] = 1
+        return a.toArray()
+      }),
+    ).toThrow(/\[1\], \[2\] was never written/)
+
+    const { value } = trace((viz) => {
+      const a = viz.array<number>(2, { fill: null })
+      a[0] = 4
+      a[1] = 0
+      return a.toArray()
+    })
+    expect(value).toEqual([4, 0])
+  })
+
+  it('reads a blank cell as absent, and leaves an explicit fill alone', () => {
+    const { value } = trace((viz) => {
+      const blank = viz.array<number>(2, { fill: null })
+      const filled = viz.array<number>(2, { fill: -1 })
+      return { blank: blank.at(0), peeked: blank[1], filled: filled.toArray() }
+    })
+    expect(value).toEqual({ blank: undefined, peeked: undefined, filled: [-1, -1] })
+  })
+
+  it('compares in one frame, lighting both cells and returning the ordering', () => {
+    // Written as two array reads, the single comparison a monotonic stack turns on emitted two
+    // frames and never put the pair on screen together — `compare` never appeared at all.
+    const { value, trace: t } = trace((viz) => {
+      const a = viz.array([75, 71, 75])
+      return { less: a.compare(1, 0), more: a.compare(0, 1), same: a.compare(0, 2) }
+    })
+    expect(value).toEqual({ less: -1, more: 1, same: 0 })
+
+    const frames = t.frames.filter((f) => f.op === 'compare')
+    expect(frames).toHaveLength(3)
+    for (const frame of frames) {
+      const snap = frame.snapshots['arr1']
+      expect(snap?.kind).toBe('array')
+      const lit = snap?.kind === 'array' ? snap.marks.filter((m) => m.class === 'compare') : []
+      expect(lit).toHaveLength(2)
+    }
+    // The label carries the values, not just the indices — a caption of pure mechanics is useless
+    // exactly on the frame someone has stopped to read it.
+    expect(labels(t)).toContain('compare [1] = 71 vs [0] = 75')
+  })
+
+  it('compares strings by their ordering, not by coercion', () => {
+    const { value } = trace((viz) => {
+      const a = viz.array(['apple', 'banana'])
+      return [a.compare(0, 1), a.compare(1, 0)]
+    })
+    expect(value).toEqual([-1, 1])
   })
 
   it('reports membership through the proxy has trap', () => {

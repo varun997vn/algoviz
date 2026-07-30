@@ -3,7 +3,13 @@ export { Recorder, type CursorLike, type RecordOptions, type TrackedStructure } 
 export { TraceReader, lastAtMost, resolveFrame } from './reader.js'
 export { Viz, trace, type RunTraceResult } from './viz.js'
 
-export { VizArrayStructure, type VizArray, type VizArrayApi, format } from './structures/array.js'
+export {
+  VizArrayStructure,
+  type ArrayInit,
+  type VizArray,
+  type VizArrayApi,
+  format,
+} from './structures/array.js'
 export { VizCursor } from './structures/cursor.js'
 export { VizMatrix, VizDpTable } from './structures/grid.js'
 export { VizHeap, type HeapInit } from './structures/heap.js'

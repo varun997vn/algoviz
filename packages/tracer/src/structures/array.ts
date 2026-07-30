@@ -12,7 +12,18 @@ export interface VizArrayApi<T extends Primitive> {
   shift(): T | undefined
   unshift(...values: T[]): number
   swap(i: number, j: number): void
-  compare(i: number, j: number, note?: string): void
+  /**
+   * One frame with both cells lit `compare`, returning their ordering the way a sort comparator
+   * does: negative if `[i] < [j]`, zero if equal, positive if greater.
+   *
+   * It returns the ordering so the guard that *is* the algorithm can be written as a comparison
+   * instead of as two separate reads. `while (t[stack.top()] < t[day])` emits two lone `read`
+   * frames and never puts the two cells being compared on screen together — on a monotonic stack
+   * that means the one real decision the algorithm makes is invisible *as* a decision, and the
+   * `compare` mark class never appears at all. `t.compare(top, day) < 0` is one frame, both cells
+   * lit, and still reads like the line it replaces.
+   */
+  compare(i: number, j: number, note?: string): number
   mark(index: number | readonly number[], cls: MarkClass, note?: string): void
   unmark(index: number | readonly number[]): void
   clearMarks(cls?: MarkClass): void
@@ -25,6 +36,15 @@ export interface VizArrayApi<T extends Primitive> {
 
 export type VizArray<T extends Primitive = Primitive> = VizArrayApi<T> & { [index: number]: T }
 
+export interface ArrayInit<T extends Primitive> extends StructureInit {
+  /**
+   * What a sized array starts as. `null` seeds it *blank* — see `blank` below.
+   *
+   * Only meaningful when the array is created from a size rather than from values.
+   */
+  fill?: T | null
+}
+
 /**
  * A tracked array.
  *
@@ -35,13 +55,25 @@ export class VizArrayStructure<T extends Primitive> extends BaseStructure {
   readonly kind: StructureKind = 'array'
   private readonly marks = new IndexMarkStore()
   private win: [number, number] | undefined
+  /**
+   * True when the array was seeded blank rather than with a value.
+   *
+   * `viz.array<number>(n)` zero-fills, so an output panel named `answer` asserts `0` for every
+   * cell from frame 1 — and on Daily Temperatures 484 of 498 frames showed at least one zero that
+   * was a lie, indistinguishable from the zeros that were the real answer. `viz.dpTable` already
+   * takes `fill: null` for exactly this reason; an array seeded blank renders its untouched cells
+   * as `∅` instead, and `toArray()` refuses to hand back a hole rather than silently coercing it
+   * to a zero the algorithm never decided on.
+   */
+  private readonly blank: boolean
 
   constructor(
     rec: Recorder,
-    private values: T[],
-    init: StructureInit = {},
+    private values: (T | null)[],
+    init: ArrayInit<T> = {},
   ) {
     super(rec, 'arr', init.name, 'array')
+    this.blank = init.fill === null
   }
 
   override snapshot(transient?: readonly Mark[]): StructureSnapshot {
@@ -59,6 +91,12 @@ export class VizArrayStructure<T extends Primitive> extends BaseStructure {
     return this.values.length
   }
 
+  /** A blank cell reads as absent, not as whatever `null` would coerce to. */
+  private out(value: T | null | undefined): T | undefined {
+    if (value === null && this.blank) return undefined
+    return value as T | undefined
+  }
+
   read(index: number): T | undefined {
     const value = this.values[index]
     this.rec.record({
@@ -67,7 +105,7 @@ export class VizArrayStructure<T extends Primitive> extends BaseStructure {
       transient: [{ index, class: 'active' }],
       label: `read [${index}] = ${format(value)}`,
     })
-    return value
+    return this.out(value)
   }
 
   write(index: number, value: T): void {
@@ -81,7 +119,7 @@ export class VizArrayStructure<T extends Primitive> extends BaseStructure {
   }
 
   peek(index: number): T | undefined {
-    return this.values[index]
+    return this.out(this.values[index])
   }
 
   push(...values: T[]): number {
@@ -100,14 +138,14 @@ export class VizArrayStructure<T extends Primitive> extends BaseStructure {
     const value = this.values.pop()
     this.marks.remove(last)
     this.rec.record({ op: 'pop', structure: this, label: `pop -> ${format(value)}` })
-    return value
+    return this.out(value)
   }
 
   shift(): T | undefined {
     const value = this.values.shift()
     this.marks.shiftFrom(0, -1)
     this.rec.record({ op: 'shift', structure: this, label: `shift -> ${format(value)}` })
-    return value
+    return this.out(value)
   }
 
   unshift(...values: T[]): number {
@@ -123,8 +161,8 @@ export class VizArrayStructure<T extends Primitive> extends BaseStructure {
   }
 
   swap(i: number, j: number): void {
-    const a = this.values[i] as T
-    const b = this.values[j] as T
+    const a = this.values[i] as T | null
+    const b = this.values[j] as T | null
     this.values[i] = b
     this.values[j] = a
     this.rec.record({
@@ -138,7 +176,10 @@ export class VizArrayStructure<T extends Primitive> extends BaseStructure {
     })
   }
 
-  compare(i: number, j: number, note?: string): void {
+  /** See `VizArrayApi.compare` — one frame, both cells lit, comparator-shaped return value. */
+  compare(i: number, j: number, note?: string): number {
+    const a = this.values[i]
+    const b = this.values[j]
     this.rec.record({
       op: 'compare',
       structure: this,
@@ -146,8 +187,12 @@ export class VizArrayStructure<T extends Primitive> extends BaseStructure {
         { index: i, class: 'compare' },
         { index: j, class: 'compare' },
       ],
-      label: note ?? `compare [${i}] vs [${j}]`,
+      // The values, not just the indices: a label of pure mechanics ("compare [2] vs [3]") makes
+      // the caption useless exactly on the frame a viewer has stopped to read it.
+      label: note ?? `compare [${i}] = ${format(a)} vs [${j}] = ${format(b)}`,
     })
+    if (a === b) return 0
+    return (a as never) < (b as never) ? -1 : 1
   }
 
   mark(index: number | readonly number[], cls: MarkClass, note?: string): void {
@@ -177,8 +222,24 @@ export class VizArrayStructure<T extends Primitive> extends BaseStructure {
     this.rec.record({ op: 'mark', structure: this, label: 'clear window' })
   }
 
+  /**
+   * Values in order.
+   *
+   * Throws on a blank-seeded array with a cell nobody ever wrote, mirroring `VizDpTable.get()`.
+   * A sentinel would put the caller back where `fill: 0` left them — returning a number the
+   * algorithm never decided on — and the whole point of seeding blank is that the difference
+   * between "not computed" and "computed to be zero" stops being invisible.
+   */
   toArray(): T[] {
-    return [...this.values]
+    if (this.blank) {
+      const missing = this.values.flatMap((v, i) => (v === null ? [i] : []))
+      if (missing.length > 0) {
+        throw new RangeError(
+          `${this.name}[${missing.join('], [')}] was never written — a blank array has no default, so write the value the algorithm settles on`,
+        )
+      }
+    }
+    return [...this.values] as T[]
   }
 
   /**
