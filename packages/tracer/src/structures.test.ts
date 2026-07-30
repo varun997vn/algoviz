@@ -521,6 +521,38 @@ describe('VizDpTable', () => {
     ).toThrow(/out of bounds/)
   })
 
+  it('rejects a column outside a 2-D table, and a 2-D write given no value', () => {
+    // Only the row was checked. The 1-D overload `set(i, value)` sits on the class regardless of
+    // `dims`, so `dp.set(1, 7)` on a 2-D table typechecked and wrote `undefined` with no error
+    // anywhere — and a bad column extended one row past the others into a ragged grid, which
+    // `GridViz` silently truncates by taking its column count from row 0.
+    expect(() =>
+      trace((viz) => {
+        const dp = viz.dp2d(2, 2, 0)
+        dp.set(0, 5, 1)
+        return 0
+      }),
+    ).toThrow(/column 5 out of bounds/)
+
+    expect(() =>
+      trace((viz) => {
+        const dp = viz.dp2d<number>(2, 2, 0)
+        ;(dp as unknown as { set: (i: number, v: number) => void }).set(1, 7)
+        return 0
+      }),
+    ).toThrow(/is 2-D — use set\(row, col, value\)/)
+  })
+
+  it('leaves the 1-D form alone, which shares the same overload', () => {
+    const { value } = trace((viz) => {
+      const dp = viz.dp1d<number>(3, 0)
+      dp.set(0, 5)
+      dp.set(2, 9)
+      return dp.toArray()
+    })
+    expect(value).toEqual([5, 0, 9])
+  })
+
   it('marks arbitrary cells', () => {
     const { trace: t } = trace((viz) => {
       const dp = viz.dp1d(2, 0)
@@ -562,6 +594,38 @@ describe('VizString', () => {
       return 0
     })
     expect(finalOf(t, 'str1', 'string').marks).toEqual([])
+  })
+})
+
+describe('VizString.replace', () => {
+  it('rewrites the whole string in one frame', () => {
+    // Not every string problem builds left to right. Decode String rewrites its accumulator
+    // wholesale at every `]` (`before + inner.repeat(times)`), and the only way to say that
+    // otherwise is `removeLast(s.length)` then `append(...)` — two ops and a clear-by-length idiom
+    // standing in for one assignment, in the line that is the algorithm.
+    const { value, trace: t } = trace((viz) => {
+      const s = viz.string('ab', { name: 's' })
+      s.replace('xyzxyz')
+      return s.toString()
+    })
+    expect(value).toBe('xyzxyz')
+
+    const frames = t.frames.filter((f) => f.label?.startsWith('replace'))
+    expect(frames).toHaveLength(1)
+    expect(frames[0]?.label).toBe('replace -> "xyzxyz"')
+    // The whole new string is lit for that one frame, and the highlight does not persist.
+    const snap = frames[0]?.snapshots['str1']
+    expect(snap?.kind === 'string' && snap.marks.filter((m) => m.transient).length).toBe(6)
+    expect(finalOf(t, 'str1', 'string').marks).toEqual([])
+  })
+
+  it('handles replacing with the empty string', () => {
+    const { value } = trace((viz) => {
+      const s = viz.string('abc')
+      s.replace('')
+      return { text: s.toString(), length: s.length }
+    })
+    expect(value).toEqual({ text: '', length: 0 })
   })
 })
 

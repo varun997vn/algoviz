@@ -95,6 +95,11 @@ export class VizString extends BaseStructure {
    * `removeLast(s.length)` then `append(...)`: two ops and a clear-by-length idiom standing in for
    * one assignment, in the line that *is* the algorithm. The alternative its author took was to
    * demote the answer to a watch value, which costs it a panel.
+   *
+   * Currently used only by this file's tests: it was added for Decode String and that solution was
+   * not changed to use it. Adopting it there — promoting `built` from a watch value to a real
+   * `viz.string` panel — is a live follow-up, deferred only because that problem is mid-audit and
+   * changing its animation would invalidate the verdict.
    */
   replace(text: string): void {
     this.chars = [...text]

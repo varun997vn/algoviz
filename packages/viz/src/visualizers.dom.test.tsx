@@ -250,6 +250,133 @@ describe('MatrixViz and DpViz', () => {
   })
 })
 
+describe('GraphViz edge-mark direction', () => {
+  // One rule with two independent implementations — here and in the MCP text renderer — and
+  // neither was pinned. They can drift apart silently, and the player and the tool the audits read
+  // their evidence from disagreeing is the worst version of that.
+  const nodes = [
+    { id: 'a', label: 'a' },
+    { id: 'b', label: 'b' },
+  ]
+
+  it('does not mirror a mark on a directed graph, where the two directions are different edges', () => {
+    const container = renderSnapshot({
+      kind: 'graph',
+      nodes,
+      edges: [
+        { from: 'a', to: 'b' },
+        { from: 'b', to: 'a' },
+      ],
+      directed: true,
+      marks: [],
+      edgeMarks: [{ from: 'a', to: 'b', class: 'tree' }],
+    })
+    expect(container.querySelector('[data-testid="edge-a-b"]')?.getAttribute('data-edge-state')).toBe('tree')
+    // The reverse edge was deliberately not taken; mirroring lit it anyway.
+    expect(
+      container.querySelector('[data-testid="edge-b-a"]')?.getAttribute('data-edge-state'),
+    ).not.toBe('tree')
+  })
+
+  it('still mirrors on an undirected graph, where there is only one edge to light', () => {
+    // Reorder Routes records a decision as `next -> city` while the edge is drawn `city -> next`;
+    // without mirroring its verdicts would render on nothing.
+    const container = renderSnapshot({
+      kind: 'graph',
+      nodes,
+      edges: [{ from: 'a', to: 'b' }],
+      directed: false,
+      marks: [],
+      edgeMarks: [{ from: 'b', to: 'a', class: 'reversed' }],
+    })
+    expect(container.querySelector('[data-testid="edge-a-b"]')?.getAttribute('data-edge-state')).toBe(
+      'reversed',
+    )
+  })
+})
+
+describe('Cell rendering of awkward values', () => {
+  // Everything in every visualizer goes through `Cell`, so these two changes are the widest-blast-
+  // radius edits in the package and neither shipped with a test.
+  it('draws an empty string as a glyph rather than as nothing at all', () => {
+    // `display('')` fell through to `String('')`, so a cell holding the empty string was pixel-wise
+    // identical to one holding nothing. On Decode String the empty string is the *most common*
+    // value on the stack — the saved prefix at every top-level `[`.
+    const container = renderSnapshot({ kind: 'stack', values: ['', 'ab'], marks: [] })
+    expect(container.querySelector('[data-node-id="0"] text')?.textContent).toBe('ε')
+    expect(container.querySelector('[data-node-id="1"] text')?.textContent).toBe('ab')
+  })
+
+  it('truncates a value too wide for its cell while keeping the whole one addressable', () => {
+    // `fontSizeFor` bottoms out at 9px and there was no truncation, so a 20-character value ran
+    // ~94px out of a 44px cell — clipped at one end, overprinting the neighbouring label at the
+    // other. `data-value` must stay the full string so DOM assertions elsewhere are unaffected,
+    // and the tooltip has to fall back to it or the truncated text is unrecoverable.
+    const long = 'abcdefghijklmnopqrst'
+    const container = renderSnapshot({ kind: 'stack', values: [long, 'short'], marks: [] })
+    const cell = container.querySelector('[data-node-id="0"]')
+    expect(cell?.getAttribute('data-value')).toBe(long)
+    expect(cell?.querySelector('text')?.textContent).toBe('abcdefgh…')
+    expect(cell?.querySelector('title')?.textContent).toBe(long)
+
+    // A value that fits is untouched, and gets no tooltip it did not ask for.
+    const fits = container.querySelector('[data-node-id="1"]')
+    expect(fits?.querySelector('text')?.textContent).toBe('short')
+    expect(fits?.querySelector('title')).toBeNull()
+  })
+
+  it('prefers an explicit mark note over the truncation fallback', () => {
+    const container = renderSnapshot({
+      kind: 'stack',
+      values: ['abcdefghijklmnop'],
+      marks: [{ index: 0, class: 'result', note: 'the saved prefix' }],
+    })
+    expect(container.querySelector('[data-node-id="0"] title')?.textContent).toBe('the saved prefix')
+  })
+})
+
+describe('GridViz labelling', () => {
+  it('puts the column labels above the grid, beside the row they label', () => {
+    // They used to be drawn under the bottom row, which is fine for a one-row 1-D table and wrong
+    // for a tall one — on an LCS table the column numbers sat hundreds of pixels below row 1,
+    // labelling one axis at its end while the other was labelled at its start.
+    const container = renderSnapshot({
+      kind: 'dp',
+      values: [
+        [0, 0, 0],
+        [0, 1, 1],
+        [0, 1, 2],
+      ],
+      dims: 2,
+      marks: [],
+    })
+    const colLabelY = Number(container.querySelector('[data-testid="grid-col-label-1"]')?.getAttribute('y'))
+    const firstRowY = Number(container.querySelector('[data-node-id="0,0"] rect')?.getAttribute('y'))
+    const lastRowY = Number(container.querySelector('[data-node-id="2,0"] rect')?.getAttribute('y'))
+    expect(colLabelY).toBeLessThan(firstRowY)
+    expect(firstRowY).toBeLessThan(lastRowY)
+  })
+
+  it('labels the axes with the strings the recurrence is over', () => {
+    // `viz.dp2d` accepted `axisLabels` from the day it was written and nothing ever read it, so a
+    // 2-D table left a viewer no way to know what row 3 stood for. Row/column 0 are the
+    // empty-prefix base cases, so character k labels row k+1.
+    const container = renderSnapshot({
+      kind: 'dp',
+      values: [
+        [0, 0],
+        [0, 1],
+      ],
+      dims: 2,
+      marks: [],
+      axisLabels: ['ab', 'xy'],
+    })
+    const text = container.textContent ?? ''
+    expect(text).toContain('a')
+    expect(text).toContain('x')
+  })
+})
+
 describe('mark notes reach the picture', () => {
   // `mark(index, class, note)` has stored notes since the tracer was written, and only ArrayViz and
   // GridViz ever rendered them — so every note a stack, queue, heap, set, map or intervals solution

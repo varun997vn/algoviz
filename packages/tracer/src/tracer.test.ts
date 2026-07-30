@@ -277,6 +277,64 @@ describe('grouping and narration', () => {
     expect(reader.captionAt(99)).toBe('the explanation')
   })
 
+  it('carries work done inside quiet() onto the next frame that is emitted', () => {
+    // The change this pins alters the snapshot contract for every problem, because `viz.heap`,
+    // `viz.list`, `viz.map`, `viz.set`, `viz.graph`, `viz.tree` and `viz.trie` all build their
+    // initial state inside `rec.quiet` in their constructors.
+    //
+    // A snapshot only exists on frames that touch the structure, so a structure changed *only*
+    // while quiet kept resolving to its pre-quiet state — seed a table quietly, narrate "the border
+    // is filled in", and the caption and the picture flatly disagreed. Structures mutated while
+    // quiet now ride along on the next emitted frame.
+    //
+    // The sibling test below reads the *terminal* frame, which `recordAll` snapshots wholesale, so
+    // it passes with or without this. This one reads the frame in the middle, which is the only
+    // place the difference is observable.
+    const { trace: t } = trace((viz) => {
+      const a = viz.array([1, 2, 3], { name: 'a' })
+      const b = viz.array([9], { name: 'b' })
+      viz.quiet(() => {
+        a.mark(0, 'result')
+        a.mark(1, 'visited')
+      })
+      b.mark(0, 'active') // the next emitted frame — belongs to `b`, must carry `a` as well
+      viz.step('the marks are in')
+      return 0
+    })
+
+    const idOf = (name: string): string => t.structures.find((x) => x.name === name)?.id ?? ''
+    const catchUp = t.frames.find((f) => f.label === 'mark 0 as active')
+    expect(catchUp, 'no frame for the post-quiet mark').toBeDefined()
+
+    // The frame is *about* b, and carries a too.
+    expect(catchUp!.structureId).toBe(idOf('b'))
+    const carried = catchUp!.snapshots[idOf('a')]
+    expect(carried, 'the quietly-marked array never caught up').toBeDefined()
+    expect(carried?.kind === 'array' && carried.marks.map((m) => m.class).sort()).toEqual([
+      'result',
+      'visited',
+    ])
+
+    // And the catch-up happens once — a later frame is not still re-snapshotting `a`.
+    const narrated = t.frames.find((f) => f.label === 'the marks are in')
+    expect(Object.keys(narrated?.snapshots ?? {})).toEqual([])
+  })
+
+  it('still emits no frames of its own for a quiet block', () => {
+    // The catch-up must not turn quiet into "delayed loud": the ops inside stay unnarrated, and
+    // three quiet marks must still cost zero frames rather than arriving late as three.
+    const { trace: t } = trace((viz) => {
+      const a = viz.array([1, 2, 3])
+      viz.quiet(() => {
+        a.mark(0, 'result')
+        a.mark(1, 'visited')
+        a.mark(2, 'excluded')
+      })
+      return 0
+    })
+    expect(t.frames.filter((f) => f.label?.startsWith('mark'))).toEqual([])
+  })
+
   it('suppresses frames inside quiet() but still counts the ops', () => {
     const { trace: t } = trace((viz) => {
       const a = viz.array([1, 2, 3])

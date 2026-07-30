@@ -100,15 +100,15 @@ export function reference(
     g.visit(at)
 
     return viz.group(`${at} (running ${fmt(product)})`, () => {
-      for (const next of g.neighbors(at)) {
+      // `weightedNeighbors` yields the weight of the edge it just lit, which `neighbors` does not
+      // even though the adjacency entry it iterates holds both. With `neighbors` this needed
+      // `g.weightOf(at, next) ?? 1` on the following line — a fallback for an edge that provably
+      // exists, in the line that is the whole arithmetic of a step.
+      for (const { to: next, weight: w } of g.weightedNeighbors(at)) {
         if (seen.has(next)) {
           g.edge(at, next, 'rejected', 'already explored in this query')
           continue
         }
-        // `neighbors` yields the node without the weight it just crossed. The edge is in the
-        // adjacency by construction, so the fallback never fires — and 1 is the identity for a
-        // product, so if it ever did the picture would understate rather than lie.
-        const w = g.weightOf(at, next) ?? 1
         g.edge(at, next, 'tree', `x ${fmt(w)}`)
 
         const found = walk(next, target, product * w)

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Frame, Trace } from '@algoviz/tracer'
-import { renderGroups } from './render.js'
+import { renderGroups, renderSnapshot } from './render.js'
 
 /**
  * The group tree is how an auditor navigates a trace, so a wrong frame range here does not just
@@ -10,6 +10,63 @@ function traceOf(groups: string[][]): Trace {
   const frames: Frame[] = groups.map((g, index) => ({ index, op: 'step', groups: g, snapshots: {} }))
   return { frames, structures: [], opCount: frames.length }
 }
+
+describe('renderSnapshot — graph edge marks', () => {
+  // The same rule as `GraphViz`, implemented independently here. Two copies of one rule with no
+  // test on either can drift apart silently — and the player disagreeing with the tool an audit
+  // reads its evidence from is the worst way for that to surface.
+  const nodes = [
+    { id: 'a', label: 'a' },
+    { id: 'b', label: 'b' },
+  ]
+
+  it('does not mirror a mark on a directed graph', () => {
+    const out = renderSnapshot('g', {
+      kind: 'graph',
+      nodes,
+      edges: [
+        { from: 'a', to: 'b' },
+        { from: 'b', to: 'a' },
+      ],
+      directed: true,
+      marks: [],
+      edgeMarks: [{ from: 'a', to: 'b', class: 'tree' }],
+    })
+    expect(out).toContain('a->b:tree')
+    expect(out).not.toContain('b->a:tree')
+  })
+
+  it('still mirrors on an undirected graph, where there is one edge either way round', () => {
+    const out = renderSnapshot('g', {
+      kind: 'graph',
+      nodes,
+      edges: [{ from: 'a', to: 'b' }],
+      directed: false,
+      marks: [],
+      edgeMarks: [{ from: 'b', to: 'a', class: 'reversed' }],
+    })
+    expect(out).toContain('a--b:reversed')
+  })
+})
+
+describe('renderSnapshot — strings', () => {
+  it('quotes a string once, not once per character', () => {
+    // Each char went through the cell formatter, which JSON-quotes anything non-numeric, and the
+    // join was then wrapped in quotes again: `word: ""a""d""` on every string problem.
+    const out = renderSnapshot('word', {
+      kind: 'string',
+      value: 'ad',
+      cursors: [],
+      marks: [{ index: 1, class: 'result' }],
+    })
+    expect(out).toBe('word: "ad#"')
+  })
+
+  it('still quotes an array cell that could be read as two cells', () => {
+    const out = renderSnapshot('nums', { kind: 'array', values: [1, 'a b'], cursors: [], marks: [] })
+    expect(out).toBe('nums: [1 "a b"]')
+  })
+})
 
 describe('renderGroups', () => {
   it('keeps two disjoint scopes with the same label apart', () => {
