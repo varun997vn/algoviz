@@ -54,7 +54,7 @@ Run the `solve-problem` skill to take the next one end to end.
 
 | # | Problem | Difficulty | Structures | Status | PR |
 | --- | --- | --- | --- | --- | --- |
-| 643 | [Maximum Average Subarray I](https://leetcode.com/problems/maximum-average-subarray-i/) | easy | `array, cursor` | ✅ done | #1 |
+| 643 | [Maximum Average Subarray I](https://leetcode.com/problems/maximum-average-subarray-i/) | easy | `array, cursor` | ✅ done | #2 |
 | 1456 | [Maximum Number of Vowels in a Substring of Given Length](https://leetcode.com/problems/maximum-number-of-vowels-in-a-substring-of-given-length/) | medium | `string, cursor` | ⬜ todo | — |
 | 1004 | [Max Consecutive Ones III](https://leetcode.com/problems/max-consecutive-ones-iii/) | medium | `array, cursor` | ⬜ todo | — |
 | 1493 | [Longest Subarray of 1's After Deleting One Element](https://leetcode.com/problems/longest-subarray-of-1s-after-deleting-one-element/) | medium | `array, cursor` | ⬜ todo | — |
@@ -71,7 +71,7 @@ Run the `solve-problem` skill to take the next one end to end.
 | # | Problem | Difficulty | Structures | Status | PR |
 | --- | --- | --- | --- | --- | --- |
 | 2215 | [Find the Difference of Two Arrays](https://leetcode.com/problems/find-the-difference-of-two-arrays/) | easy | `set, array` | ⬜ todo | — |
-| 1207 | [Unique Number of Occurrences](https://leetcode.com/problems/unique-number-of-occurrences/) | easy | `map, set` | ✅ done | #1 |
+| 1207 | [Unique Number of Occurrences](https://leetcode.com/problems/unique-number-of-occurrences/) | easy | `map, set` | ✅ done | #2 |
 | 1657 | [Determine if Two Strings Are Close](https://leetcode.com/problems/determine-if-two-strings-are-close/) | medium | `map, set` | ⬜ todo | — |
 | 2352 | [Equal Row and Column Pairs](https://leetcode.com/problems/equal-row-and-column-pairs/) | medium | `matrix, map` | ⬜ todo | — |
 
@@ -144,7 +144,7 @@ Run the `solve-problem` skill to take the next one end to end.
 
 | # | Problem | Difficulty | Structures | Status | PR |
 | --- | --- | --- | --- | --- | --- |
-| 215 | [Kth Largest Element in an Array](https://leetcode.com/problems/kth-largest-element-in-an-array/) | medium | `heap, array` | 🟡 in-progress | #1 |
+| 215 | [Kth Largest Element in an Array](https://leetcode.com/problems/kth-largest-element-in-an-array/) | medium | `heap, array` | 🟡 in-progress | #2 |
 | 2336 | [Smallest Number in Infinite Set](https://leetcode.com/problems/smallest-number-in-infinite-set/) | medium | `heap, set` | ⬜ todo | — |
 | 2542 | [Maximum Subsequence Score](https://leetcode.com/problems/maximum-subsequence-score/) | medium | `heap, array` | ⬜ todo | — |
 | 2462 | [Total Cost to Hire K Workers](https://leetcode.com/problems/total-cost-to-hire-k-workers/) | medium | `heap, array, cursor` | ⬜ todo | — |
@@ -195,14 +195,14 @@ Run the `solve-problem` skill to take the next one end to end.
 
 | # | Problem | Difficulty | Structures | Status | PR |
 | --- | --- | --- | --- | --- | --- |
-| 208 | [Implement Trie (Prefix Tree)](https://leetcode.com/problems/implement-trie-prefix-tree/) | medium | `trie` | 🟡 in-progress | #1 |
+| 208 | [Implement Trie (Prefix Tree)](https://leetcode.com/problems/implement-trie-prefix-tree/) | medium | `trie` | 🟡 in-progress | #2 |
 | 1268 | [Search Suggestions System](https://leetcode.com/problems/search-suggestions-system/) | medium | `trie, array` | ⬜ todo | — |
 
 ### Intervals — 1/2
 
 | # | Problem | Difficulty | Structures | Status | PR |
 | --- | --- | --- | --- | --- | --- |
-| 435 | [Non-overlapping Intervals](https://leetcode.com/problems/non-overlapping-intervals/) | medium | `intervals` | ✅ done | #1 |
+| 435 | [Non-overlapping Intervals](https://leetcode.com/problems/non-overlapping-intervals/) | medium | `intervals` | ✅ done | #2 |
 | 452 | [Minimum Number of Arrows to Burst Balloons](https://leetcode.com/problems/minimum-number-of-arrows-to-burst-balloons/) | medium | `intervals` | ⬜ todo | — |
 
 ### Monotonic Stack — 1/2

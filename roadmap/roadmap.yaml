@@ -235,7 +235,7 @@ problems:
     techniques: [ sliding-window ]
     status: done
     branch: claude/leetcode-visualizer-w01nr6
-    pr: 1
+    pr: 2
     notes: "trace-verifier: faithful. Verified on all 10 cases: the band is exactly
       k wide on every frame carrying one, its left edge advances by exactly one
       and never backwards, `clearWindow` clears, and the read count is exactly k
@@ -342,7 +342,7 @@ problems:
     techniques: [ hashing, counting ]
     status: done
     branch: claude/leetcode-visualizer-w01nr6
-    pr: 1
+    pr: 2
     notes: "trace-verifier: faithful (reference). Verified: the map is a true prefix
       tally at every frame, the set only grows and only by counts a map row
       holds, nothing wears `excluded` before the tie, and on every false case
@@ -773,8 +773,26 @@ problems:
     techniques: [ heap, quickselect ]
     status: in-progress
     branch: claude/leetcode-visualizer-w01nr6
-    pr: 1
-    notes: null
+    pr: 2
+    notes: "trace-verifier: misleading on first audit; all findings fixed, re-audit
+      pending. The heap mechanics were confirmed sound — heap size never exceeds
+      k on any frame including mid-sift, contents are exactly the k largest of
+      the scanned prefix at every step, and the `IndexMarkStore.swap`/`move` fix
+      was verified to keep a mark on its value through both a push-sift and a
+      pop. Three defects: (1) the guard used the silent `top.peek()`, so the
+      only decision the algorithm makes was narrated on every element and lit on
+      none — 0 lit guard frames across all 12 cases — now `top.compareRoot(x) <
+      0`; my sequencing error, since `compareRoot` landed in the commit
+      immediately before this problem and its docstring still said the API was
+      missing. (2) `kth[i]` was written after `viz.step`, so it landed in an
+      unnarrated frame and the payoff panel was one element short on 140 of 140
+      narrated frames; the loop now picks a label, writes, then narrates. (3) A
+      comment justified deferring the `result` mark by claiming heap marks drift
+      on swap — false since that fix landed, and load-bearing enough that the
+      next editor would have reinstated a workaround for a bug that no longer
+      exists. The starter also taught the silent guard and left the final frame
+      unmarked; it now names `compareRoot`, the write-before-narrate ordering,
+      and the closing `result` mark, and its own test block executes it."
     dependsOn: []
   - id: p2336
     leetcode: 2336
@@ -1071,7 +1089,7 @@ problems:
     techniques: [ trie, design ]
     status: in-progress
     branch: claude/leetcode-visualizer-w01nr6
-    pr: 1
+    pr: 2
     notes: "trace-verifier: reference faithful, problem misleading — the starter
       made `search` and `startsWith` frame-identical, which is the single claim
       this problem exists to make. Its TODOs never mentioned marking the node
@@ -1111,7 +1129,7 @@ problems:
     techniques: [ greedy, sorting ]
     status: done
     branch: claude/leetcode-visualizer-w01nr6
-    pr: 1
+    pr: 2
     notes: "trace-verifier: faithful. The lane-0 claim was verified mechanically on
       all 12 cases by replaying `IntervalsViz`'s packing recurrence: lane 0 is
       the kept set index-for-index, the kept set is pairwise disjoint, the

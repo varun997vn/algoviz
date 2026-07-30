@@ -33,6 +33,22 @@ function noteAt(
 }
 
 /**
+ * The `title` prop for a cell, present only when a mark at that index carries a note.
+ *
+ * `mark(index, class, note)` has stored notes since the tracer was written and only `ArrayViz` and
+ * `GridViz` ever rendered them, so every note a stack, queue, heap, set, map or intervals solution
+ * attached was dead text — including ones written specifically to explain why a cell was excluded.
+ * Spread rather than passed, so `title` stays absent under `exactOptionalPropertyTypes`.
+ */
+function titleOf(
+  marks: readonly { index: number; note?: string }[],
+  index: number,
+): { title?: string } {
+  const note = noteFor(marks, index)
+  return note === undefined ? {} : { title: note }
+}
+
+/**
  * Assign each cursor a vertical lane so two pointers at the same index stay legible.
  *
  * A two-pointer scan spends its most interesting moment with `left` and `right` adjacent or
@@ -176,7 +192,7 @@ export function StackViz({ snapshot }: { snapshot: Of<'stack'> }): ReactNode {
                 value={value}
                 marks={marksAt(marks, index)}
                 nodeId={String(index)}
-                {...(noteFor(marks, index) !== undefined ? { title: noteFor(marks, index) } : {})}
+                {...titleOf(marks, index)}
               />
               {index === values.length - 1 ? (
                 <text
@@ -214,6 +230,7 @@ export function QueueViz({ snapshot }: { snapshot: Of<'queue'> }): ReactNode {
             value={value}
             marks={marksAt(marks, index)}
             nodeId={String(index)}
+            {...titleOf(marks, index)}
           />
         ))}
         <text x={CELL / 2} y={CELL + 16} textAnchor="middle" fontSize={10} fill="var(--av-accent)" data-testid="queue-front">
@@ -272,6 +289,7 @@ export function HeapViz({ snapshot }: { snapshot: Of<'heap'> }): ReactNode {
             marks={marksAt(marks, index)}
             indexLabel={String(index)}
             nodeId={String(index)}
+            {...titleOf(marks, index)}
           />
         ))}
       </svg>
@@ -303,6 +321,7 @@ export function HeapViz({ snapshot }: { snapshot: Of<'heap'> }): ReactNode {
               value={value}
               marks={marksAt(marks, index)}
               nodeId={`tree-${index}`}
+              {...titleOf(marks, index)}
             />
           )
         })}
@@ -327,6 +346,7 @@ export function SetViz({ snapshot }: { snapshot: Of<'set'> }): ReactNode {
             value={value}
             marks={marksAt(marks, index)}
             nodeId={String(index)}
+            {...titleOf(marks, index)}
           />
         ))}
       </svg>
@@ -359,10 +379,15 @@ export function MapViz({ snapshot }: { snapshot: Of<'map'> }): ReactNode {
             // line-through is the same second signal the grid's excluded cells get, for the same
             // reason: `excluded` and `visited` are 1.57:1 apart, so fill cannot carry it alone.
             const isDim = cls === 'visited' || cls === 'excluded'
+            // Map marks are keyed, not indexed, so `titleOf` does not apply — but the note is just
+            // as dead without this. A row's tooltip is the only place a map entry can explain why
+            // it is marked.
+            const note = entryMarks.find((m) => m.note !== undefined)?.note
             return (
               <tr
                 key={entry.key}
                 data-node-id={entry.key}
+                {...(note !== undefined ? { title: note } : {})}
                 data-highlight={entryMarks.length > 0 ? entryMarks.map((m) => m.class).join(' ') : undefined}
                 style={
                   cls
@@ -522,6 +547,7 @@ export function IntervalsViz({ snapshot }: { snapshot: Of<'intervals'> }): React
               data-node-id={item.id}
               data-highlight={itemMarks.length > 0 ? itemMarks.map((m) => m.class).join(' ') : undefined}
             >
+              {noteFor(marks, index) !== undefined ? <title>{noteFor(marks, index)}</title> : null}
               <rect
                 x={x}
                 y={(lanes[index] ?? 0) * laneHeight}

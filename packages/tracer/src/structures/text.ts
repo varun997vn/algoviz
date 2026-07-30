@@ -31,6 +31,17 @@ export class VizString extends BaseStructure {
     }
   }
 
+  /**
+   * The marker that makes this a legal `viz.cursor` target — see `AttachTarget`.
+   *
+   * `viz.array`'s proxy exposes the same property. Between them they are the only two structures
+   * whose snapshot resolves cursors through `Recorder.cursorsFor`, so `$id` is what separates
+   * "a caret here will render" from "a caret here is silently discarded".
+   */
+  get $id(): string {
+    return this.id
+  }
+
   get length(): number {
     return this.chars.length
   }
@@ -161,9 +172,29 @@ export class VizIntervals extends BaseStructure {
     return item
   }
 
-  /** Reorder to match a sort the solution performed — keeps the picture honest. */
+  /**
+   * Reorder to match a sort the solution performed — keeps the picture honest.
+   *
+   * **Clears every mark**, because a mark is keyed by position and a reorder invalidates all of
+   * them at once; re-mark after sorting.
+   *
+   * Throws on anything that is not a permutation of the current indices. It used to `map` then
+   * `filter(x => x !== undefined)`, so a duplicate or out-of-range index silently *shrank* the
+   * timeline: `reorder([0, 0, 9])` on three items produced two items sharing `id: "i0"` — bars
+   * missing from the picture, duplicate React keys, and no error anywhere.
+   */
   reorder(order: readonly number[], label = 'sort'): void {
-    this.items = order.map((i) => this.items[i]).filter((x): x is IntervalItem => x !== undefined)
+    const n = this.items.length
+    const valid =
+      order.length === n &&
+      new Set(order).size === n &&
+      order.every((i) => Number.isInteger(i) && i >= 0 && i < n)
+    if (!valid) {
+      throw new RangeError(
+        `${this.name}.reorder() needs a permutation of 0..${n - 1}, got [${order.join(', ')}]`,
+      )
+    }
+    this.items = order.map((i) => this.items[i] as IntervalItem)
     this.marks.clear()
     this.rec.record({ op: 'write', structure: this, label })
   }

@@ -584,6 +584,40 @@ describe('VizIntervals', () => {
     expect(finalOf(t, 'ivl1', 'intervals').items.map((i) => i.start)).toEqual([1, 5])
   })
 
+  it('refuses a reorder that is not a permutation, instead of silently losing bars', () => {
+    // It used to `map` then `filter(x => x !== undefined)`, so a duplicate or out-of-range index
+    // quietly *shrank* the timeline: three items in, two out, two of them sharing `id: "i0"` —
+    // duplicate React keys and missing bars, with no error anywhere. Nothing in the repo calls
+    // `reorder` yet, which is exactly why it survived.
+    const bad = (order: number[]) => (): unknown =>
+      trace((viz) => {
+        const iv = viz.intervals([
+          [1, 2],
+          [3, 4],
+          [5, 6],
+        ])
+        iv.reorder(order)
+        return iv.toArray()
+      })
+    expect(bad([0, 0, 2])).toThrow(/needs a permutation of 0\.\.2/)
+    expect(bad([0, 1, 9])).toThrow(/needs a permutation of 0\.\.2/)
+    expect(bad([0, 1])).toThrow(/needs a permutation of 0\.\.2/)
+
+    // A real permutation still works, and still clears marks — which the docstring now says.
+    const { value, trace: t } = trace((viz) => {
+      const iv = viz.intervals([
+        [1, 2],
+        [3, 4],
+        [5, 6],
+      ])
+      iv.mark(0, 'result')
+      iv.reorder([2, 0, 1])
+      return iv.toArray().map((i) => i.start)
+    })
+    expect(value).toEqual([5, 1, 3])
+    expect(finalOf(t, 'ivl1', 'intervals').marks).toEqual([])
+  })
+
   it('reports an out-of-range read instead of failing', () => {
     const { value, trace: t } = trace((viz) => {
       const iv = viz.intervals([[0, 1]])
