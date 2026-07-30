@@ -97,6 +97,72 @@ describe('VizQueue', () => {
 })
 
 describe('VizHeap', () => {
+  it('carries a mark with its value through a sift swap', () => {
+    // Marks are keyed by slot and every sift moves values between slots, so a `result` mark put on
+    // one value silently transferred to whatever landed in that slot next. A heap is where this
+    // bites hardest and no problem had ever driven one.
+    const { trace: t } = trace((viz) => {
+      const h = viz.heap<number>([5])
+      h.mark(0, 'result', 'the answer')
+      h.push(1) // 1 sifts up past 5, so slot 0 changes hands
+      return 0
+    })
+    const snap = finalOf(t, 'hp1', 'heap')
+    expect(snap.values[0]).toBe(1)
+    // The mark belongs to 5, which is now in slot 1 — not to whatever is sitting at the root.
+    expect(snap.marks).toEqual([{ index: 1, class: 'result', note: 'the answer' }])
+  })
+
+  it('pops the departing root with its mark, and promotes the leaf with its own', () => {
+    // This did both halves backwards: it deleted the mark on the leaf that was about to become the
+    // root, and kept the root's, so the arriving value inherited a `result` belonging to the value
+    // that had just left.
+    const { value, trace: t } = trace((viz) => {
+      const h = viz.heap<number>([1, 7])
+      h.mark(0, 'result') // on 1, the root, which is about to leave
+      h.mark(1, 'pinned') // on 7, the leaf, which is about to be promoted
+      return h.pop()
+    })
+    expect(value).toBe(1)
+    const snap = finalOf(t, 'hp1', 'heap')
+    expect(snap.values).toEqual([7])
+    expect(snap.marks).toEqual([{ index: 0, class: 'pinned' }])
+  })
+
+  it('compares against the root in one frame and returns the ordering', () => {
+    const { value, trace: t } = trace((viz) => {
+      const h = viz.heap<number>([4])
+      return { bigger: h.compareRoot(9), smaller: h.compareRoot(1), equal: h.compareRoot(4) }
+    })
+    expect(value).toEqual({ bigger: -1, smaller: 1, equal: 0 })
+    const frames = t.frames.filter((f) => f.op === 'compare')
+    expect(frames).toHaveLength(3)
+    for (const frame of frames) {
+      const snap = frame.snapshots['hp1']
+      expect(snap?.kind === 'heap' && snap.marks).toEqual([
+        { index: 0, class: 'compare', transient: true },
+      ])
+    }
+    expect(labels(t)).toContain('compare 9 with root 4')
+  })
+
+  it('returns -1 from compareRoot on an empty heap, where nothing is smaller', () => {
+    const { value } = trace((viz) => viz.heap<number>().compareRoot(3))
+    expect(value).toBe(-1)
+  })
+
+  it('retracts a mark, which it previously had no way to do', () => {
+    const { trace: t } = trace((viz) => {
+      const h = viz.heap<number>([1, 2])
+      h.mark(0, 'result')
+      h.unmark(0)
+      h.mark(1, 'pinned')
+      h.clearMarks('pinned')
+      return 0
+    })
+    expect(finalOf(t, 'hp1', 'heap').marks).toEqual([])
+  })
+
   it('maintains the min-heap invariant and records the sift comparisons', () => {
     const { value, trace: t } = trace((viz) => {
       const h = viz.heap<number>([5, 3, 8, 1])
@@ -216,6 +282,45 @@ describe('VizMap and VizSet', () => {
     })
     expect(value).toBe(true)
     expect(finalOf(t, 'set1', 'set').values).toEqual([2])
+    // This test set a mark, deleted, and then asserted only `values` — which is why the marks not
+    // following their elements stayed green forever. The mark on 2 must still be on 2, at its new
+    // index 0; left at index 1 it points past the end of a one-element set and the renderer, which
+    // filters marks by index, drops the answer on the floor.
+    expect(finalOf(t, 'set1', 'set').marks).toEqual([{ index: 0, class: 'result' }])
+  })
+
+  it('drops the mark on the deleted member rather than sliding it onto its neighbour', () => {
+    const { trace: t } = trace((viz) => {
+      const s = viz.set<number>([1, 2, 3])
+      s.mark(2, 'result')
+      s.delete(2)
+      return 0
+    })
+    expect(finalOf(t, 'set1', 'set').values).toEqual([1, 3])
+    expect(finalOf(t, 'set1', 'set').marks).toEqual([])
+  })
+
+  it('says so when marking a value the set does not hold, instead of claiming it marked one', () => {
+    const { trace: t } = trace((viz) => {
+      const s = viz.set<number>([1])
+      s.mark(99, 'excluded')
+      return 0
+    })
+    expect(finalOf(t, 'set1', 'set').marks).toEqual([])
+    expect(labels(t)).toContain('mark 99 as excluded (not in the set)')
+  })
+
+  it('lights an insertion at least as brightly as a lookup', () => {
+    // `add` flashed `visited` — the dim "already processed" class — so inserting into a set, the
+    // operation the panel exists to show, rendered fainter than merely looking something up.
+    const { trace: t } = trace((viz) => {
+      const s = viz.set<number>()
+      s.add(1)
+      return 0
+    })
+    const added = t.frames.find((f) => f.label === 'add 1')
+    const snap = added?.snapshots['set1']
+    expect(snap?.kind === 'set' && snap.marks).toEqual([{ index: 0, class: 'active', transient: true }])
   })
 
   it('keys non-string values stably', () => {

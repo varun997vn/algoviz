@@ -73,7 +73,11 @@ export class VizHeap<T extends string | number> extends BaseStructure {
     }
     const top = this.values[0] as T
     const last = this.values.pop() as T
-    this.marks.remove(this.values.length)
+    // The departing root's mark goes with it; the leaf that is promoted brings its own. This used
+    // to delete the *leaf's* mark and leave the *root's* in place, so the value arriving at the top
+    // inherited a `result` belonging to the value that had just left — both halves backwards.
+    this.marks.remove(0)
+    this.marks.move(this.values.length, 0)
     if (this.values.length > 0) {
       this.values[0] = last
       this.rec.record({
@@ -94,6 +98,7 @@ export class VizHeap<T extends string | number> extends BaseStructure {
     const b = this.values[j] as T
     this.values[i] = b
     this.values[j] = a
+    this.marks.swap(i, j)
     this.rec.record({
       op: 'swap',
       structure: this,
@@ -103,6 +108,38 @@ export class VizHeap<T extends string | number> extends BaseStructure {
       ],
       label: `swap [${i}] <-> [${j}]`,
     })
+  }
+
+  /**
+   * Compare `value` against the root in one frame, returning the ordering a comparator would.
+   *
+   * The guard of every bounded-heap scan is "is this bigger than the smallest I am keeping?", and
+   * with only a silent `peek()` that decision was the one thing in the algorithm never lit. Mirrors
+   * `VizArrayApi.compare`, including the comparator-shaped return, so the line reads
+   * `if (top.compareRoot(x) < 0)` instead of `if ((top.peek() as number) < x)` — one frame, and no
+   * cast in the line that *is* the algorithm. Returns -1 on an empty heap, where nothing is bigger.
+   */
+  compareRoot(value: T, note?: string): number {
+    const root = this.values[0]
+    this.rec.record({
+      op: 'compare',
+      structure: this,
+      transient: this.values.length > 0 ? [{ index: 0, class: 'compare' }] : [],
+      label: note ?? `compare ${format(value)} with root ${format(root)}`,
+    })
+    if (root === undefined) return -1
+    return this.cmp(root, value)
+  }
+
+  /** Symmetry with every other structure — a heap mark could previously never be retracted. */
+  unmark(index: number): void {
+    this.marks.remove(index)
+    this.rec.record({ op: 'mark', structure: this, label: `unmark ${index}` })
+  }
+
+  clearMarks(cls?: MarkClass): void {
+    this.marks.clear(cls)
+    this.rec.record({ op: 'mark', structure: this, label: cls ? `clear ${cls} marks` : 'clear marks' })
   }
 
   private siftUp(start: number): void {

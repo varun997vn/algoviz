@@ -51,10 +51,30 @@ function laneFor(cursors: readonly Cursor[]): Map<string, number> {
 
 const MAX_RENDERED = 240
 
-function visibleRange(length: number, cursors: readonly Cursor[]): [number, number] {
+/**
+ * The window outline is drawn 3px outside the cell box with a 2px stroke, so it needs 4px of room.
+ *
+ * An outermost `<svg>` clips, and this one starts at (0,0) with no `viewBox` — so the band's top
+ * edge was drawn at y=-4 and never appeared at all, and its left edge vanished too whenever the
+ * window started at index 0, which is the first frame of every sliding-window animation. It
+ * rendered as a three-sided bracket rather than a box. jsdom has no layout, so the DOM test that
+ * counts outline rects passed throughout.
+ */
+const WINDOW_PAD = 4
+
+function visibleRange(
+  length: number,
+  cursors: readonly Cursor[],
+  window?: readonly [number, number],
+): [number, number] {
   if (length <= MAX_RENDERED) return [0, length]
-  // Keep the cursors on screen; a huge array is only interesting near the pointers.
-  const focus = cursors.length > 0 ? Math.round(cursors.reduce((s, c) => s + c.index, 0) / cursors.length) : 0
+  // Keep the cursors *and the window* on screen; a huge array is only interesting near them. A
+  // sliding-window solution uses the band instead of carets — that is what the band is for — so
+  // anchoring on cursors alone pinned the viewport to indices 0..239 forever, and past index 200
+  // the band slid off the rendered region and the panel stopped changing for the rest of the run.
+  const anchors = [...cursors.map((c) => c.index), ...(window ?? [])]
+  const focus =
+    anchors.length > 0 ? Math.round(anchors.reduce((sum, i) => sum + i, 0) / anchors.length) : 0
   const start = Math.max(0, Math.min(length - MAX_RENDERED, focus - Math.floor(MAX_RENDERED / 2)))
   return [start, start + MAX_RENDERED]
 }
@@ -63,13 +83,15 @@ export function ArrayViz({ snapshot }: { snapshot: Of<'array'> }): ReactNode {
   const { values, cursors, marks, window: win } = snapshot
   if (values.length === 0) return <EmptyState what="array" />
 
-  const [from, to] = visibleRange(values.length, cursors)
+  const [from, to] = visibleRange(values.length, cursors, win)
   const lanes = laneFor(cursors)
   // One extra slot so a caret parked one past the last element has somewhere to be drawn.
   const restingCaret = cursors.some((c) => c.index === to)
-  const width = (to - from + (restingCaret ? 1 : 0)) * (CELL + GAP)
+  // `WINDOW_PAD` on each axis so the window outline, which is drawn outside the cell box, is inside
+  // the viewport rather than clipped away by it.
+  const width = WINDOW_PAD * 2 + (to - from + (restingCaret ? 1 : 0)) * (CELL + GAP)
   const cursorLanes = Math.max(1, new Set(cursors.map((c) => c.index)).size > 0 ? Math.max(...[...lanes.values()]) + 1 : 1)
-  const height = CELL + 22 + cursorLanes * 16 + 8
+  const height = WINDOW_PAD + CELL + 22 + cursorLanes * 16 + 8
 
   return (
     <Scroll>
@@ -79,6 +101,9 @@ export function ArrayViz({ snapshot }: { snapshot: Of<'array'> }): ReactNode {
         </p>
       ) : null}
       <svg width={Math.max(width, 40)} height={height} role="img" aria-label="array">
+        {/* Every internal coordinate stays as it was; the whole drawing just moves inside the pad,
+            so layout determinism and the existing data-* assertions are untouched. */}
+        <g transform={`translate(${WINDOW_PAD}, ${WINDOW_PAD})`}>
         {values.slice(from, to).map((value, i) => {
           const index = from + i
           return (
@@ -112,6 +137,7 @@ export function ArrayViz({ snapshot }: { snapshot: Of<'array'> }): ReactNode {
               {...(c.class ? { cls: c.class } : {})}
             />
           ))}
+        </g>
       </svg>
     </Scroll>
   )
@@ -325,12 +351,28 @@ export function MapViz({ snapshot }: { snapshot: Of<'map'> }): ReactNode {
           {entries.map((entry) => {
             const entryMarks = marks.filter((m) => m.key === entry.key)
             const cls = entryMarks[entryMarks.length - 1]?.class
+            // `Cell` exempts the two dim classes from the near-black text it uses on bright fills;
+            // this table did not, and it does not go through `Cell`. Measured against the dark
+            // theme that put `#12141a` on `excluded` at 1.94:1 and on `visited` at 3.05:1, versus
+            // 7.74:1 and 4.92:1 for the same classes inside `Cell` — so on a problem whose answer
+            // *is* the excluded rows, those rows were the least legible in the table. The
+            // line-through is the same second signal the grid's excluded cells get, for the same
+            // reason: `excluded` and `visited` are 1.57:1 apart, so fill cannot carry it alone.
+            const isDim = cls === 'visited' || cls === 'excluded'
             return (
               <tr
                 key={entry.key}
                 data-node-id={entry.key}
                 data-highlight={entryMarks.length > 0 ? entryMarks.map((m) => m.class).join(' ') : undefined}
-                style={cls ? { background: `var(--av-${cls})`, color: '#12141a' } : undefined}
+                style={
+                  cls
+                    ? {
+                        background: `var(--av-${cls})`,
+                        color: isDim ? 'var(--av-text)' : '#12141a',
+                        ...(cls === 'excluded' ? { textDecoration: 'line-through' } : {}),
+                      }
+                    : undefined
+                }
               >
                 <td>{entry.key}</td>
                 <td>{typeof entry.value === 'object' ? JSON.stringify(entry.value) : display(entry.value as never)}</td>

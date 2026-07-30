@@ -147,7 +147,9 @@ export class VizSet<T extends Primitive> extends BaseStructure {
     this.rec.record({
       op: existed ? 'read' : 'insert',
       structure: this,
-      transient: [{ index, class: 'visited' }],
+      // `active`, not `visited`. `visited` is the dim "already processed" class, so an insertion —
+      // the operation this panel exists to show — rendered fainter than a lookup did.
+      transient: [{ index, class: 'active' }],
       label: existed ? `add ${format(value)} (already present)` : `add ${format(value)}`,
     })
     return this
@@ -172,7 +174,17 @@ export class VizSet<T extends Primitive> extends BaseStructure {
   }
 
   delete(value: T): boolean {
-    const removed = this.items.delete(keyOf(value))
+    const k = keyOf(value)
+    const index = [...this.items.keys()].indexOf(k)
+    const removed = this.items.delete(k)
+    // A set's marks are keyed by position, and deleting shifts every later element down one — so
+    // without this every persistent mark past the removed element detached from its value and, once
+    // past the end, was dropped by the renderer entirely. `VizArrayStructure.shift()` has always
+    // called `shiftFrom` for exactly this; `delete` called neither it nor `remove`.
+    if (index >= 0) {
+      this.marks.remove(index)
+      this.marks.shiftFrom(index + 1, -1)
+    }
     this.rec.record({ op: 'delete', structure: this, label: `delete ${format(value)} -> ${removed}` })
     return removed
   }
@@ -180,7 +192,16 @@ export class VizSet<T extends Primitive> extends BaseStructure {
   mark(value: T, cls: MarkClass, note?: string): void {
     const index = [...this.items.keys()].indexOf(keyOf(value))
     if (index >= 0) this.marks.set(index, cls, note)
-    this.rec.record({ op: 'mark', structure: this, label: `mark ${format(value)} as ${cls}` })
+    // Say so when nothing was marked. Recording a bare `mark x as excluded` for a value the set
+    // does not hold put a claim in the op log that the picture never backed up.
+    this.rec.record({
+      op: 'mark',
+      structure: this,
+      label:
+        index >= 0
+          ? `mark ${format(value)} as ${cls}`
+          : `mark ${format(value)} as ${cls} (not in the set)`,
+    })
   }
 
   toArray(): T[] {

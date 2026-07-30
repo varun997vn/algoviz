@@ -165,6 +165,10 @@ export class VizArrayStructure<T extends Primitive> extends BaseStructure {
     const b = this.values[j] as T | null
     this.values[i] = b
     this.values[j] = a
+    // Marks follow their values, same as in `VizHeap.swap`. Latent here until the first in-place
+    // sorting problem — but it is the same omission, and fixing one sibling of a bug class while
+    // leaving the other is exactly how `Mark2DStore` survived after `NodeMarkStore` was fixed.
+    this.marks.swap(i, j)
     this.rec.record({
       op: 'swap',
       structure: this,

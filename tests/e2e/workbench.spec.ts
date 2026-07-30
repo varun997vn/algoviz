@@ -41,8 +41,14 @@ test('the picker lists all 75 roadmap problems and marks which are playable', as
   const items = page.locator('[data-testid^="problem-item-"]')
   await expect(items).toHaveCount(75)
 
-  // The three reference problems are built; the rest are honestly marked as todo.
-  await expect(page.locator('[data-testid^="problem-item-"][data-ready="true"]')).toHaveCount(8)
+  // Derived from the page's own count rather than hardcoded. A literal here has needed a manual
+  // bump every time a problem landed — a test that fails because work got finished is reporting on
+  // the wrong thing. The real invariant is that the picker's headline claim and the rows it marks
+  // playable agree, and that some but not all of the 75 are built.
+  const claimed = Number(await page.getByTestId('picker-intro').getAttribute('data-ready-count'))
+  expect(claimed).toBeGreaterThan(0)
+  expect(claimed).toBeLessThan(75)
+  await expect(page.locator('[data-testid^="problem-item-"][data-ready="true"]')).toHaveCount(claimed)
   await expect(page.getByTestId('problem-item-11')).toContainText('Container With Most Water')
 })
 
