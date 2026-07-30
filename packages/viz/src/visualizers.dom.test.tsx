@@ -224,6 +224,30 @@ describe('MatrixViz and DpViz', () => {
     const container = renderSnapshot({ kind: 'dp', values: [0, 1, 1, 2], dims: 1, marks: [] })
     expect(container.querySelectorAll('[data-node-id]')).toHaveLength(4)
   })
+
+  it('slashes a ruled-out cell, so excluded is not told apart from visited by fill alone', () => {
+    // Both are dim greys, and on the frame `excluded` exists for — the "no solution" answer of a
+    // grid search — they are usually the only two fills on screen. Retuning the grey moved the
+    // collision from `cell-bg` onto `visited`; the slash is the signal that does not have to be
+    // traded against another one, and tokens.css promises hue is never the only cue.
+    const container = renderSnapshot({
+      kind: 'matrix',
+      values: [
+        [1, 2],
+        [0, 0],
+      ],
+      cursors: [],
+      marks: [
+        { row: 0, col: 0, class: 'excluded' },
+        { row: 0, col: 1, class: 'visited' },
+      ],
+    })
+    const slashIn = (id: string): Element | null | undefined =>
+      container.querySelector(`[data-node-id="${id}"] [data-testid="excluded-slash"]`)
+    expect(slashIn('0,0')).not.toBeNull()
+    expect(slashIn('0,1')).toBeNull()
+    expect(slashIn('1,0')).toBeNull()
+  })
 })
 
 describe('IntervalsViz', () => {

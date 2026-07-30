@@ -26,7 +26,10 @@
   --av-path: #d2a8ff;
   --av-result: #3fb950;
   --av-match: #3fb950;
-  --av-excluded: #4a4f5c;
+  /* Pushed away from --av-visited (#5a6376) rather than towards it — the two sit side by side on
+     the frame that explains a "no solution" answer. `Cell` also slashes an excluded cell, so the
+     fill is a supporting cue rather than the only one. */
+  --av-excluded: #3f4654;
   --av-pinned: #f778ba;
 
   /* Edge states */
@@ -52,8 +55,12 @@
     --av-visited: #a7aeba;
     /* Was #c8ccd4, barely a shade off --av-cell-bg (#e9ecf1) — so on a grid whose answer is "these
        oranges are unreachable", the cells carrying that answer were near-indistinguishable from
-       the empty cells around them. `excluded` is a conclusion, not a background. */
-    --av-excluded: #9aa1b0;
+       the empty cells around them. `excluded` is a conclusion, not a background.
+       #9aa1b0 fixed that and broke the other side: it landed on top of --av-visited (#a7aeba),
+       which is the neighbour that actually matters, since those two are the only fills on a -1
+       final frame. Separated from both now, and `Cell` slashes the cell so the fill is not doing
+       the work alone. */
+    --av-excluded: #cfd5de;
     --av-edge: #b6bcc7;
   }
 }

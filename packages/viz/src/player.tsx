@@ -155,9 +155,11 @@ export interface PlayerBarProps {
   player: PlayerState
   currentFrame: Frame | undefined
   stepFrames: readonly number[]
+  /** Narration for the current frame — `TraceReader.captionAt`, which resolves it forward. */
+  caption?: string | undefined
 }
 
-export function PlayerBar({ player, currentFrame, stepFrames }: PlayerBarProps): ReactNode {
+export function PlayerBar({ player, currentFrame, stepFrames, caption }: PlayerBarProps): ReactNode {
   const { frame, frameCount, playing, speed } = player
 
   return (
@@ -231,7 +233,7 @@ export function PlayerBar({ player, currentFrame, stepFrames }: PlayerBarProps):
       </label>
 
       <p className="av-commentary" data-testid="commentary">
-        {currentFrame?.label ?? currentFrame?.op ?? '—'}
+        {caption ?? currentFrame?.label ?? currentFrame?.op ?? '—'}
       </p>
     </div>
   )

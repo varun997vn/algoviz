@@ -192,6 +192,28 @@ test('the graph problem renders roads with their decided direction', async ({ pa
   await expect(page.locator('[data-watch-name="reversals"]')).toContainText('3')
 })
 
+test('the last frame reads the closing narration, not a raw op name', async ({ page }) => {
+  // `trace()` appends a `return` frame unconditionally, so a solution's closing narration lands at
+  // N-1. Pressing End used to show `return 4` over a picture identical to the frame that explained
+  // it — on every problem. `viz.step` has always documented its label as carried forward; the
+  // player now actually carries it.
+  await openProblem(page, 'rotting-oranges')
+  await runReference(page)
+  await page.getByRole('button', { name: 'Last frame' }).click()
+
+  await expect(page.getByTestId('commentary')).toContainText('minute')
+  await expect(page.getByTestId('commentary')).not.toContainText('return')
+
+  // Same run, second assertion: on the case whose answer is -1, the cells that cause it are
+  // `excluded` while everything rotten is `visited`. Both are dim greys and they are the only two
+  // fills on that frame, so the fill cannot carry the distinction on its own — hence the slash.
+  await page.getByTestId('case-item-1').click()
+  await page.getByRole('button', { name: 'Last frame' }).click()
+  await expect(page.locator('[data-viz-kind="matrix"] [data-highlight~="excluded"]').first()).toBeVisible()
+  await expect(page.locator('[data-testid="excluded-slash"]').first()).toBeVisible()
+  await expect(page.getByTestId('commentary')).toContainText('unreachable')
+})
+
 test('a wrong answer is reported with both values', async ({ page }) => {
   await openProblem(page, 'container-with-most-water')
   await setSource(

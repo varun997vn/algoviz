@@ -5,17 +5,17 @@
 Every problem here is solved *inside the app*: you write the instrumented solution and
 watch your own algorithm execute over a live visualization of the structures it touches.
 
-**Progress: 7 / 75 done (9%)**
+**Progress: 8 / 75 done (11%)**
 
 `███░░░░░░░░░░░░░░░░░░░░░░░░░`
 
 | Status | Count |
 | --- | --- |
 | ⬜ todo | 67 |
-| 🟡 in-progress | 1 |
+| 🟡 in-progress | 0 |
 | 🔵 review | 0 |
 | 🔴 blocked | 0 |
-| ✅ done | 7 |
+| ✅ done | 8 |
 
 ## Next up
 
@@ -133,12 +133,12 @@ Run the `solve-problem` skill to take the next one end to end.
 | 1466 | [Reorder Routes to Make All Paths Lead to the City Zero](https://leetcode.com/problems/reorder-routes-to-make-all-paths-lead-to-the-city-zero/) | medium | `graph, set` | ✅ done | — |
 | 399 | [Evaluate Division](https://leetcode.com/problems/evaluate-division/) | medium | `graph, map` | ⬜ todo | — |
 
-### Graphs - BFS — 0/2
+### Graphs - BFS — 1/2
 
 | # | Problem | Difficulty | Structures | Status | PR |
 | --- | --- | --- | --- | --- | --- |
 | 1926 | [Nearest Exit from Entrance in Maze](https://leetcode.com/problems/nearest-exit-from-entrance-in-maze/) | medium | `matrix, queue` | ⬜ todo | — |
-| 994 | [Rotting Oranges](https://leetcode.com/problems/rotting-oranges/) | medium | `matrix, queue` | 🟡 in-progress | #1 |
+| 994 | [Rotting Oranges](https://leetcode.com/problems/rotting-oranges/) | medium | `matrix, queue` | ✅ done | #1 |
 
 ### Heap / Priority Queue — 0/4
 
@@ -220,13 +220,13 @@ visualizer has no real user yet, however green its unit tests are.
 | Structure | Done | Planned |
 | --- | --- | --- |
 | `array` | 2 | 36 |
-| `matrix` | 0 | 4 |
+| `matrix` | 1 | 4 |
 | `string` | 1 | 13 |
 | `list` | 1 | 4 |
 | `tree` | 1 | 12 |
 | `graph` | 1 | 4 |
 | `stack` | 1 | 5 |
-| `queue` | 0 | 6 |
+| `queue` | 1 | 6 |
 | `heap` | 0 | 4 |
 | `map` | 0 | 6 |
 | `set` | 1 | 7 |

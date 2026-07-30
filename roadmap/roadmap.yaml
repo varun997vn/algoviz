@@ -722,10 +722,24 @@ problems:
     order: 48
     structures: [ matrix, queue ]
     techniques: [ bfs, grid, multi-source ]
-    status: in-progress
+    status: done
     branch: claude/leetcode-visualizer-w01nr6
     pr: 1
-    notes: null
+    notes: "trace-verifier: faithful (re-audit; the first audit returned
+      misleading). The major finding is verified fixed from snapshots, not
+      rendered colour, on all 12 cases at every frame: `frontier` marks are a
+      subset of the queue everywhere, exactly equal on narrated and final
+      frames, `watch.frontier` agrees with the mark count, and no cell ever
+      carries both `frontier` and `visited`. Max frontier marks on any frame is
+      now 1-4 and always equals the queue length on narrated frames. The dequeue
+      frame's cursor already sits on the cell being removed in all 12 cases, and
+      the queued-but-unmarked cell during pickup is always either the one under
+      the caret or the one that frame's own enqueue names, so the lag is never
+      arbitrary. The re-audit then found the same starter-versus-reference gap
+      as 206: the starter prescribed the inverted order and reintroduced a
+      phantom wavefront on 86 frames. Fixed, and an integration test now asserts
+      the invariant against the starter's guidance rather than only the
+      reference."
     dependsOn: []
   - id: p215
     leetcode: 215

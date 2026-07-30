@@ -67,12 +67,20 @@ function finalQueue(result: CaseResult): QueueSnapshot {
   return only(reader, reader.frameCount - 1, 'queue')
 }
 
-/** Distinct `minute N` group labels, in the order they first appear. */
-function minuteScopes(trace: Trace): string[] {
-  const seen: string[] = []
+/**
+ * Distinct minute-group *numbers*, in the order they first appear.
+ *
+ * Matched on the `minute N` prefix rather than the whole label, and reduced to the number: the
+ * label now also carries the wave size ("minute 3 — 4 cell(s) to drain"), which is narration, not
+ * identity. Anchoring the old regex to end-of-string made this helper silently return `[]` — and a
+ * helper that returns nothing turns the load-bearing assertion in this file into a tautology.
+ */
+function minuteScopes(trace: Trace): number[] {
+  const seen: number[] = []
   for (const frame of trace.frames) {
     for (const label of frame.groups) {
-      if (/^minute \d+$/.test(label) && !seen.includes(label)) seen.push(label)
+      const n = /^minute (\d+)\b/.exec(label)?.[1]
+      if (n !== undefined && !seen.includes(Number(n))) seen.push(Number(n))
     }
   }
   return seen
@@ -133,7 +141,7 @@ describe('the picture and the answer agree about how long it took', () => {
 
   it.each(SOLVABLE)('%s — scopes are numbered 1..minutes with no gaps', (name) => {
     const result = caseByName(name)
-    const expected = Array.from({ length: result.returned as number }, (_, i) => `minute ${i + 1}`)
+    const expected = Array.from({ length: result.returned as number }, (_, i) => i + 1)
     expect(minuteScopes(result.trace)).toEqual(expected)
   })
 
@@ -153,7 +161,13 @@ describe('the picture and the answer agree about how long it took', () => {
       const reader = new TraceReader(result.trace)
       const steps = reader.stepFrames()
       const last = reader.trace.frames[steps[steps.length - 1]!]!.label ?? ''
-      expect(last, name).toMatch(/nothing to spread to|nothing left to rot/)
+      expect(last, name).toMatch(
+        /nothing to spread to|nothing left to rot|no fresh oranges to begin with/,
+      )
+      // A grid that never entered the loop must not claim a drain happened.
+      if ((result.returned as number) === 0) {
+        expect(last, name).toContain('no fresh oranges to begin with')
+      }
     }
   })
 
@@ -342,6 +356,91 @@ describe('the queue and the grid stay in lockstep', () => {
   })
 })
 
+describe('the starter teaches the ordering, not just the reference', () => {
+  // The gap that let this ship: every invariant above runs on `useReference: true`, so the starter
+  // — the code a learner actually runs and watches — kept prescribing the inverted order
+  // (`shift()` before `unmarkClass`, mark before push) while its own comment claimed the ordering
+  // was the point. A solution following it faithfully reintroduced a phantom wavefront cell on 86
+  // frames across the case set: one per dequeue and one per rot, a one-frame version of the same
+  // lie. This is the third problem where a fix landed in the reference and missed the starter, so
+  // the starter now gets asserted rather than trusted.
+  const source = `
+export default function orangesRotting(grid: number[][], viz: Viz): number {
+  const g = viz.matrix(grid, { name: 'grid' })
+  const frontier = viz.queue<string>([], { name: 'frontier' })
+  const cell = (r: number, c: number) => \`(\${r},\${c})\`
+  const coords = (key: string) => key.slice(1, -1).split(',').map(Number) as [number, number]
+  const DIRS = [[-1, 0], [1, 0], [0, -1], [0, 1]]
+
+  let minutes = 0
+  let fresh = 0
+  viz.watch(() => ({ minute: minutes, fresh, frontier: frontier.size }))
+
+  viz.group('seed — every orange that starts rotten', () => {
+    for (let r = 0; r < g.rows; r += 1) {
+      for (let c = 0; c < g.cols; c += 1) {
+        if (g.peek(r, c) === 2) {
+          frontier.push(cell(r, c))
+          g.mark(r, c, 'frontier', 'rotten from the start')
+        } else if (g.peek(r, c) === 1) {
+          fresh += 1
+        }
+      }
+    }
+    viz.step(\`\${frontier.size} rotten source(s), \${fresh} fresh\`)
+  })
+
+  while (fresh > 0 && !frontier.isEmpty) {
+    minutes += 1
+    const wave = frontier.size
+    viz.group(\`minute \${minutes}\`, () => {
+      for (let i = 0; i < wave; i += 1) {
+        const [r, c] = coords(frontier.front() as string)
+        g.cursor('rotting', r, c)
+        g.unmarkClass(r, c, 'frontier')
+        frontier.shift()
+        g.mark(r, c, 'visited', \`spread at minute \${minutes}\`)
+        for (const [dr, dc] of DIRS) {
+          const nr = r + dr
+          const nc = c + dc
+          if (!g.inBounds(nr, nc) || g.peek(nr, nc) !== 1) continue
+          g.set(nr, nc, 2)
+          frontier.push(cell(nr, nc))
+          g.mark(nr, nc, 'frontier', \`rots at minute \${minutes}\`)
+          fresh -= 1
+        }
+      }
+      viz.step(\`minute \${minutes}: \${fresh} fresh left\`)
+    })
+  }
+
+  return fresh > 0 ? -1 : minutes
+}
+`
+
+  it('shows no phantom wavefront cell when the starter is filled in as instructed', () => {
+    const run = executeRun({ problem: PROBLEM, source, caseIndex: 'all' })
+    expect(run.diagnostics).toEqual([])
+    expect(run.results.filter((r) => !r.passed)).toEqual([])
+
+    const phantoms: string[] = []
+    for (const result of run.results) {
+      const reader = new TraceReader(result.trace)
+      for (let i = 0; i < reader.frameCount; i += 1) {
+        const queue = maybe(reader, i, 'queue')
+        if (!queue) continue
+        const queued = [...queue.values].map((v) => String(v).slice(1, -1))
+        for (const mark of only(reader, i, 'matrix').marks) {
+          if (mark.class !== 'frontier' || mark.transient) continue
+          const key = `${mark.row},${mark.col}`
+          if (!queued.includes(key)) phantoms.push(`${result.name} frame ${i}: ${key}`)
+        }
+      }
+    }
+    expect(phantoms).toEqual([])
+  })
+})
+
 describe('nothing is shown as rotten before the frame that rots it', () => {
   it.each([...SOLVABLE, ...IMPOSSIBLE])('%s — enqueued only after the write that rots it', (name) => {
     const result = caseByName(name)
@@ -400,8 +499,8 @@ describe('nothing is shown as rotten before the frame that rots it', () => {
     // dequeued in minute N+1 or later. Break this and the rot travels faster than a minute.
     const result = caseByName('farthest orange sets the clock')
     const minuteOf = (groups: string[]): number => {
-      const label = groups.find((g) => /^minute \d+$/.test(g))
-      return label ? Number(label.slice('minute '.length)) : 0
+      const label = groups.find((g) => /^minute \d+\b/.test(g))
+      return label ? Number(/^minute (\d+)\b/.exec(label)?.[1] ?? 0) : 0
     }
 
     const rottedIn = new Map<string, number>()

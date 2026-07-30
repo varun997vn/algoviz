@@ -205,7 +205,12 @@ export function Workbench({
               <WatchPanel watch={reader.watchAt(player.frame)} />
               <GroupOutline groups={currentFrame?.groups ?? []} />
             </aside>
-            <PlayerBar player={player} currentFrame={currentFrame} stepFrames={reader.stepFrames()} />
+            <PlayerBar
+              player={player}
+              currentFrame={currentFrame}
+              stepFrames={reader.stepFrames()}
+              caption={reader.captionAt(player.frame)}
+            />
           </>
         ) : (
           <p className="av-empty" data-testid="nothing-run">

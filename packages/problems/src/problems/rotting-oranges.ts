@@ -76,7 +76,11 @@ export function reference(grid: number[][], viz: Viz): number {
     const wave = frontier.size
     const before = fresh
 
-    viz.group(`minute ${minutes}`, () => {
+    // The wave size goes in the group label. Draining exactly `wave` cells *is* the decision the
+    // whole animation exists to show, and it appeared nowhere in the narration — the count lived
+    // only in the queue panel, and the longest stretch between captions was 27 frames of mechanical
+    // op labels inside one minute. It costs no frame to say it.
+    viz.group(`minute ${minutes} — ${wave} cell(s) to drain`, () => {
       for (let i = 0; i < wave; i += 1) {
         // The cursor moves onto the front cell *before* it is dequeued. `shift()` removes the
         // value and then records, so the one frame that shows a cell leaving the queue — the
@@ -143,10 +147,15 @@ export function reference(grid: number[][], viz: Viz): number {
   // final wave still sitting in the queue — an honest picture of "there was nothing left to rot",
   // but one that reads as "it gave up early" when nothing says otherwise and the only clue is
   // `fresh=0` in the watch panel.
+  //
+  // The `minutes === 0` arm matters: the loop was never entered, so "the cells still queued have
+  // nothing to spread to" described a drain that never happened.
   viz.step(
-    frontier.isEmpty
-      ? `nothing left to rot — ${minutes} minute(s)`
-      : `no fresh oranges left after ${minutes} minute(s) — the ${frontier.size} cell(s) still queued have nothing to spread to`,
+    minutes === 0
+      ? 'there were no fresh oranges to begin with — 0 minutes'
+      : frontier.isEmpty
+        ? `nothing left to rot — ${minutes} minute(s)`
+        : `no fresh oranges left after ${minutes} minute(s) — the ${frontier.size} cell(s) still queued have nothing to spread to`,
   )
   return minutes
 }
@@ -169,8 +178,8 @@ export default function orangesRotting(grid: number[][], viz: Viz): number {
   viz.group('seed — every orange that starts rotten', () => {
     for (let r = 0; r < g.rows; r += 1) {
       for (let c = 0; c < g.cols; c += 1) {
-        // TODO: push every rotten cell onto \`frontier\` (mark it 'frontier'),
-        // and count the fresh ones into \`fresh\`.
+        // TODO: push every rotten cell onto \`frontier\` and then mark it 'frontier' — in that
+        // order, so the mark never leads the queue — and count the fresh ones into \`fresh\`.
       }
     }
     viz.step(\`\${frontier.size} rotten source(s), \${fresh} fresh\`)
@@ -179,20 +188,25 @@ export default function orangesRotting(grid: number[][], viz: Viz): number {
   while (fresh > 0 && !frontier.isEmpty) {
     minutes += 1
     const wave = frontier.size
-    viz.group(\`minute \${minutes}\`, () => {
+    viz.group(\`minute \${minutes} — \${wave} cell(s) to drain\`, () => {
       for (let i = 0; i < wave; i += 1) {
         // Point at the front cell before removing it — \`front()\` reads without recording, so
         // the frame that dequeues already shows which cell it is.
         const [r, c] = coords(frontier.front() as string)
         g.cursor('rotting', r, c)
-        frontier.shift()
         // 'frontier' means "rotten, has not spread yet", so it has to come *off* here. Marks
         // layer rather than replace: adding 'visited' alone leaves both on the cell forever,
         // and the wavefront grows into the whole rotten region.
+        //
+        // Unmarked BEFORE the shift, on purpose. Each of these is a separate frame, so
+        // unmarking afterwards leaves one frame showing a cell in the wavefront that is no
+        // longer in the queue. A mark may trail the queue; it must never lead it.
         g.unmarkClass(r, c, 'frontier')
+        frontier.shift()
         g.mark(r, c, 'visited', \`spread at minute \${minutes}\`)
-        // TODO: for each of the four neighbours that is still fresh, set it to 2,
-        // mark it 'frontier', push it, and decrement \`fresh\`.
+        // TODO: for each of the four neighbours that is still fresh: set it to 2, push it onto
+        // \`frontier\`, and only THEN mark it 'frontier' — same rule as above, the push comes
+        // first so the mark trails the queue instead of leading it. Then decrement \`fresh\`.
       }
       viz.step(\`minute \${minutes}: \${fresh} fresh left\`)
     })

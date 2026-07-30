@@ -19,13 +19,14 @@
     "test:integration": "vitest run --project integration-node --project integration-dom",
     "test:watch": "vitest --project unit",
     "test:coverage": "vitest run --project unit --project integration-node --project integration-dom --coverage",
-    "test:ui": "playwright test",
+    "test:ui": "pnpm build && playwright test",
+    "test:ui:only": "playwright test",
     "test:ui:headed": "playwright test --headed",
     "roadmap:generate": "tsx packages/roadmap/src/cli.ts generate",
     "roadmap:check": "tsx packages/roadmap/src/cli.ts check",
     "mcp": "tsx packages/mcp-server/src/index.ts",
     "verify": "pnpm lint && pnpm typecheck && pnpm roadmap:check && pnpm test",
-    "verify:all": "pnpm verify && pnpm build && pnpm test:ui"
+    "verify:all": "pnpm verify && pnpm test:ui"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

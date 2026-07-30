@@ -115,6 +115,25 @@ export function Cell({
       >
         {text}
       </text>
+      {/*
+        A ruled-out cell gets a slash, so `excluded` is not distinguished from `visited` by fill
+        alone. Both are dim greys and on the frame `excluded` exists for — the -1 answer of a grid
+        search — they are usually the only two fills present, which made retuning the grey a game of
+        moving one collision onto another. `tokens.css` says hue is never the only signal; this is
+        the signal that makes that true here.
+      */}
+      {cls === 'excluded' ? (
+        <line
+          x1={x + 5}
+          y1={y + 5}
+          x2={x + width - 5}
+          y2={y + height - 5}
+          stroke="var(--av-text-dim)"
+          strokeWidth={2}
+          strokeLinecap="round"
+          data-testid="excluded-slash"
+        />
+      ) : null}
       {indexLabel !== undefined ? (
         <text
           x={x + width / 2}

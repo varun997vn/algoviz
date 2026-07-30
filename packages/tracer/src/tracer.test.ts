@@ -206,6 +206,50 @@ describe('grouping and narration', () => {
     expect(read?.watch).toEqual({ best: 7 })
   })
 
+  it('carries a step label forward as the caption, including onto the return frame', () => {
+    // `viz.step` has always documented its label as "carried forward as the player's current
+    // caption" and the player read `frame.label ?? frame.op`, so it was not carried anywhere.
+    // The frame that suffered was the last one: `trace()` appends a `return` frame unconditionally,
+    // so a solution's closing narration landed at N-1 and pressing End showed `return 7` over a
+    // picture identical to the frame that explained it.
+    const { trace: t } = trace((viz) => {
+      const a = viz.array([1, 2])
+      viz.step('the interesting bit')
+      a.mark(0, 'result')
+      return 7
+    })
+    const reader = new TraceReader(t)
+    const last = reader.frameCount - 1
+
+    // The frame keeps its mechanical label — `trace_inspect` and the op log want it — but the
+    // caption shown over the picture is the narration that explains that picture. The first version
+    // of this test asserted `return 7` here, which was the defect written down as an expectation.
+    expect(t.frames[last]?.op).toBe('return')
+    expect(t.frames[last]?.label).toBe('return 7')
+    expect(reader.captionAt(last)).toBe('the interesting bit')
+
+    // The unlabelled mark frame between the step and the return inherits the narration.
+    const marked = t.frames.findIndex((f) => f.label === 'mark 0 as result')
+    expect(reader.captionAt(marked)).toBe('mark 0 as result')
+    const stepAt = t.frames.findIndex((f) => f.label === 'the interesting bit')
+    expect(reader.captionAt(stepAt)).toBe('the interesting bit')
+  })
+
+  it('falls back to the most recent narration when a frame has no label of its own', () => {
+    const t: Trace = {
+      frames: [
+        { index: 0, op: 'step', groups: [], snapshots: {}, label: 'the explanation' },
+        { index: 1, op: 'return', groups: [], snapshots: {} },
+      ],
+      structures: [],
+      opCount: 2,
+    }
+    const reader = new TraceReader(t)
+    expect(reader.captionAt(1)).toBe('the explanation')
+    // Past the end clamps rather than returning undefined.
+    expect(reader.captionAt(99)).toBe('the explanation')
+  })
+
   it('suppresses frames inside quiet() but still counts the ops', () => {
     const { trace: t } = trace((viz) => {
       const a = viz.array([1, 2, 3])

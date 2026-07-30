@@ -94,6 +94,30 @@ export class TraceReader {
     return this.trace.frames.filter((f) => f.op === 'step').map((f) => f.index)
   }
 
+  /**
+   * The caption to show at `index`.
+   *
+   * `viz.step()` has always documented its label as "carried forward as the player's current
+   * caption", and the player never carried it: it read `frame.label ?? frame.op`, so any frame
+   * without a label of its own showed a raw op name. The frame that suffers most is the *last* one
+   * — `trace()` appends a `return` frame unconditionally, so a solution's closing narration lands
+   * at N-1 and someone who pressed End read `return 4` over a picture identical to the frame that
+   * explained it. Narration resolves forward here, the same way snapshots and watch values do.
+   */
+  captionAt(index: number): string | undefined {
+    const at = Math.min(index, this.trace.frames.length - 1)
+    const frame = this.trace.frames[at]
+    // The terminal `return` frame is the exception: it always has a label, and that label is
+    // `return <value>` — pure mechanics, and the value is already on screen in the case bar and the
+    // watch panel. So narration wins there, where it is needed most.
+    if (frame?.label !== undefined && frame.op !== 'return') return frame.label
+    for (let i = at - 1; i >= 0; i -= 1) {
+      const earlier = this.trace.frames[i]
+      if (earlier?.op === 'step' && earlier.label !== undefined) return earlier.label
+    }
+    return frame?.label ?? frame?.op
+  }
+
   /** Watch values resolved at `index` (they persist forward like snapshots do). */
   watchAt(index: number): Record<string, Primitive> | undefined {
     for (let i = Math.min(index, this.trace.frames.length - 1); i >= 0; i -= 1) {
