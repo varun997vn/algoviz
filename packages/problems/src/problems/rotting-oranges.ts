@@ -33,12 +33,13 @@ const DIRS = [
  */
 export function reference(grid: number[][], viz: Viz): number {
   const g = viz.matrix(grid, { name: 'grid' })
-  // The queue holds cells as "row,col" — it only takes primitives, and a string coordinate is
-  // the one encoding that still reads as a coordinate in a 44px queue cell.
+  // The queue holds cells as "(row,col)". It only takes primitives, so a coordinate has to be
+  // encoded somehow, and this is the encoding that still reads as a coordinate both in a 44px
+  // queue cell and in a text dump — `[(1,0) (0,1)]` cannot be misread the way `[1,0 0,1]` can.
   const frontier = viz.queue<string>([], { name: 'frontier' })
-  const cell = (r: number, c: number): string => `${r},${c}`
+  const cell = (r: number, c: number): string => `(${r},${c})`
   const coords = (key: string): [number, number] =>
-    key.split(',').map(Number) as [number, number]
+    key.slice(1, -1).split(',').map(Number) as [number, number]
 
   let minutes = 0
   let fresh = 0
@@ -106,8 +107,8 @@ const starter = `// Multi-source BFS. Every orange that starts rotten is a sourc
 export default function orangesRotting(grid: number[][], viz: Viz): number {
   const g = viz.matrix(grid, { name: 'grid' })
   const frontier = viz.queue<string>([], { name: 'frontier' })
-  const cell = (r: number, c: number) => \`\${r},\${c}\`
-  const coords = (key: string) => key.split(',').map(Number) as [number, number]
+  const cell = (r: number, c: number) => \`(\${r},\${c})\`
+  const coords = (key: string) => key.slice(1, -1).split(',').map(Number) as [number, number]
   const DIRS = [[-1, 0], [1, 0], [0, -1], [0, 1]]
 
   let minutes = 0

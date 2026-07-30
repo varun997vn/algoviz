@@ -14,9 +14,13 @@ import type { ProblemDefinition, Viz } from '../types.js'
  * solution, so instead the two panels split the job: the stack shows *which* days are still
  * waiting and in what order, and `temperatures` shows the readings, with every waiting day
  * marked `pinned`. The monotonic invariant is then a visible property of the *array* — the
- * pinned cells read strictly downhill left to right — while the stack shows the LIFO order that
- * makes it hold. A day flips `pinned -> result` the frame it is popped, and the days still
- * pinned when the scan ends flip to `excluded`: they never warm up, so their answer stays 0.
+ * pinned cells read downhill left to right — while the stack shows the LIFO order that makes it
+ * hold. A day flips `pinned -> result` the frame it is popped, and the days still pinned when the
+ * scan ends flip to `excluded`: they never warm up, so their answer stays 0.
+ *
+ * Note the invariant is *non-increasing*, not strictly decreasing. "Warmer" is strict, so an
+ * equal temperature does not pop, and two tied days sit on the stack together — which is exactly
+ * why the `all equal` and `duplicates mid-array` cases are here.
  */
 export function reference(temperatures: number[], viz: Viz): number[] {
   const t = viz.array(temperatures, { name: 'temperatures' })
@@ -64,8 +68,9 @@ const coldSnap = [...Array.from({ length: 41 }, (_, k) => 100 - k), 100]
 
 const starter = `// Scan the days left to right, keeping a stack of day numbers that are still waiting
 // for a warmer day. A day only survives on the stack while nothing warmer has shown up,
-// so the temperatures of the days on the stack are strictly decreasing bottom to top —
-// which is why today only ever has to pop from the top.
+// so reading the stack from the bottom up the temperatures never increase — which is why
+// today only ever has to pop from the top. (Never increase, not strictly decrease: an equal
+// temperature is not warmer, so tied days stack up together.)
 export default function dailyTemperatures(temperatures: number[], viz: Viz): number[] {
   const t = viz.array(temperatures, { name: 'temperatures' })
   const answer = viz.array<number>(temperatures.length, { name: 'answer' })
@@ -78,7 +83,7 @@ export default function dailyTemperatures(temperatures: number[], viz: Viz): num
     // first warmer day, so its answer is the gap between the two days. Then push today.
     //
     // Invariant to preserve: the stack holds the day numbers still waiting, and their
-    // temperatures are strictly decreasing from the bottom of the stack to the top.
+    // temperatures never increase from the bottom of the stack to the top.
     //
     // Use waiting.top() in the while guard, not waiting.peek() — top() is silent, so the
     // timeline stays one frame per real event.
@@ -160,8 +165,9 @@ export const dailyTemperatures: ProblemDefinition = {
     'A day is answered by the *first* later day that is warmer, so you can answer a day the ' +
       'moment you meet that warmer day — you never need to look forward.',
     'Keep the days you have not answered yet on a stack. Because you only leave a day there ' +
-      'while nothing warmer has arrived, the temperatures on the stack are always strictly ' +
-      'decreasing from the bottom to the top.',
+      'while nothing warmer has arrived, the temperatures on the stack never increase from the ' +
+      'bottom to the top. (Never *increase*, not strictly decrease — an equal temperature is not ' +
+      'warmer, so two tied days sit on the stack together.)',
     'That ordering is why the top of the stack is enough: if today is warmer than the top, pop ' +
       'it and record `today - that day`, and keep popping. Then push today. Every day is pushed ' +
       'once and popped at most once, so the whole scan is O(n).',
