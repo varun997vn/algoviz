@@ -453,7 +453,8 @@ function GridViz({
   const width = cols * (CELL + GAP) + offsetX
   const height = headerH + rows * (CELL + GAP) + 16
   // Row 0 and column 0 of a dp table are the empty-prefix base cases, so character k of an axis
-  // string labels row/column k+1. Undefined for the base row, which leaves it blank — correct.
+  // string labels row/column k+1. Undefined for the base row and column, which then fall through
+  // to the numeric label below — the base cases keep their index, which is what they stand for.
   const axisChar = (axis: 0 | 1, i: number): string | undefined => axisLabels?.[axis]?.[i - 1]
 
   return (

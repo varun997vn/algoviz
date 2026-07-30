@@ -214,9 +214,25 @@ export class VizDpTable<T extends Primitive = Primitive> extends BaseStructure {
 
   set(i: number, value: T): void
   set(i: number, j: number, value: T): void
+  /**
+   * Both overloads sit on the class regardless of `dims`, so either can be called on either shape
+   * and only a run-time check can tell them apart. Both mismatches used to pass silently, and the
+   * 1-D one was the worse of the two: `dp.set(0, 1, 42)` on a 1-D table wrote **`1`** — the column
+   * index, mistaken for the value — and captioned the frame `dp[0] = 1`, a picture and a caption
+   * that agree with each other and with nothing else. (The 2-D mismatch at least wrote a visible
+   * `undefined`.) Neither arm bounds-checked its row index either, so `set(9, v)` on a size-3
+   * table produced `[null × 9, 5]`: exactly the ragged grid `GridViz` silently truncates.
+   */
   set(i: number, second: number | T, third?: T): void {
     if (this.dims === 1) {
-      ;(this.values as (T | null)[])[i] = second as T
+      if (third !== undefined) {
+        throw new TypeError(`${this.name} is 1-D — use set(index, value)`)
+      }
+      const cells = this.values as (T | null)[]
+      if (i < 0 || i >= cells.length) {
+        throw new RangeError(`dp index ${i} out of bounds (0..${cells.length - 1})`)
+      }
+      cells[i] = second as T
       this.pending = [{ row: 0, col: i, class: 'active' }]
       this.rec.record({
         op: 'write',
@@ -227,10 +243,6 @@ export class VizDpTable<T extends Primitive = Primitive> extends BaseStructure {
       const j = second as number
       const row = (this.values as (T | null)[][])[i]
       if (!row) throw new RangeError(`dp row ${i} out of bounds`)
-      // The column was unchecked, and the 1-D overload sits on the class regardless of `dims` — so
-      // `dp.set(1, 7)` on a 2-D table typechecked and wrote `undefined` with no error anywhere,
-      // while `dp.set(1, 7, v)` extended one row past the others into a *ragged* grid that no
-      // consumer handles: `GridViz` takes its column count from row 0 and silently drops the rest.
       if (third === undefined) {
         throw new TypeError(`${this.name} is 2-D — use set(row, col, value)`)
       }

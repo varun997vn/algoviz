@@ -278,9 +278,15 @@ describe('grouping and narration', () => {
   })
 
   it('carries work done inside quiet() onto the next frame that is emitted', () => {
-    // The change this pins alters the snapshot contract for every problem, because `viz.heap`,
-    // `viz.list`, `viz.map`, `viz.set`, `viz.graph`, `viz.tree` and `viz.trie` all build their
-    // initial state inside `rec.quiet` in their constructors.
+    // This comment used to claim the change altered the snapshot contract for every problem,
+    // because `viz.heap`, `viz.list`, `viz.map`, `viz.set`, `viz.graph`, `viz.tree` and `viz.trie`
+    // all build their initial state inside `rec.quiet` in their constructors. That is wrong, and
+    // measurably so: `viz.ts` calls `rec.register(s)` *after* each constructor returns, and
+    // `register` emits an `init` frame carrying that very structure — which consumes the muted
+    // entry before any other frame can inherit it. Across all 18 problems × every case, exactly
+    // one frame in the repo carries a catch-up snapshot: `evaluate-division` frame 2, where a
+    // *hand-written* `viz.quiet` block marks the graph and the next thing to happen is the
+    // creation of another structure. Constructor quiet blocks contribute nothing.
     //
     // A snapshot only exists on frames that touch the structure, so a structure changed *only*
     // while quiet kept resolving to its pre-quiet state — seed a table quietly, narrate "the border
@@ -318,6 +324,34 @@ describe('grouping and narration', () => {
     // And the catch-up happens once — a later frame is not still re-snapshotting `a`.
     const narrated = t.frames.find((f) => f.label === 'the marks are in')
     expect(Object.keys(narrated?.snapshots ?? {})).toEqual([])
+  })
+
+  it('owes no catch-up for a quiet block that only read', () => {
+    // The catch-up was owed on *every* op inside quiet, reads included. A read's whole contribution
+    // to a frame is its transient highlight, and a catch-up snapshot does not carry transients — so
+    // a quiet read forced a snapshot deep-equal to the one already on screen but a **distinct
+    // object**, which is precisely what invariant 2 forbids: `TraceReader` returns the same
+    // reference for an unchanged structure so `React.memo` can skip the redraw. Reads that changed
+    // nothing were redrawing the panel.
+    const { trace: t } = trace((viz) => {
+      const a = viz.array([1, 2, 3], { name: 'a' })
+      const b = viz.array([9], { name: 'b' })
+      viz.quiet(() => {
+        void a[0]
+        a.compare(0, 1)
+      })
+      b.mark(0, 'active')
+      return 0
+    })
+
+    const idOf = (name: string): string => t.structures.find((x) => x.name === name)?.id ?? ''
+    const next = t.frames.find((f) => f.label === 'mark 0 as active')
+    expect(Object.keys(next?.snapshots ?? {})).toEqual([idOf('b')])
+
+    // The identity contract, stated the way a memoised renderer sees it.
+    const reader = new TraceReader(t)
+    const at = t.frames.indexOf(next!)
+    expect(reader.structureAt(idOf('a'), at)).toBe(reader.structureAt(idOf('a'), at - 1))
   })
 
   it('still emits no frames of its own for a quiet block', () => {

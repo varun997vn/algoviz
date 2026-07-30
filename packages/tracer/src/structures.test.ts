@@ -553,6 +553,31 @@ describe('VizDpTable', () => {
     expect(value).toEqual([5, 0, 9])
   })
 
+  it('rejects a 2-D write on a 1-D table, and an index outside it', () => {
+    // The 2-D arm was guarded and the 1-D arm was not, which left the worse of the two mismatches
+    // live. `dp.set(0, 1, 42)` typechecks against the class's own `set(i, j, value)` overload; the
+    // 1-D branch ignored `third` and wrote the *column index* — `dp[0] = 1` — then captioned the
+    // frame `dp[0] = 1`, so the picture and the caption corroborated each other and neither was
+    // the value the solution passed. The 2-D mismatch at least wrote a visible `undefined`.
+    expect(() =>
+      trace((viz) => {
+        const dp = viz.dp1d<number>(3, 0)
+        ;(dp as unknown as { set: (i: number, j: number, v: number) => void }).set(0, 1, 42)
+        return 0
+      }),
+    ).toThrow(/is 1-D — use set\(index, value\)/)
+
+    // And no index bound at all, so a 1-D table could grow past its declared size: `set(9, 5)` on
+    // a table of 3 produced `[null × 9, 5]` — the ragged shape the 2-D column check exists to stop.
+    expect(() =>
+      trace((viz) => {
+        const dp = viz.dp1d<number>(3, 0)
+        dp.set(9, 5)
+        return 0
+      }),
+    ).toThrow(/index 9 out of bounds \(0\.\.2\)/)
+  })
+
   it('marks arbitrary cells', () => {
     const { trace: t } = trace((viz) => {
       const dp = viz.dp1d(2, 0)

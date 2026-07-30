@@ -27,10 +27,11 @@ import type { ProblemDefinition, Viz } from '../types.js'
  * form, but it puts a caret named `i` one cell away from the character `i` names, and a pointer
  * that lies about where it points is worse than an off-by-one in a comment.
  *
- * Known gap, reported rather than worked around: `axisLabels` is stored on the snapshot by
- * `VizDpTable.twoD` and read by *nothing* — neither `DpViz` in `packages/viz` nor the MCP text
- * renderer. A 2-D dp table therefore renders with bare row/column integers no matter what strings
- * it was given. Until that is fixed, `viz.string` + `viz.cursor` stands in for it.
+ * This solution reported that `axisLabels` was stored on the snapshot by `VizDpTable.twoD` and
+ * read by *nothing*, so a 2-D table rendered with bare integers no matter what strings it was
+ * given. `GridViz` reads it now: character k labels row/column k+1, and the base row and column
+ * keep their index. The `viz.string` + `viz.cursor` panels stay — they were never only a stand-in
+ * for the labels, they are how you see *which* character each step is comparing.
  */
 export function reference(text1: string, text2: string, viz: Viz): number {
   const a = viz.string(text1, { name: 'text1' })

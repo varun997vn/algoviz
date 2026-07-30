@@ -357,23 +357,30 @@ describe('GridViz labelling', () => {
     expect(firstRowY).toBeLessThan(lastRowY)
   })
 
-  it('labels the axes with the strings the recurrence is over', () => {
+  it('labels the axes with the strings the recurrence is over, each on its own axis', () => {
     // `viz.dp2d` accepted `axisLabels` from the day it was written and nothing ever read it, so a
     // 2-D table left a viewer no way to know what row 3 stood for. Row/column 0 are the
-    // empty-prefix base cases, so character k labels row k+1.
+    // empty-prefix base cases, so character k labels row k+1 and they keep their index.
+    //
+    // Asserted per label rather than as `textContent.toContain`, which is what this first did:
+    // both strings appear *somewhere* whichever axis they land on, so that version passed with
+    // rows and columns swapped — the single thing worth pinning about a prop nothing had read.
     const container = renderSnapshot({
       kind: 'dp',
       values: [
-        [0, 0],
-        [0, 1],
+        [0, 0, 0],
+        [0, 1, 1],
+        [0, 1, 2],
       ],
       dims: 2,
       marks: [],
       axisLabels: ['ab', 'xy'],
     })
-    const text = container.textContent ?? ''
-    expect(text).toContain('a')
-    expect(text).toContain('x')
+    const labelAt = (axis: 'row' | 'col', i: number): string | undefined =>
+      container.querySelector(`[data-testid="grid-${axis}-label-${i}"]`)?.textContent ?? undefined
+
+    expect([labelAt('row', 0), labelAt('row', 1), labelAt('row', 2)]).toEqual(['0', 'a', 'b'])
+    expect([labelAt('col', 0), labelAt('col', 1), labelAt('col', 2)]).toEqual(['0', 'x', 'y'])
   })
 })
 

@@ -26,18 +26,19 @@ import type { ProblemDefinition, Viz } from '../types.js'
  *    `left spine …` cases pin that, and the picture makes it obvious because the `result` mark
  *    lands on a node with no right sibling anywhere above it.
  *
- * Known API gaps this solution had to work around — both are notes about the tracer, not about
- * the algorithm:
+ * This solution reported two API gaps, and both were closed in the same commit that added it —
+ * so what follows is what the tracer now does, not what this had to work around:
  *
- * - `t.left`/`t.right` light the edge they walked as `'active'` and **nothing ever turns that
- *   off**: `EdgeMark` has no `transient` flag and `TraceReader.withoutTransient` only strips
- *   `snap.marks`, so by the end of a traversal every edge ever walked is still "being considered
- *   right now". `discover()` settles each edge to `'tree'` immediately, which is honest here (a
- *   BFS accepts every child it finds) and keeps the final picture readable.
- * - `VizTree` has no per-node, per-class unmark. `NodeMarkStore.removeClass` exists and only
- *   `exitPath` uses it; the public surface is `unmark(id)` (every class) and `clearMarks(cls)`
- *   (every node). Dropping the `frontier` mark at dequeue therefore has to go through
- *   `unmark(id)`, which is safe *only* because a queued node carries no other mark yet.
+ * - `t.left`/`t.right` used to light the edge they walked as `'active'` with **nothing ever
+ *   turning it off**, because `EdgeMark` had no `transient` flag and `TraceReader` only stripped
+ *   `snap.marks`. Both are fixed: the walk highlight is transient and lasts one frame by
+ *   construction. `discover()` still calls `markEdge(parent, child, 'tree')`, but that is now a
+ *   positive statement rather than a cleanup — a BFS accepts every child it finds, so the edge is
+ *   part of the tree the traversal built, and it should persist after the walk highlight goes.
+ * - `VizTree` had no per-node, per-class unmark, so dropping `frontier` at dequeue meant
+ *   `unmark(id)` — every class at once — which was safe only by the accident that a queued node
+ *   carries no other mark yet. `unmarkClass(id, cls)` exists now and is what this uses; the
+ *   invariant in point 2 no longer depends on that accident holding.
  */
 export function reference(root: (number | null)[], viz: Viz): number[] {
   const t = viz.tree(root, { name: 'tree' })
@@ -62,11 +63,10 @@ export function reference(root: (number | null)[], viz: Viz): number[] {
    * leading it — there is one frame per op, and a node shown on the frontier before it is in the
    * queue is a picture of something that did not happen.
    *
-   * `t.left`/`t.right` have already lit the edge `'active'` and nothing ever turns that off, so
-   * it is settled to `'tree'` here. `markEdge` records no frame of its own, which is why it goes
-   * *before* the `mark` below: that mark's frame is the next one to snapshot the tree, so it
-   * carries the settled edge and `'active'` lasts exactly the one frame that walked it — the
-   * transient semantics `EdgeMark` cannot express on its own.
+   * `t.left`/`t.right` light the edge they walked transiently, so it goes out on its own after one
+   * frame. `markEdge` states the lasting fact instead: this edge is part of the tree the BFS
+   * built. It records no frame of its own, so it rides on the next frame to snapshot the tree —
+   * the `mark` below.
    */
   const discover = (parent: string, child: string | null): void => {
     if (child === null) return
@@ -91,7 +91,10 @@ export function reference(root: (number | null)[], viz: Viz): number[] {
         // `front()` reads without recording, so the frame that dequeues already knows which node
         // it is and the un-marking below can happen before the shift.
         const node = nodeOf(frontier.front() as string)
-        t.unmark(node)
+        // Only the `frontier` class comes off. `unmark(node)` would drop every class on the node,
+        // which happens to be equivalent here and would stop being so the moment a node carried a
+        // mark before it was dequeued.
+        t.unmarkClass(node, 'frontier')
         frontier.shift()
         t.visit(node)
 
@@ -141,9 +144,10 @@ export default function rightSideView(root: (number | null)[], viz: Viz): number
     if (child === null) return
     // TODO: three calls, in this order, and the order is the point:
     //   1. push \`entry(child)\` onto \`frontier\`
-    //   2. settle the edge with \`t.markEdge(parent, child, 'tree')\` — \`t.left\`/\`t.right\` light
-    //      it 'active' and nothing ever turns that off. \`markEdge\` emits no frame of its own,
-    //      so it has to come before a call that does.
+    //   2. record the edge with \`t.markEdge(parent, child, 'tree')\` — \`t.left\`/\`t.right\` light
+    //      it transiently for the one frame that walked it; this says it is part of the tree the
+    //      BFS built, which lasts. \`markEdge\` emits no frame of its own, so it has to come
+    //      before a call that does.
     //   3. mark the child 'frontier'
     // Each of 1 and 3 is its own frame, so marking first shows a node on the frontier before it
     // is in the queue. The mark may trail the queue; it must never lead it.
@@ -163,8 +167,9 @@ export default function rightSideView(root: (number | null)[], viz: Viz): number
         // \`front()\` reads without recording, so the node is known before the shift.
         const node = nodeOf(frontier.front() as string)
         // 'frontier' means "queued, not yet processed", so it has to come off here. Marks layer
-        // rather than replace, so \`t.visit\` alone would leave it on forever.
-        t.unmark(node)
+        // rather than replace, so \`t.visit\` alone would leave it on forever — and \`unmarkClass\`
+        // rather than \`unmark\` so only that one claim is retracted.
+        t.unmarkClass(node, 'frontier')
         frontier.shift()
         t.visit(node)
 
