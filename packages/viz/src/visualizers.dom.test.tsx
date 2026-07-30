@@ -303,6 +303,63 @@ describe('ListViz', () => {
     expect(screen.getByTestId('list-detached-label')).toBeInTheDocument()
   })
 
+  it('draws an arrow for every real link and none that does not exist', () => {
+    // The bug this pins: arrows used to be positional (`i < row.length - 1`), so on every rewire
+    // frame the renderer drew the link that had just been destroyed and drew the newly created
+    // one nowhere. The frame whose whole purpose was to show the rewire showed its opposite.
+    const snapshot = snapshotFrom((viz) => {
+      const l = viz.list([1, 2, 3], { name: 'list' })
+      const first = l.head
+      const second = first?.rawNext
+      // Mid-reversal state: n1 now points backwards at nothing, n2 still points at n3.
+      if (first) first.next = null
+      if (second) l.head = second
+      return 0
+    }, 'lst1')
+
+    const container = renderSnapshot(snapshot)
+    const drawn = [...container.querySelectorAll('[data-testid^="list-edge-"]')].map((el) =>
+      el.getAttribute('data-testid'),
+    )
+    const expected = (snapshot.kind === 'list' ? snapshot.nodes : [])
+      .filter((n) => n.next !== null)
+      .map((n) => `list-edge-${n.id}-${String(n.next)}`)
+
+    expect(drawn.sort()).toEqual(expected.sort())
+    // n1.next is null, so nothing may leave it.
+    expect(container.querySelector('[data-testid^="list-edge-n1-"]')).toBeNull()
+  })
+
+  it('does not invent arrows between unrelated detached nodes', () => {
+    // Confirmed latent bug: two nodes spliced out in a different order than they were created
+    // sat adjacent on the detached row, and the positional renderer asserted a link between them
+    // even though neither pointed at the other.
+    const snapshot = snapshotFrom((viz) => {
+      const l = viz.list([1, 2, 3, 4], { name: 'list' })
+      const n1 = l.head
+      const n2 = n1?.rawNext
+      const n3 = n2?.rawNext
+      const n4 = n3?.rawNext
+      // Splice n3 out, then n2 — both end up pointing at n4, neither at each other.
+      if (n2 && n4) n2.next = n4
+      if (n1 && n4) n1.next = n4
+      if (n3 && n4) n3.next = n4
+      return 0
+    }, 'lst1')
+
+    const container = renderSnapshot(snapshot)
+    const drawn = [...container.querySelectorAll('[data-testid^="list-edge-"]')].map((el) =>
+      el.getAttribute('data-testid'),
+    )
+    // Whatever ends up detached, no arrow may connect two nodes that do not link to each other.
+    const links = new Set(
+      (snapshot.kind === 'list' ? snapshot.nodes : [])
+        .filter((n) => n.next !== null)
+        .map((n) => `list-edge-${n.id}-${String(n.next)}`),
+    )
+    for (const id of drawn) expect(links.has(id ?? ''), `${String(id)} is not a real link`).toBe(true)
+  })
+
   it('draws a cycle as an arc rather than hanging', () => {
     const snapshot = snapshotFrom((viz) => {
       const l = viz.list([1, 2, 3], { name: 'list' })

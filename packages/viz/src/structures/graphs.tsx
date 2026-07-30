@@ -270,7 +270,14 @@ export function TrieViz({ snapshot }: { snapshot: Of<'trie'> }): ReactNode {
  *
  * Nodes unreachable from `head` are drawn on a second row: mid-reversal there is always a
  * detached node, and hiding it is exactly when a linked-list animation stops explaining
- * anything. A cycle renders as an arc back-edge rather than hanging the renderer.
+ * anything.
+ *
+ * **Arrows are derived from each node's real `next`, never from its position in a row.** The
+ * positional version drew, on every rewire frame, the link that had just been destroyed — and
+ * drew the link just created nowhere at all, because it had no concept of an edge between rows.
+ * So the one frame whose entire purpose was to show the rewire showed the opposite. It also
+ * asserted links between unrelated nodes whenever a solution detached nodes out of creation
+ * order. Deriving from `next` fixes both, and lets a back-edge or a cycle render as a curve.
  */
 export function ListViz({ snapshot }: { snapshot: Of<'list'> }): ReactNode {
   const { nodes, head, marks, cursors } = snapshot
@@ -303,7 +310,12 @@ export function ListViz({ snapshot }: { snapshot: Of<'list'> }): ReactNode {
     cursorsByNode.set(c.id, [...(cursorsByNode.get(c.id) ?? []), c.name])
   }
 
-  const renderRow = (row: typeof nodes, y: number, prefix: string): ReactNode[] =>
+  // Position every node once, so an edge can be drawn between any two of them regardless of row.
+  const at = new Map<NodeId, { x: number; y: number }>()
+  chain.forEach((n, i) => at.set(n.id, { x: xOf(i), y: rowY }))
+  detached.forEach((n, i) => at.set(n.id, { x: xOf(i), y: detachedY }))
+
+  const renderCells = (row: typeof nodes, y: number, prefix: string): ReactNode[] =>
     row.flatMap((n, i) => {
       const x = xOf(i)
       const items: ReactNode[] = [
@@ -332,44 +344,82 @@ export function ListViz({ snapshot }: { snapshot: Of<'list'> }): ReactNode {
           </text>,
         )
       }
-      if (i < row.length - 1) {
-        items.push(
+      return items
+    })
+
+  /**
+   * One arrow per real link. A straight line when the target sits immediately to the right on
+   * the same row (the overwhelmingly common case); otherwise a curve, which is what makes a
+   * rewire pointing backwards or across rows visible instead of silently absent.
+   */
+  const renderLinks = (): ReactNode[] =>
+    nodes.flatMap((n) => {
+      if (n.next === null) return []
+      const from = at.get(n.id)
+      const to = at.get(n.next)
+      if (!from || !to) return []
+
+      const testId = `list-edge-${n.id}-${n.next}`
+      const straight = from.y === to.y && to.x - from.x === step
+      if (straight) {
+        return [
           <line
-            key={`${prefix}e${n.id}`}
-            x1={x + CELL}
-            y1={y + CELL / 2}
-            x2={x + step - 6}
-            y2={y + CELL / 2}
+            key={testId}
+            data-testid={testId}
+            x1={from.x + CELL}
+            y1={from.y + CELL / 2}
+            x2={to.x - 6}
+            y2={to.y + CELL / 2}
             stroke="var(--av-edge)"
             strokeWidth={1.5}
             markerEnd="url(#av-arrow-idle)"
           />,
-        )
+        ]
       }
-      return items
+
+      // Curve out from the bottom of the source to the bottom of the target. Backwards and
+      // cross-row links are exactly the interesting ones, so they get the emphasis colour.
+      const sx = from.x + CELL / 2
+      const sy = from.y + CELL
+      const tx = to.x + CELL / 2
+      const ty = to.y + CELL
+      const lift = from.y === to.y ? 34 : 18
+      return [
+        <path
+          key={testId}
+          data-testid={testId}
+          d={`M ${sx} ${sy} Q ${(sx + tx) / 2} ${Math.max(sy, ty) + lift} ${tx} ${ty}`}
+          fill="none"
+          stroke="var(--av-swap)"
+          strokeWidth={2}
+          markerEnd="url(#av-arrow-reversed)"
+        />,
+      ]
     })
 
   return (
     <Scroll>
       <svg width={width} height={height} role="img" aria-label="linked list">
         <ArrowDefs />
-        {renderRow(chain, rowY, '')}
+        {renderLinks()}
+        {renderCells(chain, rowY, '')}
         {cycleTo !== null ? (
-          <path
-            d={`M ${xOf(chain.length - 1) + CELL / 2} ${rowY + CELL} Q ${xOf(chain.length - 1) / 2} ${rowY + CELL + 44} ${xOf(chain.findIndex((n) => n.id === cycleTo)) + CELL / 2} ${rowY + CELL}`}
-            fill="none"
-            stroke="var(--av-swap)"
-            strokeWidth={2}
-            markerEnd="url(#av-arrow-reversed)"
+          <text
+            x={0}
+            y={height - 2}
+            fontSize={10}
+            fill="var(--av-swap)"
             data-testid="list-cycle"
-          />
+          >
+            cycle back to {cycleTo}
+          </text>
         ) : null}
         {detached.length > 0 ? (
           <>
             <text x={0} y={detachedY - 10} fontSize={10} fill="var(--av-text-dim)" data-testid="list-detached-label">
               detached
             </text>
-            {renderRow(detached, detachedY, 'd')}
+            {renderCells(detached, detachedY, 'd')}
           </>
         ) : null}
         {chain.length > 0 ? (

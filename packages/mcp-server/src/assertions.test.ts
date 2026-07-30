@@ -82,6 +82,43 @@ describe('cursor-in-range', () => {
   })
 })
 
+describe('list and tree cursors — the third vacuity path', () => {
+  // Found by a third agent after the first fix. List cursors carry a node `id`, not an `index`
+  // and not row/col, so the original `index === undefined` skip left them vacuous too. The first
+  // fix only closed the absent-cursor and 2-D holes; this closes the node-cursor hole.
+  const listTrace = trace((viz) => {
+    const l = viz.list([1, 2, 3], { name: 'list' })
+    l.cursor('current', l.head)
+    l.cursor('prev', null)
+    return l.toArray()
+  }).trace
+
+  it('FAILS cursor-in-range on a list cursor instead of passing vacuously', () => {
+    const report = checkAssertions(listTrace, [
+      // Absurd bounds that used to pass on a 3-node list.
+      { kind: 'cursor-in-range', structure: 'list', cursor: 'current', min: 999, max: 1000 },
+    ])
+    expect(report.passed).toBe(false)
+    expect(report.failures[0]?.reason).toContain('node cursor')
+  })
+
+  it('FAILS cursor-monotonic on a list cursor instead of passing vacuously', () => {
+    const report = checkAssertions(listTrace, [
+      { kind: 'cursor-monotonic', structure: 'list', cursor: 'current', direction: 'down' },
+    ])
+    expect(report.passed).toBe(false)
+    expect(report.failures[0]?.reason).toContain('no ordinal position')
+  })
+
+  it('still reports an absent cursor on a list as absent', () => {
+    const report = checkAssertions(listTrace, [
+      { kind: 'cursor-in-range', structure: 'list', cursor: 'ghost', min: 0, max: 2 },
+    ])
+    expect(report.passed).toBe(false)
+    expect(report.failures[0]?.reason).toContain('never appears')
+  })
+})
+
 describe('cursor-cell-in-range', () => {
   const gridTrace = trace((viz) => {
     const g = viz.matrix([

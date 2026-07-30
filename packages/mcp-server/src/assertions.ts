@@ -62,6 +62,16 @@ interface AnyCursor {
   index?: number
   row?: number
   col?: number
+  /** List and tree cursors point at a node id, so they have no ordinal position at all. */
+  id?: string | null
+}
+
+/** Which flavour of cursor this is, so an assertion can refuse the ones it cannot check. */
+function cursorFlavour(cursor: AnyCursor): 'linear' | 'cell' | 'node' | 'unknown' {
+  if (cursor.index !== undefined) return 'linear'
+  if (cursor.row !== undefined && cursor.col !== undefined) return 'cell'
+  if ('id' in cursor) return 'node'
+  return 'unknown'
 }
 
 /**
@@ -150,12 +160,18 @@ export function checkAssertions(trace: Trace, assertions: readonly Assertion[]):
           )
           break
         }
-        const twoD = at.find(({ cursor }) => cursor.index === undefined && cursor.row !== undefined)
-        if (twoD) {
+        // Refuse any cursor without a linear index rather than skipping it. Skipping is what made
+        // this assertion vacuous for 2-D cursors (row/col) and for list/tree cursors (node id).
+        const wrongFlavour = at.find(({ cursor }) => cursorFlavour(cursor) !== 'linear')
+        if (wrongFlavour) {
+          const flavour = cursorFlavour(wrongFlavour.cursor)
           fail(
-            `cursor "${assertion.cursor}" on "${assertion.structure}" is a 2-D cursor ` +
-              '(row/col) — use cursor-cell-in-range instead',
-            twoD.frame,
+            `cursor "${assertion.cursor}" on "${assertion.structure}" has no linear index — it is ` +
+              (flavour === 'cell'
+                ? 'a 2-D cursor (row/col); use cursor-cell-in-range'
+                : 'a node cursor (points at a node id, which has no ordinal position), so a ' +
+                  'numeric range is not meaningful — assert on marks or node identity instead'),
+            wrongFlavour.frame,
           )
           break
         }
@@ -225,10 +241,15 @@ export function checkAssertions(trace: Trace, assertions: readonly Assertion[]):
           )
           break
         }
-        if (at.every(({ cursor }) => cursor.index === undefined)) {
+        const notLinear = at.find(({ cursor }) => cursorFlavour(cursor) !== 'linear')
+        if (notLinear) {
+          const flavour = cursorFlavour(notLinear.cursor)
           fail(
-            `cursor "${assertion.cursor}" on "${assertion.structure}" has no linear index ` +
-              '(2-D cursors are not monotonic in one dimension)',
+            `cursor "${assertion.cursor}" on "${assertion.structure}" has no linear index — ` +
+              (flavour === 'cell'
+                ? '2-D cursors are not monotonic in one dimension'
+                : 'node cursors have no ordinal position, so monotonicity is undefined'),
+            notLinear.frame,
           )
           break
         }
