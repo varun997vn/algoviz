@@ -27,6 +27,21 @@ describe('every reference solution passes every one of its own cases', () => {
     })
   }
 
+  it('opens every problem on a case its untouched starter does not already pass', () => {
+    // The workbench opens on case 0, so if the shipped starter happens to answer it correctly the
+    // learner's first impression is a green tick for code they have not written. Twelve of the
+    // thirteen problems already had this property; the one that did not was a boolean problem whose
+    // stub returned `true` and whose first example expected `true`. Asserting it makes the
+    // convention real rather than incidental — it is a property of the product, not of a test.
+    const cheats: string[] = []
+    for (const problem of listProblems()) {
+      const run = executeRun({ problem: problem.slug, source: problem.starter, caseIndex: 0 })
+      if (run.diagnostics.length > 0) continue // a starter that does not compile cannot cheat
+      if (run.results[0]?.passed === true) cheats.push(`${problem.slug} (${problem.cases[0]?.name})`)
+    }
+    expect(cheats).toEqual([])
+  })
+
   it('covers each problem with at least one example and one edge case', () => {
     for (const problem of listProblems()) {
       const tags = problem.cases.flatMap((c) => c.tags ?? [])

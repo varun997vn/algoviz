@@ -145,6 +145,22 @@ export class VizIntervals extends BaseStructure {
     return item
   }
 
+  /**
+   * Like `read`, but typed as present.
+   *
+   * `read` returns `IntervalItem | undefined`, so the one line that should read like the plain
+   * solution needed a non-null assertion — and those are lint-banned outside tests precisely
+   * because the line expressing the algorithm is the wrong place for one. Throws rather than
+   * returning a sentinel, mirroring `VizStack.requireTop()`.
+   */
+  require(index: number): IntervalItem {
+    const item = this.read(index)
+    if (!item) {
+      throw new RangeError(`${this.name} has no interval at index ${index}`)
+    }
+    return item
+  }
+
   /** Reorder to match a sort the solution performed — keeps the picture honest. */
   reorder(order: readonly number[], label = 'sort'): void {
     this.items = order.map((i) => this.items[i]).filter((x): x is IntervalItem => x !== undefined)

@@ -45,7 +45,7 @@ export function ProblemPicker({
     <main className="av-picker">
       <section className="av-picker-intro">
         <h1>LeetCode 75, visualized</h1>
-        <p>
+        <p data-testid="picker-intro" data-ready-count={readyCount}>
           Pick a problem, write your solution against the <code>viz</code> API, and step through
           your own algorithm frame by frame. {readyCount} of {roadmap.problems.length} are
           playable so far — the rest are on the roadmap.

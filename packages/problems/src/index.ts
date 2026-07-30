@@ -6,6 +6,11 @@ import { reverseLinkedList } from './problems/reverse-linked-list.js'
 import { dailyTemperatures } from './problems/daily-temperatures.js'
 import { tribonacci } from './problems/n-th-tribonacci-number.js'
 import { rottingOranges } from './problems/rotting-oranges.js'
+import { kthLargestElementInAnArray } from './problems/kth-largest-element-in-an-array.js'
+import { uniqueNumberOfOccurrences } from './problems/unique-number-of-occurrences.js'
+import { implementTrie } from './problems/implement-trie-prefix-tree.js'
+import { nonOverlappingIntervals } from './problems/non-overlapping-intervals.js'
+import { maximumAverageSubarrayI } from './problems/maximum-average-subarray-i.js'
 import type { ProblemDefinition } from './types.js'
 
 /**
@@ -24,6 +29,11 @@ export const PROBLEMS: readonly ProblemDefinition[] = [
   dailyTemperatures,
   tribonacci,
   rottingOranges,
+  kthLargestElementInAnArray,
+  uniqueNumberOfOccurrences,
+  implementTrie,
+  nonOverlappingIntervals,
+  maximumAverageSubarrayI,
 ]
 
 export function listProblems(): ProblemDefinition[] {
@@ -49,3 +59,5 @@ export function requireProblem(idOrSlug: string): ProblemDefinition {
 export * from './types.js'
 export { containerWithMostWater, countGoodNodes, reorderRoutes }
 export { mergeStringsAlternately, reverseLinkedList, dailyTemperatures, tribonacci, rottingOranges }
+export { kthLargestElementInAnArray, uniqueNumberOfOccurrences, implementTrie }
+export { nonOverlappingIntervals, maximumAverageSubarrayI }
