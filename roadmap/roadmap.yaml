@@ -1,0 +1,1140 @@
+# roadmap/roadmap.yaml — SOURCE OF TRUTH for the LeetCode 75 build-out.
+#
+# Edit this file (or use the algoviz MCP `roadmap_update` tool), then run
+#   pnpm roadmap:generate
+# to regenerate ROADMAP.md. `pnpm roadmap:check` fails CI when they drift apart.
+#
+# status: todo | in-progress | review | blocked | done
+# structures: which tracked structures the visualization needs (drives the coverage matrix).
+version: 1
+set: leetcode-75
+
+categories:
+  - { id: array-string, title: Array / String, order: 1 }
+  - { id: two-pointers, title: Two Pointers, order: 2 }
+  - { id: sliding-window, title: Sliding Window, order: 3 }
+  - { id: prefix-sum, title: Prefix Sum, order: 4 }
+  - { id: hashmap-set, title: HashMap / Set, order: 5 }
+  - { id: stack, title: Stack, order: 6 }
+  - { id: queue, title: Queue, order: 7 }
+  - { id: linked-list, title: Linked List, order: 8 }
+  - { id: binary-tree-dfs, title: Binary Tree - DFS, order: 9 }
+  - { id: binary-tree-bfs, title: Binary Tree - BFS, order: 10 }
+  - { id: bst, title: Binary Search Tree, order: 11 }
+  - { id: graphs-dfs, title: Graphs - DFS, order: 12 }
+  - { id: graphs-bfs, title: Graphs - BFS, order: 13 }
+  - { id: heap, title: Heap / Priority Queue, order: 14 }
+  - { id: binary-search, title: Binary Search, order: 15 }
+  - { id: backtracking, title: Backtracking, order: 16 }
+  - { id: dp-1d, title: DP - 1D, order: 17 }
+  - { id: dp-multi, title: DP - Multidimensional, order: 18 }
+  - { id: bit-manipulation, title: Bit Manipulation, order: 19 }
+  - { id: trie, title: Trie, order: 20 }
+  - { id: intervals, title: Intervals, order: 21 }
+  - { id: monotonic-stack, title: Monotonic Stack, order: 22 }
+
+problems:
+  - id: p1768
+    leetcode: 1768
+    title: Merge Strings Alternately
+    slug: merge-strings-alternately
+    difficulty: easy
+    category: array-string
+    order: 1
+    structures: [ string, cursor ]
+    techniques: [ two-pointers ]
+    status: done
+    branch: claude/leetcode-visualizer-w01nr6
+    pr: 1
+    notes: "trace-verifier: faithful (re-audit). Both carets present at index ===
+      length on the final frame of all 8 cases; step labels name the
+      interleave/tail-drain decision rather than restating the accumulator.
+      Follow-ups from the re-audit's low-severity list also closed: a character
+      is marked consumed in its source before it is appended, \"draining ...
+      from index N\" became \"took [N]\" (it is re-emitted per character, so it
+      named a range it did not mean), and the starter no longer teaches
+      `viz.step(`merged: ${merged}`)`."
+    dependsOn: []
+  - id: p1071
+    leetcode: 1071
+    title: Greatest Common Divisor of Strings
+    slug: greatest-common-divisor-of-strings
+    difficulty: easy
+    category: array-string
+    order: 2
+    structures: [ string ]
+    techniques: [ math, gcd ]
+    status: todo
+    branch: null
+    pr: null
+    notes: null
+    dependsOn: []
+  - id: p1431
+    leetcode: 1431
+    title: Kids With the Greatest Number of Candies
+    slug: kids-with-the-greatest-number-of-candies
+    difficulty: easy
+    category: array-string
+    order: 3
+    structures: [ array ]
+    techniques: [ scan ]
+    status: todo
+    branch: null
+    pr: null
+    notes: null
+    dependsOn: []
+  - id: p605
+    leetcode: 605
+    title: Can Place Flowers
+    slug: can-place-flowers
+    difficulty: easy
+    category: array-string
+    order: 4
+    structures: [ array, cursor ]
+    techniques: [ greedy ]
+    status: todo
+    branch: null
+    pr: null
+    notes: null
+    dependsOn: []
+  - id: p345
+    leetcode: 345
+    title: Reverse Vowels of a String
+    slug: reverse-vowels-of-a-string
+    difficulty: easy
+    category: array-string
+    order: 5
+    structures: [ string, cursor ]
+    techniques: [ two-pointers ]
+    status: todo
+    branch: null
+    pr: null
+    notes: null
+    dependsOn: []
+  - id: p151
+    leetcode: 151
+    title: Reverse Words in a String
+    slug: reverse-words-in-a-string
+    difficulty: medium
+    category: array-string
+    order: 6
+    structures: [ string, array ]
+    techniques: [ parsing ]
+    status: todo
+    branch: null
+    pr: null
+    notes: null
+    dependsOn: []
+  - id: p238
+    leetcode: 238
+    title: Product of Array Except Self
+    slug: product-of-array-except-self
+    difficulty: medium
+    category: array-string
+    order: 7
+    structures: [ array ]
+    techniques: [ prefix-product ]
+    status: todo
+    branch: null
+    pr: null
+    notes: null
+    dependsOn: []
+  - id: p334
+    leetcode: 334
+    title: Increasing Triplet Subsequence
+    slug: increasing-triplet-subsequence
+    difficulty: medium
+    category: array-string
+    order: 8
+    structures: [ array, cursor ]
+    techniques: [ greedy ]
+    status: todo
+    branch: null
+    pr: null
+    notes: null
+    dependsOn: []
+  - id: p443
+    leetcode: 443
+    title: String Compression
+    slug: string-compression
+    difficulty: medium
+    category: array-string
+    order: 9
+    structures: [ string, cursor ]
+    techniques: [ two-pointers ]
+    status: todo
+    branch: null
+    pr: null
+    notes: null
+    dependsOn: []
+  - id: p283
+    leetcode: 283
+    title: Move Zeroes
+    slug: move-zeroes
+    difficulty: easy
+    category: two-pointers
+    order: 10
+    structures: [ array, cursor ]
+    techniques: [ two-pointers ]
+    status: todo
+    branch: null
+    pr: null
+    notes: null
+    dependsOn: []
+  - id: p392
+    leetcode: 392
+    title: Is Subsequence
+    slug: is-subsequence
+    difficulty: easy
+    category: two-pointers
+    order: 11
+    structures: [ string, cursor ]
+    techniques: [ two-pointers ]
+    status: todo
+    branch: null
+    pr: null
+    notes: null
+    dependsOn: []
+  - id: p011
+    leetcode: 11
+    title: Container With Most Water
+    slug: container-with-most-water
+    difficulty: medium
+    category: two-pointers
+    order: 12
+    structures: [ array, cursor ]
+    techniques: [ two-pointers, greedy ]
+    status: done
+    branch: claude/leetcode-visualizer-w01nr6
+    pr: null
+    notes: "Reference problem for the array visualizer, named cursors and the
+      two-pointer idiom."
+    dependsOn: []
+  - id: p1679
+    leetcode: 1679
+    title: Max Number of K-Sum Pairs
+    slug: max-number-of-k-sum-pairs
+    difficulty: medium
+    category: two-pointers
+    order: 13
+    structures: [ array, cursor, map ]
+    techniques: [ two-pointers, hashing ]
+    status: todo
+    branch: null
+    pr: null
+    notes: null
+    dependsOn: []
+  - id: p643
+    leetcode: 643
+    title: Maximum Average Subarray I
+    slug: maximum-average-subarray-i
+    difficulty: easy
+    category: sliding-window
+    order: 14
+    structures: [ array, cursor ]
+    techniques: [ sliding-window ]
+    status: todo
+    branch: null
+    pr: null
+    notes: null
+    dependsOn: []
+  - id: p1456
+    leetcode: 1456
+    title: Maximum Number of Vowels in a Substring of Given Length
+    slug: maximum-number-of-vowels-in-a-substring-of-given-length
+    difficulty: medium
+    category: sliding-window
+    order: 15
+    structures: [ string, cursor ]
+    techniques: [ sliding-window ]
+    status: todo
+    branch: null
+    pr: null
+    notes: null
+    dependsOn: []
+  - id: p1004
+    leetcode: 1004
+    title: Max Consecutive Ones III
+    slug: max-consecutive-ones-iii
+    difficulty: medium
+    category: sliding-window
+    order: 16
+    structures: [ array, cursor ]
+    techniques: [ sliding-window ]
+    status: todo
+    branch: null
+    pr: null
+    notes: null
+    dependsOn: []
+  - id: p1493
+    leetcode: 1493
+    title: "Longest Subarray of 1's After Deleting One Element"
+    slug: longest-subarray-of-1s-after-deleting-one-element
+    difficulty: medium
+    category: sliding-window
+    order: 17
+    structures: [ array, cursor ]
+    techniques: [ sliding-window ]
+    status: todo
+    branch: null
+    pr: null
+    notes: null
+    dependsOn: []
+  - id: p1732
+    leetcode: 1732
+    title: Find the Highest Altitude
+    slug: find-the-highest-altitude
+    difficulty: easy
+    category: prefix-sum
+    order: 18
+    structures: [ array ]
+    techniques: [ prefix-sum ]
+    status: todo
+    branch: null
+    pr: null
+    notes: null
+    dependsOn: []
+  - id: p724
+    leetcode: 724
+    title: Find Pivot Index
+    slug: find-pivot-index
+    difficulty: easy
+    category: prefix-sum
+    order: 19
+    structures: [ array, cursor ]
+    techniques: [ prefix-sum ]
+    status: todo
+    branch: null
+    pr: null
+    notes: null
+    dependsOn: []
+  - id: p2215
+    leetcode: 2215
+    title: Find the Difference of Two Arrays
+    slug: find-the-difference-of-two-arrays
+    difficulty: easy
+    category: hashmap-set
+    order: 20
+    structures: [ set, array ]
+    techniques: [ hashing ]
+    status: todo
+    branch: null
+    pr: null
+    notes: null
+    dependsOn: []
+  - id: p1207
+    leetcode: 1207
+    title: Unique Number of Occurrences
+    slug: unique-number-of-occurrences
+    difficulty: easy
+    category: hashmap-set
+    order: 21
+    structures: [ map, set ]
+    techniques: [ hashing, counting ]
+    status: todo
+    branch: null
+    pr: null
+    notes: null
+    dependsOn: []
+  - id: p1657
+    leetcode: 1657
+    title: Determine if Two Strings Are Close
+    slug: determine-if-two-strings-are-close
+    difficulty: medium
+    category: hashmap-set
+    order: 22
+    structures: [ map, set ]
+    techniques: [ hashing, counting ]
+    status: todo
+    branch: null
+    pr: null
+    notes: null
+    dependsOn: []
+  - id: p2352
+    leetcode: 2352
+    title: Equal Row and Column Pairs
+    slug: equal-row-and-column-pairs
+    difficulty: medium
+    category: hashmap-set
+    order: 23
+    structures: [ matrix, map ]
+    techniques: [ hashing ]
+    status: todo
+    branch: null
+    pr: null
+    notes: null
+    dependsOn: []
+  - id: p2390
+    leetcode: 2390
+    title: Removing Stars From a String
+    slug: removing-stars-from-a-string
+    difficulty: medium
+    category: stack
+    order: 24
+    structures: [ stack, string ]
+    techniques: [ stack ]
+    status: todo
+    branch: null
+    pr: null
+    notes: null
+    dependsOn: []
+  - id: p735
+    leetcode: 735
+    title: Asteroid Collision
+    slug: asteroid-collision
+    difficulty: medium
+    category: stack
+    order: 25
+    structures: [ stack, array ]
+    techniques: [ stack, simulation ]
+    status: todo
+    branch: null
+    pr: null
+    notes: null
+    dependsOn: []
+  - id: p394
+    leetcode: 394
+    title: Decode String
+    slug: decode-string
+    difficulty: medium
+    category: stack
+    order: 26
+    structures: [ stack, string ]
+    techniques: [ stack, parsing ]
+    status: todo
+    branch: null
+    pr: null
+    notes: null
+    dependsOn: []
+  - id: p933
+    leetcode: 933
+    title: Number of Recent Calls
+    slug: number-of-recent-calls
+    difficulty: easy
+    category: queue
+    order: 27
+    structures: [ queue ]
+    techniques: [ queue, design ]
+    status: todo
+    branch: null
+    pr: null
+    notes: null
+    dependsOn: []
+  - id: p649
+    leetcode: 649
+    title: Dota2 Senate
+    slug: dota2-senate
+    difficulty: medium
+    category: queue
+    order: 28
+    structures: [ queue, string ]
+    techniques: [ queue, simulation ]
+    status: todo
+    branch: null
+    pr: null
+    notes: null
+    dependsOn: []
+  - id: p2095
+    leetcode: 2095
+    title: Delete the Middle Node of a Linked List
+    slug: delete-the-middle-node-of-a-linked-list
+    difficulty: medium
+    category: linked-list
+    order: 29
+    structures: [ list, cursor ]
+    techniques: [ fast-slow-pointers ]
+    status: todo
+    branch: null
+    pr: null
+    notes: null
+    dependsOn: []
+  - id: p328
+    leetcode: 328
+    title: Odd Even Linked List
+    slug: odd-even-linked-list
+    difficulty: medium
+    category: linked-list
+    order: 30
+    structures: [ list, cursor ]
+    techniques: [ pointer-rewiring ]
+    status: todo
+    branch: null
+    pr: null
+    notes: null
+    dependsOn: []
+  - id: p206
+    leetcode: 206
+    title: Reverse Linked List
+    slug: reverse-linked-list
+    difficulty: easy
+    category: linked-list
+    order: 31
+    structures: [ list, cursor ]
+    techniques: [ pointer-rewiring ]
+    status: done
+    branch: claude/leetcode-visualizer-w01nr6
+    pr: 1
+    notes: "trace-verifier: reference faithful (re-audit) — 0 caret/watch
+      disagreements over 1604 checks, arrows derived from real `next` links with
+      0 missing or phantom on all 24 frames of the example, 4n+4 frames,
+      detached row non-empty through the whole run. The re-audit found the fix
+      had landed only in the reference: the starter still prescribed
+      single-pointer `list.cursor()` calls and `list.head = prev`, and a
+      solution following it contradicted itself on 10 of 29 frames. Starter
+      rewritten to teach `setCursors` and head-before-advance; an integration
+      test transcribes its guidance and applies the same check, and the old
+      guidance fails it with 15 contradictions. The `next` stash also gained a
+      caret for the span where it is genuinely a third node — in the watch panel
+      alone it equalled `current` on every narrated frame."
+    dependsOn: []
+  - id: p2130
+    leetcode: 2130
+    title: Maximum Twin Sum of a Linked List
+    slug: maximum-twin-sum-of-a-linked-list
+    difficulty: medium
+    category: linked-list
+    order: 32
+    structures: [ list, cursor, array ]
+    techniques: [ fast-slow-pointers ]
+    status: todo
+    branch: null
+    pr: null
+    notes: null
+    dependsOn: []
+  - id: p104
+    leetcode: 104
+    title: Maximum Depth of Binary Tree
+    slug: maximum-depth-of-binary-tree
+    difficulty: easy
+    category: binary-tree-dfs
+    order: 33
+    structures: [ tree ]
+    techniques: [ dfs, recursion ]
+    status: todo
+    branch: null
+    pr: null
+    notes: null
+    dependsOn: []
+  - id: p872
+    leetcode: 872
+    title: Leaf-Similar Trees
+    slug: leaf-similar-trees
+    difficulty: easy
+    category: binary-tree-dfs
+    order: 34
+    structures: [ tree, array ]
+    techniques: [ dfs ]
+    status: todo
+    branch: null
+    pr: null
+    notes: null
+    dependsOn: []
+  - id: p1448
+    leetcode: 1448
+    title: Count Good Nodes in Binary Tree
+    slug: count-good-nodes-in-binary-tree
+    difficulty: medium
+    category: binary-tree-dfs
+    order: 35
+    structures: [ tree ]
+    techniques: [ dfs, recursion ]
+    status: done
+    branch: claude/leetcode-visualizer-w01nr6
+    pr: null
+    notes: "Reference problem for tree layout and recursion: path state must unwind
+      as the stack pops."
+    dependsOn: []
+  - id: p437
+    leetcode: 437
+    title: Path Sum III
+    slug: path-sum-iii
+    difficulty: medium
+    category: binary-tree-dfs
+    order: 36
+    structures: [ tree, map ]
+    techniques: [ dfs, prefix-sum ]
+    status: todo
+    branch: null
+    pr: null
+    notes: null
+    dependsOn: []
+  - id: p1372
+    leetcode: 1372
+    title: Longest ZigZag Path in a Binary Tree
+    slug: longest-zigzag-path-in-a-binary-tree
+    difficulty: medium
+    category: binary-tree-dfs
+    order: 37
+    structures: [ tree ]
+    techniques: [ dfs ]
+    status: todo
+    branch: null
+    pr: null
+    notes: null
+    dependsOn: []
+  - id: p236
+    leetcode: 236
+    title: Lowest Common Ancestor of a Binary Tree
+    slug: lowest-common-ancestor-of-a-binary-tree
+    difficulty: medium
+    category: binary-tree-dfs
+    order: 38
+    structures: [ tree ]
+    techniques: [ dfs, recursion ]
+    status: todo
+    branch: null
+    pr: null
+    notes: null
+    dependsOn: []
+  - id: p199
+    leetcode: 199
+    title: Binary Tree Right Side View
+    slug: binary-tree-right-side-view
+    difficulty: medium
+    category: binary-tree-bfs
+    order: 39
+    structures: [ tree, queue, array ]
+    techniques: [ bfs ]
+    status: todo
+    branch: null
+    pr: null
+    notes: null
+    dependsOn: []
+  - id: p1161
+    leetcode: 1161
+    title: Maximum Level Sum of a Binary Tree
+    slug: maximum-level-sum-of-a-binary-tree
+    difficulty: medium
+    category: binary-tree-bfs
+    order: 40
+    structures: [ tree, queue ]
+    techniques: [ bfs ]
+    status: todo
+    branch: null
+    pr: null
+    notes: null
+    dependsOn: []
+  - id: p700
+    leetcode: 700
+    title: Search in a Binary Search Tree
+    slug: search-in-a-binary-search-tree
+    difficulty: easy
+    category: bst
+    order: 41
+    structures: [ tree ]
+    techniques: [ bst ]
+    status: todo
+    branch: null
+    pr: null
+    notes: null
+    dependsOn: []
+  - id: p450
+    leetcode: 450
+    title: Delete Node in a BST
+    slug: delete-node-in-a-bst
+    difficulty: medium
+    category: bst
+    order: 42
+    structures: [ tree ]
+    techniques: [ bst ]
+    status: todo
+    branch: null
+    pr: null
+    notes: null
+    dependsOn: []
+  - id: p841
+    leetcode: 841
+    title: Keys and Rooms
+    slug: keys-and-rooms
+    difficulty: medium
+    category: graphs-dfs
+    order: 43
+    structures: [ graph, set ]
+    techniques: [ dfs ]
+    status: todo
+    branch: null
+    pr: null
+    notes: null
+    dependsOn: []
+  - id: p547
+    leetcode: 547
+    title: Number of Provinces
+    slug: number-of-provinces
+    difficulty: medium
+    category: graphs-dfs
+    order: 44
+    structures: [ graph, matrix, set ]
+    techniques: [ dfs, union-find ]
+    status: todo
+    branch: null
+    pr: null
+    notes: null
+    dependsOn: []
+  - id: p1466
+    leetcode: 1466
+    title: Reorder Routes to Make All Paths Lead to the City Zero
+    slug: reorder-routes-to-make-all-paths-lead-to-the-city-zero
+    difficulty: medium
+    category: graphs-dfs
+    order: 45
+    structures: [ graph, set ]
+    techniques: [ dfs ]
+    status: done
+    branch: claude/leetcode-visualizer-w01nr6
+    pr: null
+    notes: Reference problem for graph layout and directed edge state (tree /
+      rejected / reversed).
+    dependsOn: []
+  - id: p399
+    leetcode: 399
+    title: Evaluate Division
+    slug: evaluate-division
+    difficulty: medium
+    category: graphs-dfs
+    order: 46
+    structures: [ graph, map ]
+    techniques: [ dfs, weighted-graph ]
+    status: todo
+    branch: null
+    pr: null
+    notes: null
+    dependsOn: []
+  - id: p1926
+    leetcode: 1926
+    title: Nearest Exit from Entrance in Maze
+    slug: nearest-exit-from-entrance-in-maze
+    difficulty: medium
+    category: graphs-bfs
+    order: 47
+    structures: [ matrix, queue ]
+    techniques: [ bfs, grid ]
+    status: todo
+    branch: null
+    pr: null
+    notes: null
+    dependsOn: []
+  - id: p994
+    leetcode: 994
+    title: Rotting Oranges
+    slug: rotting-oranges
+    difficulty: medium
+    category: graphs-bfs
+    order: 48
+    structures: [ matrix, queue ]
+    techniques: [ bfs, grid, multi-source ]
+    status: done
+    branch: claude/leetcode-visualizer-w01nr6
+    pr: 1
+    notes: "trace-verifier: faithful (re-audit; the first audit returned
+      misleading). The major finding is verified fixed from snapshots, not
+      rendered colour, on all 12 cases at every frame: `frontier` marks are a
+      subset of the queue everywhere, exactly equal on narrated and final
+      frames, `watch.frontier` agrees with the mark count, and no cell ever
+      carries both `frontier` and `visited`. Max frontier marks on any frame is
+      now 1-4 and always equals the queue length on narrated frames. The dequeue
+      frame's cursor already sits on the cell being removed in all 12 cases, and
+      the queued-but-unmarked cell during pickup is always either the one under
+      the caret or the one that frame's own enqueue names, so the lag is never
+      arbitrary. The re-audit then found the same starter-versus-reference gap
+      as 206: the starter prescribed the inverted order and reintroduced a
+      phantom wavefront on 86 frames. Fixed, and an integration test now asserts
+      the invariant against the starter's guidance rather than only the
+      reference."
+    dependsOn: []
+  - id: p215
+    leetcode: 215
+    title: Kth Largest Element in an Array
+    slug: kth-largest-element-in-an-array
+    difficulty: medium
+    category: heap
+    order: 49
+    structures: [ heap, array ]
+    techniques: [ heap, quickselect ]
+    status: todo
+    branch: null
+    pr: null
+    notes: null
+    dependsOn: []
+  - id: p2336
+    leetcode: 2336
+    title: Smallest Number in Infinite Set
+    slug: smallest-number-in-infinite-set
+    difficulty: medium
+    category: heap
+    order: 50
+    structures: [ heap, set ]
+    techniques: [ heap, design ]
+    status: todo
+    branch: null
+    pr: null
+    notes: null
+    dependsOn: []
+  - id: p2542
+    leetcode: 2542
+    title: Maximum Subsequence Score
+    slug: maximum-subsequence-score
+    difficulty: medium
+    category: heap
+    order: 51
+    structures: [ heap, array ]
+    techniques: [ heap, greedy, sorting ]
+    status: todo
+    branch: null
+    pr: null
+    notes: null
+    dependsOn: []
+  - id: p2462
+    leetcode: 2462
+    title: Total Cost to Hire K Workers
+    slug: total-cost-to-hire-k-workers
+    difficulty: medium
+    category: heap
+    order: 52
+    structures: [ heap, array, cursor ]
+    techniques: [ heap, two-pointers ]
+    status: todo
+    branch: null
+    pr: null
+    notes: null
+    dependsOn: []
+  - id: p374
+    leetcode: 374
+    title: Guess Number Higher or Lower
+    slug: guess-number-higher-or-lower
+    difficulty: easy
+    category: binary-search
+    order: 53
+    structures: [ array, cursor ]
+    techniques: [ binary-search ]
+    status: todo
+    branch: null
+    pr: null
+    notes: null
+    dependsOn: []
+  - id: p2300
+    leetcode: 2300
+    title: Successful Pairs of Spells and Potions
+    slug: successful-pairs-of-spells-and-potions
+    difficulty: medium
+    category: binary-search
+    order: 54
+    structures: [ array, cursor ]
+    techniques: [ binary-search, sorting ]
+    status: todo
+    branch: null
+    pr: null
+    notes: null
+    dependsOn: []
+  - id: p162
+    leetcode: 162
+    title: Find Peak Element
+    slug: find-peak-element
+    difficulty: medium
+    category: binary-search
+    order: 55
+    structures: [ array, cursor ]
+    techniques: [ binary-search ]
+    status: todo
+    branch: null
+    pr: null
+    notes: null
+    dependsOn: []
+  - id: p875
+    leetcode: 875
+    title: Koko Eating Bananas
+    slug: koko-eating-bananas
+    difficulty: medium
+    category: binary-search
+    order: 56
+    structures: [ array, cursor ]
+    techniques: [ binary-search, answer-space ]
+    status: todo
+    branch: null
+    pr: null
+    notes: null
+    dependsOn: []
+  - id: p017
+    leetcode: 17
+    title: Letter Combinations of a Phone Number
+    slug: letter-combinations-of-a-phone-number
+    difficulty: medium
+    category: backtracking
+    order: 57
+    structures: [ tree, array, string ]
+    techniques: [ backtracking ]
+    status: todo
+    branch: null
+    pr: null
+    notes: null
+    dependsOn: []
+  - id: p216
+    leetcode: 216
+    title: Combination Sum III
+    slug: combination-sum-iii
+    difficulty: medium
+    category: backtracking
+    order: 58
+    structures: [ tree, array ]
+    techniques: [ backtracking, pruning ]
+    status: todo
+    branch: null
+    pr: null
+    notes: null
+    dependsOn: []
+  - id: p1137
+    leetcode: 1137
+    title: N-th Tribonacci Number
+    slug: n-th-tribonacci-number
+    difficulty: easy
+    category: dp-1d
+    order: 59
+    structures: [ dp ]
+    techniques: [ dp, memoization ]
+    status: done
+    branch: claude/leetcode-visualizer-w01nr6
+    pr: 1
+    notes: "trace-verifier: faithful. The dp table fills left to right with
+      `dependsOn` lighting the three recurrence inputs on their own frame and
+      clearing after it, so no stale dependency marks survive. `VizDpTable` is
+      generic in the cell type, so the line that is the recurrence is
+      cast-free."
+    dependsOn: []
+  - id: p746
+    leetcode: 746
+    title: Min Cost Climbing Stairs
+    slug: min-cost-climbing-stairs
+    difficulty: easy
+    category: dp-1d
+    order: 60
+    structures: [ dp, array ]
+    techniques: [ dp ]
+    status: todo
+    branch: null
+    pr: null
+    notes: null
+    dependsOn: []
+  - id: p198
+    leetcode: 198
+    title: House Robber
+    slug: house-robber
+    difficulty: medium
+    category: dp-1d
+    order: 61
+    structures: [ dp, array ]
+    techniques: [ dp ]
+    status: todo
+    branch: null
+    pr: null
+    notes: null
+    dependsOn: []
+  - id: p790
+    leetcode: 790
+    title: Domino and Tromino Tiling
+    slug: domino-and-tromino-tiling
+    difficulty: medium
+    category: dp-1d
+    order: 62
+    structures: [ dp ]
+    techniques: [ dp, recurrence ]
+    status: todo
+    branch: null
+    pr: null
+    notes: null
+    dependsOn: []
+  - id: p062
+    leetcode: 62
+    title: Unique Paths
+    slug: unique-paths
+    difficulty: medium
+    category: dp-multi
+    order: 63
+    structures: [ dp ]
+    techniques: [ dp, grid ]
+    status: todo
+    branch: null
+    pr: null
+    notes: null
+    dependsOn: []
+  - id: p1143
+    leetcode: 1143
+    title: Longest Common Subsequence
+    slug: longest-common-subsequence
+    difficulty: medium
+    category: dp-multi
+    order: 64
+    structures: [ dp, string ]
+    techniques: [ dp ]
+    status: todo
+    branch: null
+    pr: null
+    notes: null
+    dependsOn: []
+  - id: p714
+    leetcode: 714
+    title: Best Time to Buy and Sell Stock with Transaction Fee
+    slug: best-time-to-buy-and-sell-stock-with-transaction-fee
+    difficulty: medium
+    category: dp-multi
+    order: 65
+    structures: [ dp, array ]
+    techniques: [ dp, state-machine ]
+    status: todo
+    branch: null
+    pr: null
+    notes: null
+    dependsOn: []
+  - id: p072
+    leetcode: 72
+    title: Edit Distance
+    slug: edit-distance
+    difficulty: medium
+    category: dp-multi
+    order: 66
+    structures: [ dp, string ]
+    techniques: [ dp ]
+    status: todo
+    branch: null
+    pr: null
+    notes: null
+    dependsOn: []
+  - id: p338
+    leetcode: 338
+    title: Counting Bits
+    slug: counting-bits
+    difficulty: easy
+    category: bit-manipulation
+    order: 67
+    structures: [ array, dp ]
+    techniques: [ bit-manipulation, dp ]
+    status: todo
+    branch: null
+    pr: null
+    notes: null
+    dependsOn: []
+  - id: p136
+    leetcode: 136
+    title: Single Number
+    slug: single-number
+    difficulty: easy
+    category: bit-manipulation
+    order: 68
+    structures: [ array ]
+    techniques: [ bit-manipulation, xor ]
+    status: todo
+    branch: null
+    pr: null
+    notes: null
+    dependsOn: []
+  - id: p1318
+    leetcode: 1318
+    title: Minimum Flips to Make a OR b Equal to c
+    slug: minimum-flips-to-make-a-or-b-equal-to-c
+    difficulty: medium
+    category: bit-manipulation
+    order: 69
+    structures: [ array ]
+    techniques: [ bit-manipulation ]
+    status: todo
+    branch: null
+    pr: null
+    notes: null
+    dependsOn: []
+  - id: p208
+    leetcode: 208
+    title: Implement Trie (Prefix Tree)
+    slug: implement-trie-prefix-tree
+    difficulty: medium
+    category: trie
+    order: 70
+    structures: [ trie ]
+    techniques: [ trie, design ]
+    status: todo
+    branch: null
+    pr: null
+    notes: null
+    dependsOn: []
+  - id: p1268
+    leetcode: 1268
+    title: Search Suggestions System
+    slug: search-suggestions-system
+    difficulty: medium
+    category: trie
+    order: 71
+    structures: [ trie, array ]
+    techniques: [ trie, sorting ]
+    status: todo
+    branch: null
+    pr: null
+    notes: null
+    dependsOn: []
+  - id: p435
+    leetcode: 435
+    title: Non-overlapping Intervals
+    slug: non-overlapping-intervals
+    difficulty: medium
+    category: intervals
+    order: 72
+    structures: [ intervals ]
+    techniques: [ greedy, sorting ]
+    status: todo
+    branch: null
+    pr: null
+    notes: null
+    dependsOn: []
+  - id: p452
+    leetcode: 452
+    title: Minimum Number of Arrows to Burst Balloons
+    slug: minimum-number-of-arrows-to-burst-balloons
+    difficulty: medium
+    category: intervals
+    order: 73
+    structures: [ intervals ]
+    techniques: [ greedy, sorting ]
+    status: todo
+    branch: null
+    pr: null
+    notes: null
+    dependsOn: []
+  - id: p739
+    leetcode: 739
+    title: Daily Temperatures
+    slug: daily-temperatures
+    difficulty: medium
+    category: monotonic-stack
+    order: 74
+    structures: [ stack, array ]
+    techniques: [ monotonic-stack ]
+    status: done
+    branch: claude/leetcode-visualizer-w01nr6
+    pr: 1
+    notes: 'trace-verifier: faithful (re-audit; the first audit returned
+      misleading). Verified on all 10 cases: zero non-blank answer cells that
+      differ from the final answer at any frame (the cold snap is legitimately
+      blank for frames 0-211, since nothing is decided until day 41 arrives);
+      popLag zero; all 122 compare frames light exactly the stack top and the
+      day caret with labels whose quoted temperatures match; all 153 step labels
+      re-derived from the stack snapshot at their own frame with zero false
+      claims, including the tie case "day 41 at 100 is not warmer than day 0 at
+      100". Frame count fell 498 to 420 on the cold snap. Three sub-frame
+      ordering lags the re-audit found were then fixed: the answer is written
+      before the mark that announces it, `resolved` is incremented beside that
+      mark, and the closing narration states the panel mapping while it is still
+      observable. Residual, and an API gap rather than a solution defect: `push`
+      and `mark pinned` are two frames, so "rightmost pinned cell == top of
+      stack" is briefly false on push frames. See the "one frame per op" note in
+      CLAUDE.md.'
+    dependsOn: []
+  - id: p901
+    leetcode: 901
+    title: Online Stock Span
+    slug: online-stock-span
+    difficulty: medium
+    category: monotonic-stack
+    order: 75
+    structures: [ stack, array ]
+    techniques: [ monotonic-stack, design ]
+    status: todo
+    branch: null
+    pr: null
+    notes: null
+    dependsOn: []

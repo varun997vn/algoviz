@@ -1,0 +1,32 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "lib": [
+      "ES2022"
+    ]
+  },
+  "include": [
+    "src/**/*"
+  ],
+  "exclude": [
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx",
+    "src/**/*.dom.test.tsx"
+  ],
+  "references": [
+    {
+      "path": "../tracer"
+    },
+    {
+      "path": "../problems"
+    },
+    {
+      "path": "../runner"
+    },
+    {
+      "path": "../roadmap"
+    }
+  ]
+}

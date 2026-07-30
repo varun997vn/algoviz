@@ -1,0 +1,10 @@
+{
+  "files": [],
+  "references": [
+    { "path": "./packages/tracer" },
+    { "path": "./packages/runner" },
+    { "path": "./packages/problems" },
+    { "path": "./packages/mcp-server" },
+    { "path": "./apps/web" }
+  ]
+}

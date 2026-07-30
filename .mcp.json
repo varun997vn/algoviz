@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "algoviz": {
+      "command": "pnpm",
+      "args": ["-s", "mcp"]
+    }
+  }
+}
