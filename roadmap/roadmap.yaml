@@ -422,8 +422,8 @@ problems:
     order: 26
     structures: [ stack, string ]
     techniques: [ stack, parsing ]
-    status: todo
-    branch: null
+    status: in-progress
+    branch: claude/leetcode-visualizer-w01nr6
     pr: null
     notes: null
     dependsOn: []
@@ -616,8 +616,8 @@ problems:
     order: 39
     structures: [ tree, queue, array ]
     techniques: [ bfs ]
-    status: todo
-    branch: null
+    status: in-progress
+    branch: claude/leetcode-visualizer-w01nr6
     pr: null
     notes: null
     dependsOn: []
@@ -715,8 +715,8 @@ problems:
     order: 46
     structures: [ graph, map ]
     techniques: [ dfs, weighted-graph ]
-    status: todo
-    branch: null
+    status: in-progress
+    branch: claude/leetcode-visualizer-w01nr6
     pr: null
     notes: null
     dependsOn: []
@@ -901,8 +901,8 @@ problems:
     order: 57
     structures: [ tree, array, string ]
     techniques: [ backtracking ]
-    status: todo
-    branch: null
+    status: in-progress
+    branch: claude/leetcode-visualizer-w01nr6
     pr: null
     notes: null
     dependsOn: []
@@ -1003,8 +1003,8 @@ problems:
     order: 64
     structures: [ dp, string ]
     techniques: [ dp ]
-    status: todo
-    branch: null
+    status: in-progress
+    branch: claude/leetcode-visualizer-w01nr6
     pr: null
     notes: null
     dependsOn: []
