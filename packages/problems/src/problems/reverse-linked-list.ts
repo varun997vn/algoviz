@@ -39,6 +39,14 @@ export function reference(head: number[], viz: Viz): number[] {
 
   while (current) {
     next = current.rawNext // stash the rest of the list before clobbering the link
+
+    // All three references at once, while they are all distinct: `prev` behind, `current` about to
+    // be rewired, `next` saved. Naming the stash in the watch panel alone was half a fix — by the
+    // time the iteration narrated itself, `next` had already been copied into `current`, so the
+    // panel showed the crux as a duplicate of something else and no node on the canvas was ever
+    // labelled as the rest of the list.
+    list.setCursors({ prev, current, next })
+
     current.next = prev // the entire algorithm is this one rewire
 
     // Recorded *before* the locals advance, so the carets on screen still describe the state this
@@ -49,10 +57,11 @@ export function reference(head: number[], viz: Viz): number[] {
 
     prev = current
     current = next
+    next = null // consumed: leaving it set would show a caret duplicating `current`
 
-    // Both pointers move as one frame, so there is no instant where one has advanced and the
-    // other has not, and no instant where they appear to collide.
-    list.setCursors({ prev, current })
+    // All the pointers move as one frame, so there is no instant where one has advanced and the
+    // others have not, and no instant where two of them appear to collide.
+    list.setCursors({ prev, current, next })
     viz.step(
       current
         ? `reversed ${prev.rawValue}, next up ${current.rawValue}`
@@ -60,7 +69,6 @@ export function reference(head: number[], viz: Viz): number[] {
     )
   }
 
-  next = null
   if (prev) list.mark(prev, 'result', 'new head')
   return list.toArray()
 }
@@ -72,22 +80,31 @@ export default function reverseList(head: number[], viz: Viz): number[] {
   const list = viz.list(head, { name: 'list' })
   let current = list.head
   let prev: typeof current = null
-  list.cursor('prev', prev)
-  list.cursor('current', current)
+  let next: typeof current = null
+  // setCursors moves every named pointer in ONE frame. list.cursor() moves one at a time,
+  // which forces an order, and every order leaves a frame where a caret has moved and the
+  // others have not — so the canvas contradicts the watch panel rendered beside it.
+  list.setCursors({ prev, current, next })
   viz.watch(() => ({
     prev: prev ? prev.rawValue : 'null',
     current: current ? current.rawValue : 'null',
+    next: next ? next.rawValue : 'null',
   }))
+
+  if (!current) viz.step('empty list — nothing to reverse')
 
   while (current) {
     // INVARIANT: everything from prev backwards is already reversed, and current is the
     // head of the part nothing has touched yet.
     //
-    // TODO: stash current.rawNext (rawNext does not record a frame), point current.next
-    // at prev, then advance prev and current. Assign list.head = prev as well, so the
-    // reversed prefix stays on the main row and the untouched suffix renders as detached.
-    list.cursor('current', current)
-    list.cursor('prev', prev)
+    // TODO: stash current.rawNext into next (rawNext does not record a frame) and show all
+    // three references with setCursors while they are still distinct. Then point
+    // current.next at prev.
+    //
+    // Assign list.head = current — NOT list.head = prev — and do it BEFORE advancing the
+    // locals. The node you just rewired is the new head, so writing it after the advance
+    // draws every caret one step stale. Finally advance prev and current, clear next now
+    // that it has been consumed, and setCursors once more before narrating.
     viz.step('rewire one link')
     break
   }

@@ -198,7 +198,7 @@ describe('the canvas agrees with the watch panel', () => {
         id ? String(snap.nodes.find((n) => n.id === id)?.value ?? 'null') : 'null'
       const caret = new Map(snap.cursors.map((c) => [c.name, c.id]))
 
-      for (const name of ['prev', 'current']) {
+      for (const name of ['prev', 'current', 'next']) {
         const onCanvas = valueOf(caret.get(name))
         const inPanel = String(watch[name])
         if (onCanvas !== inPanel) {
@@ -215,6 +215,98 @@ describe('the canvas agrees with the watch panel', () => {
     const reader = new TraceReader(result.results[0]!.trace)
     const mid = Math.floor(reader.frameCount / 2)
     expect(Object.keys(reader.watchAt(mid) ?? {}).sort()).toEqual(['current', 'next', 'prev'])
+  })
+
+  it('labels the stash on the canvas, on a frame where it is distinct from the others', () => {
+    // Putting `next` in the watch panel was half a fix: by the time each iteration narrated
+    // itself the stash had already been copied into `current`, so on every narrated frame of
+    // every case the panel showed `next === current` — the crux rendered as a duplicate of
+    // something else, and no node on the canvas ever labelled as the rest of the saved list.
+    const result = executeRun({ problem: 'reverse-linked-list', useReference: true, caseIndex: 0 })
+    const trace = result.results[0]!.trace
+    const reader = new TraceReader(trace)
+    const listId = trace.structures.find((s) => s.kind === 'list')!.id
+
+    const framesShowingStash = new Set<number>()
+    for (let i = 0; i < reader.frameCount; i += 1) {
+      const snap = reader.structureAt(listId, i)
+      if (snap?.kind !== 'list') continue
+      const by = new Map(snap.cursors.map((c) => [c.name, c.id]))
+      const stash = by.get('next')
+      if (stash == null) continue
+      framesShowingStash.add(i)
+      // While it is on screen it is always a third node, never a relabelling of another caret.
+      expect(stash, `frame ${i}: the stash duplicates another caret`).not.toBe(by.get('current'))
+      expect(stash, `frame ${i}: the stash duplicates another caret`).not.toBe(by.get('prev'))
+    }
+    // Every rewire but the last has a stash to show, and it is on screen for that whole span.
+    expect(framesShowingStash.size).toBeGreaterThanOrEqual(INPUT.length - 1)
+
+    // And it is never left set once consumed, which is what made it a duplicate before.
+    for (const i of reader.stepFrames()) {
+      const snap = reader.structureAt(listId, i)
+      if (snap?.kind !== 'list') continue
+      const by = new Map(snap.cursors.map((c) => [c.name, c.id]))
+      expect(by.get('next'), `frame ${i} still shows a consumed stash`).toBe(null)
+    }
+  })
+
+  it('is what the starter tells a learner to write, not just what the reference does', () => {
+    // The fix landed in the reference and the starter kept prescribing the defect: two
+    // single-pointer `list.cursor()` calls and "assign list.head = prev". A solution following
+    // that TODO literally still contradicted itself on 10 of its 29 frames — and on a product
+    // whose premise is watching *your own* code run, the learner's trace is the artifact that
+    // matters. This is the starter's guidance, transcribed, with the same check applied.
+    const source = `
+export default function reverseList(head: number[], viz: Viz): number[] {
+  const list = viz.list(head, { name: 'list' })
+  let current = list.head
+  let prev: typeof current = null
+  let next: typeof current = null
+  list.setCursors({ prev, current, next })
+  viz.watch(() => ({
+    prev: prev ? prev.rawValue : 'null',
+    current: current ? current.rawValue : 'null',
+    next: next ? next.rawValue : 'null',
+  }))
+
+  while (current) {
+    next = current.rawNext
+    list.setCursors({ prev, current, next })
+    current.next = prev
+    list.head = current
+    prev = current
+    current = next
+    next = null
+    list.setCursors({ prev, current, next })
+    viz.step('rewire one link')
+  }
+
+  return list.toArray()
+}
+`
+    const run = executeRun({ problem: 'reverse-linked-list', source, caseIndex: 0 })
+    expect(run.diagnostics).toEqual([])
+    expect(run.results[0]?.passed).toBe(true)
+
+    const trace = run.results[0]!.trace
+    const reader = new TraceReader(trace)
+    const listId = trace.structures.find((s) => s.kind === 'list')!.id
+    const disagreements: string[] = []
+    for (let i = 0; i < reader.frameCount; i += 1) {
+      const snap = reader.structureAt(listId, i)
+      const watch = reader.watchAt(i)
+      if (snap?.kind !== 'list' || !watch) continue
+      const caret = new Map(snap.cursors.map((c) => [c.name, c.id]))
+      for (const name of ['prev', 'current', 'next']) {
+        const id = caret.get(name)
+        const onCanvas = id ? String(snap.nodes.find((n) => n.id === id)?.value ?? 'null') : 'null'
+        if (onCanvas !== String(watch[name])) {
+          disagreements.push(`frame ${i}: canvas ${name}=${onCanvas}, panel ${name}=${watch[name]}`)
+        }
+      }
+    }
+    expect(disagreements).toEqual([])
   })
 
   it('narrates the empty list instead of saying nothing at all', () => {
