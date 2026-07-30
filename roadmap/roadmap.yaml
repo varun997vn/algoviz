@@ -233,8 +233,8 @@ problems:
     order: 14
     structures: [ array, cursor ]
     techniques: [ sliding-window ]
-    status: todo
-    branch: null
+    status: in-progress
+    branch: claude/leetcode-visualizer-w01nr6
     pr: null
     notes: null
     dependsOn: []
@@ -331,8 +331,8 @@ problems:
     order: 21
     structures: [ map, set ]
     techniques: [ hashing, counting ]
-    status: todo
-    branch: null
+    status: in-progress
+    branch: claude/leetcode-visualizer-w01nr6
     pr: null
     notes: null
     dependsOn: []
@@ -750,8 +750,8 @@ problems:
     order: 49
     structures: [ heap, array ]
     techniques: [ heap, quickselect ]
-    status: todo
-    branch: null
+    status: in-progress
+    branch: claude/leetcode-visualizer-w01nr6
     pr: null
     notes: null
     dependsOn: []
@@ -1048,8 +1048,8 @@ problems:
     order: 70
     structures: [ trie ]
     techniques: [ trie, design ]
-    status: todo
-    branch: null
+    status: in-progress
+    branch: claude/leetcode-visualizer-w01nr6
     pr: null
     notes: null
     dependsOn: []
@@ -1076,8 +1076,8 @@ problems:
     order: 72
     structures: [ intervals ]
     techniques: [ greedy, sorting ]
-    status: todo
-    branch: null
+    status: in-progress
+    branch: claude/leetcode-visualizer-w01nr6
     pr: null
     notes: null
     dependsOn: []
