@@ -1,0 +1,238 @@
+import type { ProblemDefinition, Viz } from '../types.js'
+
+/**
+ * LeetCode 215 — Kth Largest Element in an Array.
+ *
+ * The first problem to drive `VizHeap`, and the reason a heap visualizer is worth having: the
+ * answer is a single number, so *nothing* about the return value explains why a heap was the
+ * right tool. What has to be on screen is the invariant — **a min-heap capped at k holds the k
+ * largest values seen so far, so its root is the k-th largest** — and the only way to see that
+ * it is maintained is to watch the root leave the moment something bigger arrives, and watch the
+ * replacement sift down until the smallest survivor is back on top.
+ *
+ * Three panels split the job, the way Daily Temperatures splits stack and readings:
+ *
+ *  - `nums` carries the scan. A value that loses to the root is marked `excluded` on the spot,
+ *    and that verdict is permanent: the root only ever rises, so a value that could not beat it
+ *    then can never beat it later. Cells that are *not* excluded are the ones that got into the
+ *    heap at some point — which is not the same as still being in it, so the array deliberately
+ *    makes no membership claim. Membership is what the heap panel is for, and duplicated values
+ *    make "which cell did that evicted 5 come from?" unanswerable without bookkeeping that would
+ *    not survive the "reads like the interview solution" rule.
+ *  - `the k largest so far` is the heap itself, rendered as its array *and* the implied tree.
+ *    Every comparison and every swap of both sifts is a frame, so the restoration of the heap
+ *    property after an eviction is watchable rather than instantaneous.
+ *  - `k-th largest so far` is the payoff panel: once the heap is full, the root is written into
+ *    the cell for the element just processed. It is blank until then — with fewer than k values
+ *    seen there is no k-th largest yet, and `{ fill: null }` says so instead of asserting a zero
+ *    that is indistinguishable from a real answer of zero. Reading it left to right shows the
+ *    quantity the algorithm is tracking climbing to the returned value, and it is the panel that
+ *    makes the invariant checkable frame by frame instead of only at the end.
+ *
+ * `peek()` is the silent twin, used both for the guard and inside `viz.watch` — reading the root
+ * to decide is not itself an event, and a watch sampler that recorded frames would recurse.
+ *
+ * Two things about `VizHeap` shaped this solution and are worth knowing before changing it:
+ *
+ *  - It has no recording comparison — no twin of `VizArray.compare(i, j)` — so the one decision
+ *    this algorithm makes ("is x bigger than the root?") is narrated but never *lit*. The
+ *    eviction and both sifts that follow are fully animated; the frame where the choice is made
+ *    is not, and `(top.peek() as number)` is the cast that a `compareRoot(value)` twin would
+ *    remove along with the blind spot.
+ *  - Its marks are keyed by **array slot** and are not moved when it swaps or pops, so a mark set
+ *    while the heap is still working drifts onto whatever value later sifts into that slot. That
+ *    is why the only mark here is set after the loop has finished: index 0 is the root, nothing
+ *    moves afterwards, so `result` lands on the answer and stays on it.
+ */
+export function reference(nums: number[], k: number, viz: Viz): number {
+  const a = viz.array(nums, { name: 'nums' })
+  // A min-heap, capped at k. The root is the weakest value we are still keeping, so it is the
+  // first thing to go and it is also, once the heap is full, the answer so far.
+  const top = viz.heap<number>([], { name: 'the k largest so far' })
+  const kth = viz.array<number>(nums.length, { name: 'k-th largest so far', fill: null })
+  const i = viz.cursor('i', 0, a)
+  viz.watch(() => ({ i: i.value, kept: top.size, kth: top.peek() ?? null }))
+
+  for (i.value = 0; i.value < a.length; i.inc()) {
+    const x = a[i.value]
+    if (top.size < k) {
+      top.push(x)
+      viz.step(
+        `keeping ${x} — only ${top.size} of ${k} values so far, so nothing can be ruled out yet`,
+      )
+    } else if (x > (top.peek() as number)) {
+      // The heap is full and `x` beats its weakest member, so that member is out. `pop` lifts the
+      // last leaf to the root and sifts it down; `push` puts `x` at the next leaf and sifts it up.
+      // Both sifts are frames, which is the entire point of animating this with a heap.
+      const evicted = top.pop() as number
+      top.push(x)
+      viz.step(
+        `${x} beats the weakest kept value ${evicted} — ${evicted} drops out, ${x} sifts into place, ` +
+          `and the ${ordinal(k)} largest is now ${top.peek()}`,
+      )
+    } else {
+      a.mark(i.value, 'excluded', `not bigger than the ${ordinal(k)} largest so far`)
+      viz.step(
+        `${x} is not bigger than the ${ordinal(k)} largest so far (${top.peek()}) — the root only ever ` +
+          `rises, so ${x} can never reach the top ${k}`,
+      )
+    }
+    // Written *after* the branch, so the panel never reports a k-th largest the heap has not
+    // settled on yet, and only once there are k values to be k-th among.
+    if (top.size === k) kth[i.value] = top.peek() as number
+  }
+
+  const answer = top.peek() as number
+  // Marked here rather than as soon as the heap fills: `VizHeap` marks belong to array slots, not
+  // to values, and it never moves them when it swaps — so a `result` on the root set mid-run
+  // would sit still while values sifted underneath it. After the loop nothing moves again, so
+  // slot 0 is the answer for good. It is the last thing the animation says: of the k values still
+  // standing, the one on top is the k-th largest overall.
+  top.mark(0, 'result', `the ${ordinal(k)} largest`)
+  viz.step(
+    `the heap holds the ${k} largest values in ${a.length}, and the smallest of them — its root, ` +
+      `${answer} — is the ${ordinal(k)} largest`,
+  )
+  return answer
+}
+
+/** `1st`, `2nd`, `3rd`, `4th`… so the narration does not say "the 1th largest". */
+function ordinal(k: number): string {
+  const teen = k % 100
+  if (teen >= 11 && teen <= 13) return `${k}th`
+  return `${k}${['th', 'st', 'nd', 'rd'][k % 10] ?? 'th'}`
+}
+
+/**
+ * A fixed permutation of 1..120: `(j * 37) % 120 + 1`, and 37 is coprime with 120 so every value
+ * appears exactly once. The k-th largest of a permutation of 1..n is `n - k + 1` with no
+ * hand-checking, and the order is scrambled enough that the heap keeps evicting throughout —
+ * a sorted input would exercise only one branch.
+ */
+const scrambled = Array.from({ length: 120 }, (_, j) => ((j * 37) % 120) + 1)
+
+const starter = `// Keep a min-heap of at most k values. Because the heap is capped at k and only ever
+// holds the largest values seen so far, its root — the *smallest* thing you are keeping —
+// is the k-th largest so far. That is the whole trick: to know the k-th largest you never
+// need to sort, you only need to know which k values are still in the running.
+export default function findKthLargest(nums: number[], k: number, viz: Viz): number {
+  const a = viz.array(nums, { name: 'nums' })
+  const top = viz.heap<number>([], { name: 'the k largest so far' })
+  // { fill: null } seeds the panel blank: before k values have been seen there is no k-th
+  // largest yet, and a blank cell says that where a 0 would look like a real answer.
+  const kth = viz.array<number>(nums.length, { name: 'k-th largest so far', fill: null })
+  const i = viz.cursor('i', 0, a)
+  viz.watch(() => ({ i: i.value, kept: top.size, kth: top.peek() ?? null }))
+
+  for (i.value = 0; i.value < a.length; i.inc()) {
+    const x = a[i.value]
+    // TODO: three cases.
+    //   - fewer than k values kept: x joins, no question asked.
+    //   - x beats the root: the root is no longer in the top k, so pop it and push x.
+    //   - otherwise: x loses to the weakest value you are keeping, so it can never be in
+    //     the top k — mark it 'excluded' and move on.
+    // top.peek() reads the root without recording a frame, which is what you want in a guard.
+    viz.step('at ' + x)
+
+    // Once the heap is full the root is the answer so far; record it so the panel shows the
+    // k-th largest climbing towards the final one.
+    if (top.size === k) kth[i.value] = top.peek() as number
+  }
+
+  // TODO: return the root — the smallest of the k largest values.
+  return 0
+}
+`
+
+export const kthLargestElementInAnArray: ProblemDefinition = {
+  id: 'p215',
+  leetcode: 215,
+  slug: 'kth-largest-element-in-an-array',
+  title: 'Kth Largest Element in an Array',
+  difficulty: 'medium',
+  category: 'heap-priority-queue',
+  statement:
+    'Given an integer array `nums` and an integer `k`, return the `k`-th largest element in the ' +
+    'array. That is the `k`-th element in sorted-descending order, **not** the `k`-th distinct ' +
+    'value — duplicates each take a place. Solve it without sorting the whole array.',
+  structures: ['array', 'heap'],
+  comparator: 'deep',
+  entry: 'findKthLargest',
+  starter,
+  reference: reference as ProblemDefinition['reference'],
+  cases: [
+    { name: 'example', args: [[3, 2, 1, 5, 6, 4], 2], expected: 5, tags: ['example'] },
+    {
+      name: 'example with duplicates — the 4th largest is a repeated value',
+      args: [[3, 2, 3, 1, 2, 4, 5, 5, 6], 4],
+      expected: 4,
+      tags: ['example'],
+    },
+    { name: 'k = 1 — just the maximum', args: [[2, 1, 9, 3], 1], expected: 9, tags: ['example'] },
+    {
+      name: 'single element, k = 1 — the smallest legal input',
+      args: [[1], 1],
+      expected: 1,
+      tags: ['edge'],
+    },
+    {
+      name: 'k = n — the minimum, and the heap never evicts anything',
+      args: [[7, 6, 5, 4], 4],
+      expected: 4,
+      tags: ['edge'],
+    },
+    {
+      name: 'all equal — ties still take separate places',
+      args: [[5, 5, 5, 5], 3],
+      expected: 5,
+      tags: ['edge'],
+    },
+    {
+      name: 'duplicates straddling the boundary',
+      args: [[1, 2, 2, 3], 2],
+      expected: 2,
+      tags: ['edge'],
+    },
+    {
+      name: 'all negative — the k-th largest is the least negative but one',
+      args: [[-1, -1, -2, -3], 2],
+      expected: -1,
+      tags: ['edge'],
+    },
+    {
+      name: 'descending input — the heap fills and then rejects everything after',
+      args: [[9, 8, 7, 6, 5], 3],
+      expected: 7,
+      tags: ['edge'],
+    },
+    {
+      name: 'ascending input — every element after the first k evicts the root',
+      args: [[1, 2, 3, 4, 5, 6], 2],
+      expected: 5,
+      tags: ['edge'],
+    },
+    {
+      name: 'constraint bounds, k in the middle',
+      args: [[10000, -10000, 0, 10000, -10000], 3],
+      expected: 0,
+      tags: ['edge'],
+    },
+    {
+      name: '120 scrambled values, k = 17',
+      args: [scrambled, 17],
+      expected: 104,
+      tags: ['large'],
+    },
+  ],
+  hints: [
+    'You do not need the whole array sorted — you only need to know which k values are the ' +
+      'largest, and which of *those* is the smallest. Everything else can be thrown away as ' +
+      'soon as you see it.',
+    'Keep at most k values in a min-heap. Once it holds k values, its root is the smallest ' +
+      'thing you are keeping, so it is exactly the k-th largest of everything seen so far.',
+    'For each new value: if the heap holds fewer than k, push it. Otherwise compare it with the ' +
+      'root — if it is bigger, the root can no longer be in the top k, so pop the root and push ' +
+      'the new value; if it is not bigger, discard it, because the root only ever rises. The ' +
+      'answer is the root at the end. That is O(n log k) with O(k) memory.',
+  ],
+}
