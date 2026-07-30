@@ -14,6 +14,15 @@ import type { MarkClass, Primitive, Trace, VizOptions } from './types.js'
 import type { StructureInit } from './structures/base.js'
 
 /**
+ * What `viz.cursor` will attach to: any tracked structure, or a raw structure id.
+ *
+ * `viz.array` returns a proxy exposing `$id`; every other structure extends `BaseStructure` and
+ * exposes `id`. Both are accepted, and a required property on each arm means an object with
+ * neither is a compile error rather than a caret that silently renders nowhere.
+ */
+export type AttachTarget = { $id: string } | { id: string } | string
+
+/**
  * The instrumentation API a solution is written against.
  *
  * Design rule, enforced by review: **if an instrumented solution doesn't read like the plain
@@ -108,19 +117,23 @@ export class Viz {
     return s
   }
 
-  dp1d(size: number, fill: Primitive = 0, init: StructureInit = {}): VizDpTable {
-    const s = VizDpTable.oneD(this.rec, size, fill, init)
+  dp1d<T extends Primitive = number>(
+    size: number,
+    fill: T | null = null,
+    init: StructureInit = {},
+  ): VizDpTable<T> {
+    const s = VizDpTable.oneD<T>(this.rec, size, fill, init)
     this.rec.register(s)
     return s
   }
 
-  dp2d(
+  dp2d<T extends Primitive = number>(
     rows: number,
     cols: number,
-    fill: Primitive = 0,
+    fill: T | null = null,
     init: StructureInit & { axisLabels?: [string, string] } = {},
-  ): VizDpTable {
-    const s = VizDpTable.twoD(this.rec, rows, cols, fill, init)
+  ): VizDpTable<T> {
+    const s = VizDpTable.twoD<T>(this.rec, rows, cols, fill, init)
     this.rec.register(s)
     return s
   }
@@ -142,9 +155,33 @@ export class Viz {
 
   // ---- cursors, narration, escape hatches ----------------------------------
 
-  /** A named index. Attach to an array/string so it renders as a labelled caret. */
-  cursor(name: string, start = 0, attachTo?: { $id?: string } | string, cls: MarkClass = 'active'): VizCursor {
-    const id = typeof attachTo === 'string' ? attachTo : attachTo?.$id
+  /**
+   * A named index. Attach to an array or string so it renders as a labelled caret.
+   *
+   * `attachTo` takes any tracked structure, a raw structure id, or nothing (in which case the
+   * cursor binds to the first structure declared — right for the common single-array solution).
+   *
+   * It used to read only `.$id`, which the `viz.array` proxy exposes but `BaseStructure` does not.
+   * So `viz.cursor('i', 0, someString)` type-checked, silently bound to the *wrong* structure, and
+   * rendered as a missing caret with no error anywhere — while `cursor-in-range` passed vacuously
+   * because the cursor was absent from the structure being asserted about. Accepting `.id` too is
+   * the fix; `AttachTarget` deliberately has no optional-only members, so passing something with
+   * neither is now a type error rather than a silent no-op.
+   */
+  cursor(
+    name: string,
+    start = 0,
+    attachTo?: AttachTarget,
+    cls: MarkClass = 'active',
+  ): VizCursor {
+    const id =
+      attachTo === undefined
+        ? undefined
+        : typeof attachTo === 'string'
+          ? attachTo
+          : '$id' in attachTo
+            ? attachTo.$id
+            : attachTo.id
     const c = new VizCursor(this.rec, name, start, id, cls)
     this.rec.registerCursor(c)
     return c

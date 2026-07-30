@@ -61,9 +61,30 @@ export class VizStack<T extends Primitive> extends BaseStructure {
     return this.values[this.values.length - 1]
   }
 
+  /**
+   * Like `top()`, but typed as present.
+   *
+   * A monotonic-stack guard reads `temps[stack.requireTop()] < today` after an `isEmpty` check.
+   * With `top()` alone that line needs a cast, because non-null assertions are lint-banned outside
+   * tests — a cast in the one line that expresses the algorithm is exactly what the style rule
+   * exists to prevent. Throws rather than returning a sentinel, so a genuine logic error surfaces.
+   */
+  requireTop(): T {
+    if (this.values.length === 0) {
+      throw new RangeError(`${this.name} is empty — guard with isEmpty before calling requireTop()`)
+    }
+    return this.values[this.values.length - 1] as T
+  }
+
   mark(index: number, cls: MarkClass, note?: string): void {
     this.marks.set(index, cls, note)
     this.rec.record({ op: 'mark', structure: this, label: `mark ${index} as ${cls}` })
+  }
+
+  /** Symmetry with VizArray — the next monotonic-stack problem will want it. */
+  clearMarks(cls?: MarkClass): void {
+    this.marks.clear(cls)
+    this.rec.record({ op: 'mark', structure: this, label: cls ? `clear ${cls} marks` : 'clear marks' })
   }
 
   toArray(): T[] {

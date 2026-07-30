@@ -122,14 +122,22 @@ export class VizMatrix<T extends Primitive> extends BaseStructure {
  * a specific order, and the interesting thing to see is *which cells the current cell depends
  * on*. `dependsOn()` marks those without the solution having to manage marks by hand.
  */
-export class VizDpTable extends BaseStructure {
+/**
+ * Generic in the cell type on purpose.
+ *
+ * A non-generic `get(): Primitive` forced `dp.set(i, (dp.get(i-1) as number) + (dp.get(i-2) as
+ * number) + ...)` — three casts in the single line that *is* the recurrence, which is exactly the
+ * "instrumented code reads like homework" failure this project exists to avoid. `VizMatrix<T>` was
+ * already generic; dp was the outlier, and nine dp problems are queued behind it.
+ */
+export class VizDpTable<T extends Primitive = Primitive> extends BaseStructure {
   readonly kind: StructureKind = 'dp'
   private readonly marks = new Mark2DStore()
   private pending: Mark2D[] | undefined
 
   private constructor(
     rec: Recorder,
-    private readonly values: Primitive[] | Primitive[][],
+    private readonly values: (T | null)[] | (T | null)[][],
     readonly dims: 1 | 2,
     name: string | undefined,
     private readonly axisLabels: [string, string] | undefined,
@@ -137,19 +145,24 @@ export class VizDpTable extends BaseStructure {
     super(rec, 'dp', name, 'dp')
   }
 
-  static oneD(rec: Recorder, size: number, fill: Primitive, init: StructureInit = {}): VizDpTable {
-    return new VizDpTable(rec, new Array<Primitive>(size).fill(fill), 1, init.name, undefined)
+  static oneD<T extends Primitive>(
+    rec: Recorder,
+    size: number,
+    fill: T | null = null,
+    init: StructureInit = {},
+  ): VizDpTable<T> {
+    return new VizDpTable<T>(rec, new Array<T | null>(size).fill(fill), 1, init.name, undefined)
   }
 
-  static twoD(
+  static twoD<T extends Primitive>(
     rec: Recorder,
     rows: number,
     cols: number,
-    fill: Primitive,
+    fill: T | null = null,
     init: StructureInit & { axisLabels?: [string, string] } = {},
-  ): VizDpTable {
-    const grid = Array.from({ length: rows }, () => new Array<Primitive>(cols).fill(fill))
-    return new VizDpTable(rec, grid, 2, init.name, init.axisLabels)
+  ): VizDpTable<T> {
+    const grid = Array.from({ length: rows }, () => new Array<T | null>(cols).fill(fill))
+    return new VizDpTable<T>(rec, grid, 2, init.name, init.axisLabels)
   }
 
   override snapshot(_transient?: readonly Mark[]): StructureSnapshot {
@@ -157,8 +170,8 @@ export class VizDpTable extends BaseStructure {
       kind: 'dp',
       values:
         this.dims === 1
-          ? [...(this.values as Primitive[])]
-          : (this.values as Primitive[][]).map((r) => [...r]),
+          ? [...(this.values as (T | null)[])]
+          : (this.values as (T | null)[][]).map((r) => [...r]),
       dims: this.dims,
       marks: this.marks.list(this.pending),
     }
@@ -166,24 +179,44 @@ export class VizDpTable extends BaseStructure {
     return snap
   }
 
-  get(i: number, j = 0): Primitive {
-    const value =
-      this.dims === 1 ? (this.values as Primitive[])[i] : (this.values as Primitive[][])[i]?.[j]
+  /**
+   * Read a computed cell.
+   *
+   * Throws if the cell has not been written. That is deliberate, and it is what lets `get()` be
+   * typed `T` rather than `T | null` — so the line that expresses a recurrence needs no casts,
+   * while the table can still be `null`-filled so an *uncomputed* cell renders blank instead of as
+   * a plausible `0`. Reading an unwritten dp cell is always a bug in the recurrence order; the
+   * alternative was three `as number` casts in the one line that is the algorithm.
+   */
+  get(i: number, j = 0): T {
+    const raw = this.rawAt(i, j)
     this.pending = [{ row: this.dims === 1 ? 0 : i, col: this.dims === 1 ? i : j, class: 'active' }]
     this.rec.record({ op: 'read', structure: this, label: `read dp${this.coord(i, j)}` })
     this.pending = undefined
-    return value
+    if (raw === null || raw === undefined) {
+      throw new RangeError(
+        `dp${this.coord(i, j)} has not been computed yet — check the order the table is filled in`,
+      )
+    }
+    return raw
   }
 
-  peek(i: number, j = 0): Primitive {
-    return this.dims === 1 ? (this.values as Primitive[])[i] : (this.values as Primitive[][])[i]?.[j]
+  /** Silent read that tolerates an unwritten cell. */
+  peek(i: number, j = 0): T | null {
+    return this.rawAt(i, j) ?? null
   }
 
-  set(i: number, value: Primitive): void
-  set(i: number, j: number, value: Primitive): void
-  set(i: number, second: number | Primitive, third?: Primitive): void {
+  private rawAt(i: number, j: number): T | null | undefined {
+    return this.dims === 1
+      ? (this.values as (T | null)[])[i]
+      : (this.values as (T | null)[][])[i]?.[j]
+  }
+
+  set(i: number, value: T): void
+  set(i: number, j: number, value: T): void
+  set(i: number, second: number | T, third?: T): void {
     if (this.dims === 1) {
-      ;(this.values as Primitive[])[i] = second as Primitive
+      ;(this.values as (T | null)[])[i] = second as T
       this.pending = [{ row: 0, col: i, class: 'active' }]
       this.rec.record({
         op: 'write',
@@ -192,9 +225,9 @@ export class VizDpTable extends BaseStructure {
       })
     } else {
       const j = second as number
-      const row = (this.values as Primitive[][])[i]
+      const row = (this.values as (T | null)[][])[i]
       if (!row) throw new RangeError(`dp row ${i} out of bounds`)
-      row[j] = third as Primitive
+      row[j] = third as T
       this.pending = [{ row: i, col: j, class: 'active' }]
       this.rec.record({
         op: 'write',
@@ -241,9 +274,9 @@ export class VizDpTable extends BaseStructure {
     return this.dims === 1 ? `[${i}]` : `[${i}][${j}]`
   }
 
-  toArray(): Primitive[] | Primitive[][] {
+  toArray(): (T | null)[] | (T | null)[][] {
     return this.dims === 1
-      ? [...(this.values as Primitive[])]
-      : (this.values as Primitive[][]).map((r) => [...r])
+      ? [...(this.values as (T | null)[])]
+      : (this.values as (T | null)[][]).map((r) => [...r])
   }
 }

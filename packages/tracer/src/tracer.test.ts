@@ -105,6 +105,44 @@ describe('cursors', () => {
     ])
   })
 
+  it('attaches to any tracked structure, not just an array proxy', () => {
+    // `viz.cursor` used to read only `.$id`, which the array proxy exposes but BaseStructure does
+    // not. So attaching to a string type-checked, silently bound to the *first* structure instead,
+    // and rendered as a missing caret with no error — while cursor-in-range passed vacuously
+    // because the cursor was absent from the structure being asserted about.
+    const { trace: t } = trace((viz) => {
+      const a = viz.array([1, 2, 3], { name: 'a' })
+      const s = viz.string('xyz', { name: 's' })
+      viz.cursor('i', 1, s)
+      viz.cursor('j', 2, a)
+      s.charAt(0)
+      return 0
+    })
+
+    const reader = new TraceReader(t)
+    const last = t.frames.length - 1
+    const idOf = (name: string): string =>
+      t.structures.find((x) => x.name === name)?.id ?? '(missing)'
+
+    const onString = reader.structureAt(idOf('s'), last)
+    const onArray = reader.structureAt(idOf('a'), last)
+    expect(onString?.kind === 'string' && onString.cursors.map((c) => c.name)).toEqual(['i'])
+    expect(onArray?.kind === 'array' && onArray.cursors.map((c) => c.name)).toEqual(['j'])
+  })
+
+  it('accepts a raw structure id as well as the structure itself', () => {
+    const { trace: t } = trace((viz) => {
+      const s = viz.string('ab', { name: 's' })
+      viz.cursor('k', 0, s.id)
+      s.charAt(0)
+      return 0
+    })
+    const reader = new TraceReader(t)
+    const id = t.structures.find((x) => x.name === 's')?.id ?? ''
+    const snap = reader.structureAt(id, t.frames.length - 1)
+    expect(snap?.kind === 'string' && snap.cursors.map((c) => c.name)).toEqual(['k'])
+  })
+
   it('binds an unattached cursor to the first registered structure', () => {
     const { trace: t } = trace((viz) => {
       const a = viz.array([1, 2, 3])

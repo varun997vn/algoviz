@@ -162,6 +162,23 @@ export class VizList<T extends Primitive> extends BaseStructure {
     this.rec.record({ op: 'cursor', structure: this, label: `${name} -> ${node ? node.id : 'null'}` })
   }
 
+  /**
+   * Move several named pointers as one frame.
+   *
+   * One cursor per frame forces a solution to choose an order, and every order leaves at least one
+   * frame where the canvas disagrees with reality — on a list reversal that showed a caret one
+   * step stale on two frames in five, contradicting the watch panel rendered beside it. It also
+   * creates a transient state where two pointers appear collided when they never were. Updating
+   * them together removes both, because the intermediate state is never snapshotted.
+   */
+  setCursors(named: Record<string, VizListNode<T> | null>): void {
+    for (const [name, node] of Object.entries(named)) this.cursors.set(name, node)
+    const label = Object.entries(named)
+      .map(([name, node]) => `${name} -> ${node ? node.id : 'null'}`)
+      .join(', ')
+    this.rec.record({ op: 'cursor', structure: this, label })
+  }
+
   noteRead(node: VizListNode<T>): void {
     this.emit('read', node, 'active', `read ${node.id}.val = ${format(node.rawValue)}`)
   }

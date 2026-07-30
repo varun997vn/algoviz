@@ -23,7 +23,7 @@ export function reference(n: number, viz: Viz): number {
   // three base cases are part of the table's definition, and for n <= 2 they are the only thing
   // there is to look at. `null` as the fill means an unwritten cell renders as empty rather than
   // as a plausible-looking 0 — "not computed yet" and "computed, equals zero" must not look alike.
-  const dp = viz.dp1d(Math.max(n + 1, 3), null, { name: 'T' })
+  const dp = viz.dp1d<number>(Math.max(n + 1, 3), null, { name: 'T' })
   viz.watch(() => ({ n, Tn: dp.peek(n) }))
 
   // Narrated, not quiet. Seeding a table is usually setup, but here the three base cases *are*
@@ -35,27 +35,20 @@ export function reference(n: number, viz: Viz): number {
   viz.step('base cases: T(0) = 0, T(1) = 1, T(2) = 1')
 
   for (let i = 3; i <= n; i += 1) {
-    dp.set(i, (dp.get(i - 1) as number) + (dp.get(i - 2) as number) + (dp.get(i - 3) as number))
-    dp.dependsOn(
-      [
-        [0, i - 1],
-        [0, i - 2],
-        [0, i - 3],
-      ],
-      `T(${i}) = T(${i - 1}) + T(${i - 2}) + T(${i - 3})`,
-    )
+    dp.set(i, dp.get(i - 1) + dp.get(i - 2) + dp.get(i - 3))
+    dp.dependsOn([i - 1, i - 2, i - 3], `T(${i}) = T(${i - 1}) + T(${i - 2}) + T(${i - 3})`)
     viz.step(`T(${i}) = ${dp.peek(i - 1)} + ${dp.peek(i - 2)} + ${dp.peek(i - 3)} = ${dp.peek(i)}`)
   }
 
   dp.mark(0, n, 'result', `T(${n})`)
-  return dp.get(n) as number
+  return dp.get(n)
 }
 
 const starter = `// Bottom-up table. T(i) is the sum of the three terms before it, so fill dp[0..n]
 // left to right and the answer is the last cell you wrote.
 export default function tribonacci(n: number, viz: Viz): number {
   // Always at least three wide, so the base cases are visible even when the loop never runs.
-  const dp = viz.dp1d(Math.max(n + 1, 3), null, { name: 'T' })
+  const dp = viz.dp1d<number>(Math.max(n + 1, 3), null, { name: 'T' })
   viz.watch(() => ({ n, Tn: dp.peek(n) }))
 
   dp.set(0, 0)
@@ -65,13 +58,13 @@ export default function tribonacci(n: number, viz: Viz): number {
 
   for (let i = 3; i <= n; i += 1) {
     // TODO: the Tribonacci recurrence. Write dp[i] as the sum of dp[i-1], dp[i-2] and dp[i-3],
-    // then call dp.dependsOn([[0, i - 1], [0, i - 2], [0, i - 3]], 'why') so the animation shows
+    // then call dp.dependsOn([i - 1, i - 2, i - 3], 'why') so the animation shows
     // which three cells the new value came from instead of leaving it implied.
     viz.step('T(' + i + ')')
   }
 
   dp.mark(0, n, 'result', 'answer')
-  return dp.get(n) as number
+  return dp.get(n)
 }
 `
 
@@ -112,7 +105,7 @@ export const tribonacci: ProblemDefinition = {
       'before the loop starts.',
     'Every later term only ever needs the three immediately before it, so a single left-to-right ' +
       'pass over `dp[3..n]` is enough — no recursion and no repeated work.',
-    'After writing `dp[i]`, call `dp.dependsOn` with `[0, i - 1]`, `[0, i - 2]` and `[0, i - 3]`. ' +
+    'After writing `dp[i]`, call `dp.dependsOn([i - 1, i - 2, i - 3])`. ' +
       'That is what turns the picture from "a row of numbers" into "this cell came from those ' +
       'three".',
   ],
