@@ -55,9 +55,9 @@ export default function mergeAlternately(word1: string, word2: string, viz: Viz)
   const a = viz.string(word1, { name: 'word1' })
   const b = viz.string(word2, { name: 'word2' })
   const merged = viz.string('', { name: 'merged' })
-  // Cursors attach by structure id, so pass a.id rather than a.
-  const i = viz.cursor('i', 0, a.id)
-  const j = viz.cursor('j', 0, b.id)
+  // A caret per string, so you can see each one advance independently.
+  const i = viz.cursor('i', 0, a)
+  const j = viz.cursor('j', 0, b)
   viz.watch(() => ({ i: i.value, j: j.value, merged: merged.toString() }))
 
   while (i.value < a.length || j.value < b.length) {
