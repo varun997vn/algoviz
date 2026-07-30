@@ -26,14 +26,17 @@ export function reference(word1: string, word2: string, viz: Viz): string {
     const takeA = i.value < a.length
     const takeB = j.value < b.length
 
+    // Marked consumed *before* it is appended. The other order leaves a frame where the character
+    // has arrived in `merged` and its source still shows it as untouched — and since a transfer is
+    // the only thing this problem animates, the two sides being in agreement is the whole picture.
     if (takeA) {
-      merged.append(a.charAt(i.value))
       a.mark(i.value, 'visited')
+      merged.append(a.charAt(i.value))
       i.inc()
     }
     if (takeB) {
-      merged.append(b.charAt(j.value))
       b.mark(j.value, 'visited')
+      merged.append(b.charAt(j.value))
       j.inc()
     }
 
@@ -41,9 +44,12 @@ export function reference(word1: string, word2: string, viz: Viz): string {
     // duplicated the panel beside it and never once said why the pattern changed — so the moment
     // the merge stops alternating and starts draining a tail, which is the only interesting event
     // in this problem, was invisible in the timeline.
+    //
+    // "from index N" would be wrong on every frame but the first of the drain: the label is
+    // re-emitted per character, so it names the one character taken, not a range starting there.
     if (takeA && takeB) viz.step(`take from both: ${a.peek(i.value - 1)} then ${b.peek(j.value - 1)}`)
-    else if (takeA) viz.step(`word2 exhausted — draining word1's tail from index ${i.value - 1}`)
-    else viz.step(`word1 exhausted — draining word2's tail from index ${j.value - 1}`)
+    else if (takeA) viz.step(`word2 exhausted — draining word1's tail, took [${i.value - 1}]`)
+    else viz.step(`word1 exhausted — draining word2's tail, took [${j.value - 1}]`)
   }
 
   return merged.toString()
@@ -65,7 +71,14 @@ export default function mergeAlternately(word1: string, word2: string, viz: Viz)
     // interleaved, with word1 taking the earlier slot of every pair. Append the next
     // character from a if i is still in range, then from b if j is, advancing each
     // cursor you actually read. a.charAt(i.value) records the read; a.peek does not.
-    viz.step(\`merged: \${merged}\`)
+    // Mark a character 'visited' in its source BEFORE appending it, or there is a frame
+    // where it is in merged and its source still shows it as untouched.
+    //
+    // Narrate the decision, not the accumulator: a label like \`merged: \${merged}\` just
+    // duplicates the panel next to it, and never says why the pattern changed. The one
+    // interesting event here is the moment the merge stops alternating and starts
+    // draining a tail — say which of the two ran out.
+    viz.step('took one from each')
     break
   }
 
