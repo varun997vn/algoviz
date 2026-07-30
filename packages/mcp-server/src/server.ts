@@ -334,6 +334,7 @@ export function createServer(deps: ServerDeps = {}): McpServer {
               z.object({ kind: z.literal('final-marks'), structure: z.string(), class: z.string(), count: z.number().int() }),
               z.object({ kind: z.literal('never-marked-at-end'), structure: z.string(), class: z.string() }),
               z.object({ kind: z.literal('cursor-in-range'), structure: z.string(), cursor: z.string(), min: z.number().int(), max: z.number().int() }),
+              z.object({ kind: z.literal('cursor-cell-in-range'), structure: z.string(), cursor: z.string(), minRow: z.number().int(), maxRow: z.number().int(), minCol: z.number().int(), maxCol: z.number().int() }),
               z.object({ kind: z.literal('cursor-monotonic'), structure: z.string(), cursor: z.string(), direction: z.enum(['up', 'down']) }),
               z.object({ kind: z.literal('frame-count-lte'), max: z.number().int() }),
               z.object({ kind: z.literal('frame-count-gte'), min: z.number().int() }),

@@ -14,6 +14,16 @@ export type Assertion =
   | { kind: 'never-marked-at-end'; structure: string; class: MarkClass }
   | { kind: 'cursor-in-range'; structure: string; cursor: string; min: number; max: number }
   | { kind: 'cursor-monotonic'; structure: string; cursor: string; direction: 'up' | 'down' }
+  /** 2-D equivalent of `cursor-in-range`, for a cursor on a matrix. */
+  | {
+      kind: 'cursor-cell-in-range'
+      structure: string
+      cursor: string
+      minRow: number
+      maxRow: number
+      minCol: number
+      maxCol: number
+    }
   | { kind: 'frame-count-lte'; max: number }
   | { kind: 'frame-count-gte'; min: number }
   | { kind: 'has-steps'; min: number }
@@ -45,6 +55,41 @@ function finalSnapshot(trace: Trace, nameOrId: string): StructureSnapshot | unde
 
 function marksOf(snapshot: StructureSnapshot): { class: MarkClass }[] {
   return 'marks' in snapshot ? (snapshot.marks as { class: MarkClass }[]) : []
+}
+
+interface AnyCursor {
+  name: string
+  index?: number
+  row?: number
+  col?: number
+}
+
+/**
+ * Every appearance of a named cursor on a structure, with the frame it appeared on.
+ *
+ * Returning the appearances rather than checking inline is what lets each cursor assertion
+ * distinguish "the cursor was in range" from "the cursor was never there" — a distinction the
+ * first version of this file silently collapsed, with the result that `cursor-in-range` passed
+ * for a cursor that did not exist and for every 2-D cursor (which carries row/col, not index).
+ * An assertion that cannot fail is worse than no assertion: it manufactures confidence.
+ */
+function cursorAppearances(
+  trace: Trace,
+  structure: string,
+  cursorName: string,
+): { found: boolean; structureExists: boolean; at: { frame: number; cursor: AnyCursor }[] } {
+  const id = structureId(trace, structure)
+  if (!id) return { found: false, structureExists: false, at: [] }
+
+  const reader = new TraceReader(trace)
+  const at: { frame: number; cursor: AnyCursor }[] = []
+  for (let i = 0; i < reader.frameCount; i += 1) {
+    const snapshot = reader.structureAt(id, i)
+    if (!snapshot || !('cursors' in snapshot)) continue
+    const cursor = (snapshot.cursors as AnyCursor[]).find((c) => c.name === cursorName)
+    if (cursor) at.push({ frame: i, cursor })
+  }
+  return { found: at.length > 0, structureExists: true, at }
 }
 
 export function checkAssertions(trace: Trace, assertions: readonly Assertion[]): AssertionReport {
@@ -87,22 +132,75 @@ export function checkAssertions(trace: Trace, assertions: readonly Assertion[]):
       }
 
       case 'cursor-in-range': {
-        const id = structureId(trace, assertion.structure)
-        if (!id) {
+        const { found, structureExists, at } = cursorAppearances(
+          trace,
+          assertion.structure,
+          assertion.cursor,
+        )
+        if (!structureExists) {
           fail(`no structure named "${assertion.structure}"`)
           break
         }
-        for (let i = 0; i < reader.frameCount; i += 1) {
-          const snapshot = reader.structureAt(id, i)
-          if (!snapshot || !('cursors' in snapshot)) continue
-          const cursor = (snapshot.cursors as { name: string; index?: number }[]).find(
-            (c) => c.name === assertion.cursor,
+        if (!found) {
+          // The failure mode this catches: viz.cursor silently attaching a cursor to the wrong
+          // structure (or to none), which renders as a missing caret rather than an error.
+          fail(
+            `cursor "${assertion.cursor}" never appears on "${assertion.structure}" — it is ` +
+              'attached elsewhere or not attached at all, so this assertion had nothing to check',
           )
-          if (cursor?.index === undefined) continue
+          break
+        }
+        const twoD = at.find(({ cursor }) => cursor.index === undefined && cursor.row !== undefined)
+        if (twoD) {
+          fail(
+            `cursor "${assertion.cursor}" on "${assertion.structure}" is a 2-D cursor ` +
+              '(row/col) — use cursor-cell-in-range instead',
+            twoD.frame,
+          )
+          break
+        }
+        for (const { frame, cursor } of at) {
+          if (cursor.index === undefined) continue
           if (cursor.index < assertion.min || cursor.index > assertion.max) {
             fail(
               `cursor "${assertion.cursor}" reached ${cursor.index}, outside ${assertion.min}..${assertion.max}`,
-              i,
+              frame,
+            )
+            break
+          }
+        }
+        break
+      }
+
+      case 'cursor-cell-in-range': {
+        const { found, structureExists, at } = cursorAppearances(
+          trace,
+          assertion.structure,
+          assertion.cursor,
+        )
+        if (!structureExists) {
+          fail(`no structure named "${assertion.structure}"`)
+          break
+        }
+        if (!found) {
+          fail(`cursor "${assertion.cursor}" never appears on "${assertion.structure}"`)
+          break
+        }
+        for (const { frame, cursor } of at) {
+          const { row, col } = cursor
+          if (row === undefined || col === undefined) {
+            fail(
+              `cursor "${assertion.cursor}" on "${assertion.structure}" is not a 2-D cursor — ` +
+                'use cursor-in-range instead',
+              frame,
+            )
+            break
+          }
+          if (row < assertion.minRow || row > assertion.maxRow || col < assertion.minCol || col > assertion.maxCol) {
+            fail(
+              `cursor "${assertion.cursor}" reached (${row},${col}), outside ` +
+                `rows ${assertion.minRow}..${assertion.maxRow} cols ${assertion.minCol}..${assertion.maxCol}`,
+              frame,
             )
             break
           }
@@ -111,26 +209,39 @@ export function checkAssertions(trace: Trace, assertions: readonly Assertion[]):
       }
 
       case 'cursor-monotonic': {
-        const id = structureId(trace, assertion.structure)
-        if (!id) {
+        const { found, structureExists, at } = cursorAppearances(
+          trace,
+          assertion.structure,
+          assertion.cursor,
+        )
+        if (!structureExists) {
           fail(`no structure named "${assertion.structure}"`)
           break
         }
-        let previous: number | undefined
-        for (let i = 0; i < reader.frameCount; i += 1) {
-          const snapshot = reader.structureAt(id, i)
-          if (!snapshot || !('cursors' in snapshot)) continue
-          const cursor = (snapshot.cursors as { name: string; index?: number }[]).find(
-            (c) => c.name === assertion.cursor,
+        if (!found) {
+          fail(
+            `cursor "${assertion.cursor}" never appears on "${assertion.structure}" — it is ` +
+              'attached elsewhere or not attached at all, so this assertion had nothing to check',
           )
-          if (cursor?.index === undefined) continue
+          break
+        }
+        if (at.every(({ cursor }) => cursor.index === undefined)) {
+          fail(
+            `cursor "${assertion.cursor}" on "${assertion.structure}" has no linear index ` +
+              '(2-D cursors are not monotonic in one dimension)',
+          )
+          break
+        }
+        let previous: number | undefined
+        for (const { frame, cursor } of at) {
+          if (cursor.index === undefined) continue
           if (previous !== undefined) {
             const moved = cursor.index - previous
             if ((assertion.direction === 'up' && moved < 0) || (assertion.direction === 'down' && moved > 0)) {
               fail(
                 `cursor "${assertion.cursor}" moved ${moved > 0 ? 'forwards' : 'backwards'} ` +
                   `(${previous} -> ${cursor.index}) but was asserted monotonically ${assertion.direction}`,
-                i,
+                frame,
               )
               break
             }

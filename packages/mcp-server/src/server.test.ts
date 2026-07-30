@@ -115,10 +115,15 @@ describe('algoviz MCP server', () => {
 
   describe('roadmap_update', () => {
     it('writes the change, keeps YAML comments, and regenerates ROADMAP.md', async () => {
+      const inProgressCount = (source: string): number =>
+        Number(/🟡 in-progress \| (\d+)/.exec(source)?.[1] ?? -1)
+      const inProgressBefore = inProgressCount(readFileSync(join(repoRoot, 'ROADMAP.md'), 'utf8'))
+      expect(inProgressBefore).toBeGreaterThanOrEqual(0)
+
       const out = textOf(
         await client.callTool({
           name: 'roadmap_update',
-          arguments: { id: 'p1768', status: 'in-progress', branch: 'feature/x', notes: 'started' },
+          arguments: { id: 'p1071', status: 'in-progress', branch: 'feature/x', notes: 'started' },
         }),
       )
       expect(out).toContain('in-progress')
@@ -129,8 +134,12 @@ describe('algoviz MCP server', () => {
       // roadmap stops being maintained.
       expect(yaml).toContain('# roadmap/roadmap.yaml — SOURCE OF TRUTH')
 
+      // Assert the delta, not an absolute count. The fixture is copied from the live roadmap, so
+      // hard-coding "in-progress | 1" made this test fail the moment real work put other
+      // problems in progress — a brittleness bug, not a regression in the tool.
       const md = readFileSync(join(repoRoot, 'ROADMAP.md'), 'utf8')
-      expect(md).toContain('🟡 in-progress | 1')
+      expect(inProgressCount(md)).toBe(inProgressBefore + 1)
+      expect(md).toContain('🟡 in-progress |')
     })
 
     it('reports an unknown id rather than silently doing nothing', async () => {
