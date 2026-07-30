@@ -26,6 +26,14 @@ const DIRS = [
  *    has not spread yet; `visited` is rotten and done spreading. The band of `frontier` cells is
  *    the wavefront, and watching it sweep outward while the queue behind it drains is the point.
  *
+ *    That only holds because a cell is *un*marked `frontier` when it is dequeued. Marks layer
+ *    rather than replace, so adding `visited` on its own left every cell ever queued wearing
+ *    `frontier` for the rest of the run: the "wavefront" grew monotonically into the whole rotten
+ *    region, stating the exact opposite of what these two classes exist to distinguish. On screen
+ *    it looked fine purely because the renderer resolves a cell's colour last-mark-wins and
+ *    `visited` happened to be added second. The snapshot, the text dump and every mark count were
+ *    wrong, so the invariant to hold onto is `frontier` marks == queue contents, at every frame.
+ *
  * The whole-grid scan uses `peek`, which records nothing — otherwise 100 reads per seed pass
  * would bury the handful of frames that matter. It is *not* wrapped in `viz.quiet`: in
  * multi-source BFS the seed is the algorithm's distinguishing feature, and hiding it would leave
@@ -50,8 +58,9 @@ export function reference(grid: number[][], viz: Viz): number {
     for (let r = 0; r < g.rows; r += 1) {
       for (let c = 0; c < g.cols; c += 1) {
         if (g.peek(r, c) === 2) {
-          g.mark(r, c, 'frontier', 'rotten from the start')
+          // Queued first, marked second — see the note on the dequeue order below.
           frontier.push(cell(r, c))
+          g.mark(r, c, 'frontier', 'rotten from the start')
         } else if (g.peek(r, c) === 1) {
           fresh += 1
         }
@@ -65,24 +74,56 @@ export function reference(grid: number[][], viz: Viz): number {
     // Snapshot the size *before* draining: these are the oranges that were rotten when the
     // minute began, and they are the only ones allowed to spread during it.
     const wave = frontier.size
+    const before = fresh
 
     viz.group(`minute ${minutes}`, () => {
       for (let i = 0; i < wave; i += 1) {
-        const [r, c] = coords(frontier.shift() as string)
+        // The cursor moves onto the front cell *before* it is dequeued. `shift()` removes the
+        // value and then records, so the one frame that shows a cell leaving the queue — the
+        // instant that explains BFS — had nothing on the grid saying which cell it was, and the
+        // coordinate existed only in that frame's caption. Pointing first fixes it with no extra
+        // frame: `front()` is the silent read of the queue head.
+        const [r, c] = coords(frontier.front() as string)
+        // Counted with `peek`, which records nothing, so the narration can say whether this cell
+        // had anything left to rot instead of leaving a viewer to infer it from four missing frames.
+        const spreads = DIRS.filter(([dr, dc]) => g.peek(r + dr, c + dc) === 1).length
         g.cursor('rotting', r, c)
-        g.mark(r, c, 'visited', `spread at minute ${minutes}`)
+        // It is being picked up, so it leaves the wavefront. Without this the `frontier` layer only
+        // ever grew — see the note on `frontier` vs `visited` above.
+        //
+        // Unmarked *before* the shift, and enqueues are marked *after* the push, so the wavefront
+        // never leads the queue: no frame ever shows a `frontier` cell that is not in the queue.
+        // The reverse lag is harmless, and it is the only ordering with no phantom wavefront cell
+        // in it. `visited` has to wait until after the shift — a cell may not look done spreading
+        // before the frame that pulls it off the queue.
+        g.unmarkClass(r, c, 'frontier')
+        frontier.shift()
+        g.mark(
+          r,
+          c,
+          'visited',
+          spreads > 0
+            ? `spread to ${spreads} neighbour(s) at minute ${minutes}`
+            : 'nothing fresh left beside it',
+        )
 
         for (const [dr, dc] of DIRS) {
           const nr = r + dr
           const nc = c + dc
           if (!g.inBounds(nr, nc) || g.peek(nr, nc) !== 1) continue
           g.set(nr, nc, 2)
-          g.mark(nr, nc, 'frontier', `rots at minute ${minutes}`)
           frontier.push(cell(nr, nc))
+          g.mark(nr, nc, 'frontier', `rots at minute ${minutes}`)
           fresh -= 1
         }
       }
-      viz.step(`minute ${minutes}: ${fresh} fresh left`)
+      // A minute that rots nothing is the moment the rot stalls, and it is why the answer will be
+      // -1. It renders identically to a productive minute otherwise.
+      viz.step(
+        fresh === before
+          ? `minute ${minutes}: nothing rotted — the rot has stalled with ${fresh} fresh left`
+          : `minute ${minutes}: ${fresh} fresh left`,
+      )
     })
   }
 
@@ -98,6 +139,15 @@ export function reference(grid: number[][], viz: Viz): number {
     return -1
   }
 
+  // Say why the run stopped. The loop exits on `fresh === 0`, which on a solvable grid leaves the
+  // final wave still sitting in the queue — an honest picture of "there was nothing left to rot",
+  // but one that reads as "it gave up early" when nothing says otherwise and the only clue is
+  // `fresh=0` in the watch panel.
+  viz.step(
+    frontier.isEmpty
+      ? `nothing left to rot — ${minutes} minute(s)`
+      : `no fresh oranges left after ${minutes} minute(s) — the ${frontier.size} cell(s) still queued have nothing to spread to`,
+  )
   return minutes
 }
 
@@ -131,8 +181,15 @@ export default function orangesRotting(grid: number[][], viz: Viz): number {
     const wave = frontier.size
     viz.group(\`minute \${minutes}\`, () => {
       for (let i = 0; i < wave; i += 1) {
-        const [r, c] = coords(frontier.shift() as string)
+        // Point at the front cell before removing it — \`front()\` reads without recording, so
+        // the frame that dequeues already shows which cell it is.
+        const [r, c] = coords(frontier.front() as string)
         g.cursor('rotting', r, c)
+        frontier.shift()
+        // 'frontier' means "rotten, has not spread yet", so it has to come *off* here. Marks
+        // layer rather than replace: adding 'visited' alone leaves both on the cell forever,
+        // and the wavefront grows into the whole rotten region.
+        g.unmarkClass(r, c, 'frontier')
         g.mark(r, c, 'visited', \`spread at minute \${minutes}\`)
         // TODO: for each of the four neighbours that is still fresh, set it to 2,
         // mark it 'frontier', push it, and decrement \`fresh\`.

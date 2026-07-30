@@ -137,11 +137,34 @@ describe('the picture and the answer agree about how long it took', () => {
     expect(minuteScopes(result.trace)).toEqual(expected)
   })
 
-  it('narrates every minute plus the seed', () => {
+  it('narrates the seed, every minute, and why it stopped', () => {
     const result = caseByName('example — rot reaches the far corner')
     const reader = new TraceReader(result.trace)
-    // One `viz.step` for the seed, one per minute.
-    expect(reader.stepFrames()).toHaveLength(1 + (result.returned as number))
+    // One `viz.step` for the seed, one per minute, one closing.
+    expect(reader.stepFrames()).toHaveLength(2 + (result.returned as number))
+  })
+
+  it('explains the leftover queue instead of leaving it looking like an early exit', () => {
+    // The success path exits on `fresh === 0`, so the last wave is still queued. Without a closing
+    // step the final caption was the raw op label `return 4` and the only hint that the run was
+    // complete was `fresh=0` in the watch panel.
+    for (const name of SOLVABLE) {
+      const result = caseByName(name)
+      const reader = new TraceReader(result.trace)
+      const steps = reader.stepFrames()
+      const last = reader.trace.frames[steps[steps.length - 1]!]!.label ?? ''
+      expect(last, name).toMatch(/nothing to spread to|nothing left to rot/)
+    }
+  })
+
+  it('says so when a minute rots nothing, which is why the answer will be -1', () => {
+    // A stalled minute drains cells and changes not one orange. Rendered like any other minute it
+    // gives no clue that the rot has stopped; it is the whole reason the run ends in -1.
+    const result = caseByName('example — one orange the rot can never reach')
+    const labels = new TraceReader(result.trace)
+      .stepFrames()
+      .map((i) => result.trace.frames[i]!.label ?? '')
+    expect(labels.filter((l) => /nothing rotted/.test(l)).length).toBeGreaterThan(0)
   })
 
   it('reports minute and fresh counts in the watch panel, ending consistent with the answer', () => {
@@ -223,24 +246,62 @@ describe('the queue and the grid stay in lockstep', () => {
     },
   )
 
-  it('parks the grid cursor on the cell just dequeued', () => {
-    // The cursor is the only thing tying the queue's front cell to a position in the grid; if it
-    // lags, the two panels tell different stories.
+  it('has the grid cursor on the cell already, on the frame that dequeues it', () => {
+    // The cursor is the only thing tying the queue's front cell to a position in the grid, and the
+    // dequeue frame is the instant that explains BFS. Set after the shift, the cursor arrived one
+    // frame late *every time*, so on that frame the coordinate existed only in the caption. This
+    // resolves the matrix the way the player does, so it asserts what a viewer actually sees.
     const result = caseByName('farthest orange sets the clock')
-    let lastDequeued: string | undefined
+    const reader = new TraceReader(result.trace)
     let checked = 0
     for (const frame of result.trace.frames) {
-      if (frame.op === 'dequeue') lastDequeued = coordInLabel(frame.label)
-      if (frame.op !== 'cursor') continue
-      const cursor = (frame.snapshots['mtx1'] as MatrixSnapshot | undefined)?.cursors.find(
-        (c) => c.name === 'rotting',
-      )
+      if (frame.op !== 'dequeue') continue
+      const coord = coordInLabel(frame.label)
+      const cursor = only(reader, frame.index, 'matrix').cursors.find((c) => c.name === 'rotting')
       expect(cursor, `frame ${frame.index} has no "rotting" cursor`).toBeDefined()
-      expect(`${cursor!.row},${cursor!.col}`, `frame ${frame.index}`).toBe(lastDequeued)
+      expect(`${cursor!.row},${cursor!.col}`, `frame ${frame.index} dequeues ${coord}`).toBe(coord)
       checked += 1
     }
     expect(checked).toBeGreaterThan(5)
   })
+
+  it.each([...SOLVABLE, ...IMPOSSIBLE])(
+    '%s — the frontier marks are exactly the queued cells, at every frame',
+    (name) => {
+      // The invariant that names what `frontier` means. Marks layer rather than replace, so adding
+      // `visited` on dequeue without removing `frontier` left every cell ever queued wearing it:
+      // the wavefront grew monotonically into the entire rotten region, stating the opposite of
+      // what the two classes exist to distinguish, and 6 of 12 cases ended with a `frontier` count
+      // several times the queue length. On screen it looked right only because the renderer takes
+      // the last mark on a cell and `visited` happened to be added second.
+      const result = caseByName(name)
+      const reader = new TraceReader(result.trace)
+      const narrated = new Set(reader.stepFrames())
+      let checked = 0
+      for (let i = 0; i < reader.frameCount; i += 1) {
+        const queue = maybe(reader, i, 'queue')
+        if (!queue) continue
+        const matrix = only(reader, i, 'matrix')
+        const queued = [...queue.values].map((v) => String(v).slice(1, -1)).sort()
+        const wavefront = matrix.marks
+          .filter((m) => m.class === 'frontier' && !m.transient)
+          .map((m) => `${m.row},${m.col}`)
+          .sort()
+        // Never a `frontier` cell that is not in the queue — a phantom wavefront cell is the
+        // defect. The ops are ordered so the mark can only ever *trail* the queue, never lead it.
+        expect(
+          wavefront.filter((c) => !queued.includes(c)),
+          `frame ${i}: marked frontier but not queued`,
+        ).toEqual([])
+        // And on the frames a viewer actually stops at, the two agree exactly.
+        if (narrated.has(i) || i === reader.frameCount - 1) {
+          expect(wavefront, `frame ${i}: frontier marks vs queue contents`).toEqual(queued)
+        }
+        checked += 1
+      }
+      expect(checked).toBeGreaterThan(0)
+    },
+  )
 
   it('dequeues every cell it enqueues, at most once each', () => {
     const result = caseByName('farthest orange sets the clock')
