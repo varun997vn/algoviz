@@ -11,6 +11,8 @@ import { uniqueNumberOfOccurrences } from './problems/unique-number-of-occurrenc
 import { implementTrie } from './problems/implement-trie-prefix-tree.js'
 import { nonOverlappingIntervals } from './problems/non-overlapping-intervals.js'
 import { maximumAverageSubarrayI } from './problems/maximum-average-subarray-i.js'
+import { binaryTreeRightSideView } from './problems/binary-tree-right-side-view.js'
+import { longestCommonSubsequence } from './problems/longest-common-subsequence.js'
 import type { ProblemDefinition } from './types.js'
 
 /**
@@ -34,6 +36,8 @@ export const PROBLEMS: readonly ProblemDefinition[] = [
   implementTrie,
   nonOverlappingIntervals,
   maximumAverageSubarrayI,
+  binaryTreeRightSideView,
+  longestCommonSubsequence,
 ]
 
 export function listProblems(): ProblemDefinition[] {
@@ -60,4 +64,5 @@ export * from './types.js'
 export { containerWithMostWater, countGoodNodes, reorderRoutes }
 export { mergeStringsAlternately, reverseLinkedList, dailyTemperatures, tribonacci, rottingOranges }
 export { kthLargestElementInAnArray, uniqueNumberOfOccurrences, implementTrie }
-export { nonOverlappingIntervals, maximumAverageSubarrayI }
+export { nonOverlappingIntervals, maximumAverageSubarrayI, binaryTreeRightSideView }
+export { longestCommonSubsequence }
