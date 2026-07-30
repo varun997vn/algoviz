@@ -78,8 +78,29 @@ export function deepEqual(a: unknown, b: unknown): boolean {
   return false
 }
 
+/**
+ * A canonical string for ordering-insensitive comparison.
+ *
+ * Object keys are sorted before stringifying, so this agrees with `deepEqual`. Raw
+ * `JSON.stringify` is key-*insertion*-order sensitive, which made `unordered` strictly harsher
+ * than `deep`: `[{a:1,b:2}]` and `[{b:2,a:1}]` compare equal under `deep` and unequal under
+ * `unordered`. That direction only ever fails a correct solution, never passes a wrong one, so
+ * nothing had caught it — and nothing would have until a problem returned an unordered list of
+ * objects, which is exactly the shape `set-of-sets` is waiting for.
+ */
 function sortKey(v: unknown): string {
-  return JSON.stringify(v) ?? String(v)
+  const canonical = (x: unknown): unknown => {
+    if (Array.isArray(x)) return x.map(canonical)
+    if (x && typeof x === 'object') {
+      return Object.fromEntries(
+        Object.keys(x as object)
+          .sort()
+          .map((k) => [k, canonical((x as Record<string, unknown>)[k])]),
+      )
+    }
+    return x
+  }
+  return JSON.stringify(canonical(v)) ?? String(v)
 }
 
 function unorderedEqual(a: unknown, b: unknown): boolean {

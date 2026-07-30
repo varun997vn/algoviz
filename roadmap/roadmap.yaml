@@ -338,7 +338,7 @@ problems:
     difficulty: easy
     category: hashmap-set
     order: 21
-    structures: [ map, set ]
+    structures: [ array, map, set ]
     techniques: [ hashing, counting ]
     status: done
     branch: claude/leetcode-visualizer-w01nr6
@@ -713,7 +713,7 @@ problems:
     difficulty: medium
     category: graphs-dfs
     order: 46
-    structures: [ graph, map ]
+    structures: [ array, graph, map ]
     techniques: [ dfs, weighted-graph ]
     status: in-progress
     branch: claude/leetcode-visualizer-w01nr6
@@ -899,7 +899,7 @@ problems:
     difficulty: medium
     category: backtracking
     order: 57
-    structures: [ tree, array, string ]
+    structures: [ trie, array, string ]
     techniques: [ backtracking ]
     status: in-progress
     branch: claude/leetcode-visualizer-w01nr6

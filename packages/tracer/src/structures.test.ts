@@ -674,6 +674,49 @@ describe('VizTrie', () => {
   })
 })
 
+describe('VizTrie backtracking', () => {
+  it('takes a node off the live branch while leaving its conclusions alone', () => {
+    // `child`/`addChild` set a persistent `path` mark on the way down and the class had no way to
+    // remove one: no `unmark`, no `removeClass`, no `exitPath`. So the first problem to backtrack
+    // on a trie kept its own array of the live branch and re-lit it after a global
+    // `clearMarks('path')` — `1 + depth` frames per un-choose instead of one.
+    const { trace: t } = trace((viz) => {
+      const tr = viz.trie()
+      const a = tr.addChild(tr.root, 'a')
+      const b = tr.addChild(a, 'b')
+      tr.setTerminal(b, 'ab') // a conclusion about b, set while we are down here
+      tr.exitPath(b)
+      return 0
+    })
+
+    const snap = finalOf(t, 'tri1', 'trie')
+    const on = (id: string, cls: string): boolean =>
+      snap.marks.some((m) => m.id === id && m.class === cls)
+    // `b` leaves the branch...
+    expect(on('p3', 'path')).toBe(false)
+    // ...`a` is still on it, and `b`'s terminal flag — the conclusion — survives.
+    expect(on('p2', 'path')).toBe(true)
+    expect(snap.nodes.find((n) => n.id === 'p3')?.terminal).toBe(true)
+    expect(labels(t)).toContain("unchoose 'b'")
+  })
+
+  it('unwinds through onPath even when the body throws', () => {
+    const { trace: t } = trace((viz) => {
+      const tr = viz.trie()
+      const a = tr.addChild(tr.root, 'a')
+      try {
+        tr.onPath(a, () => {
+          throw new Error('boom')
+        })
+      } catch {
+        /* swallowed — the branch must still unwind */
+      }
+      return 0
+    })
+    expect(finalOf(t, 'tri1', 'trie').marks.filter((m) => m.class === 'path')).toEqual([])
+  })
+})
+
 describe('VizList', () => {
   it('records traversal through the next accessor', () => {
     const { value, trace: t } = trace((viz) => {

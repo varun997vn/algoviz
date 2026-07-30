@@ -44,6 +44,20 @@ describe('compare', () => {
     expect(compare('boolean', true, false)).toBe(false)
   })
 
+  it('unordered agrees with deep on objects, whatever order their keys were written in', () => {
+    // `sortKey` was raw JSON.stringify, so `unordered` was strictly *harsher* than `deep` here —
+    // a false negative, which can only ever fail a correct solution and so was never going to be
+    // caught by a passing test. It matters the first time a problem returns an unordered list of
+    // objects, which is the shape `set-of-sets` exists for.
+    const a = [{ a: 1, b: 2 }]
+    const b = [{ b: 2, a: 1 }]
+    expect(compare('deep', a, b)).toBe(true)
+    expect(compare('unordered', a, b)).toBe(true)
+    // Nested, and still not equal when the values genuinely differ.
+    expect(compare('unordered', [{ x: { p: 1, q: 2 } }], [{ x: { q: 2, p: 1 } }])).toBe(true)
+    expect(compare('unordered', [{ a: 1 }], [{ a: 2 }])).toBe(false)
+  })
+
   it('unordered treats arrays as multisets', () => {
     expect(compare('unordered', [3, 1, 2], [1, 2, 3])).toBe(true)
     // A multiset, not a set: duplicates have to match in count.

@@ -30,11 +30,16 @@ function glyphs(marks: readonly { class: string }[]): string {
   return marks.map((m) => MARK_GLYPH[m.class] ?? '?').join('')
 }
 
-function cell(value: unknown, marks: readonly { class: string }[]): string {
+function cell(value: unknown, marks: readonly { class: string }[], quote = true): string {
   const text = value === null ? '_' : String(value)
   // Quote anything that isn't a plain number: cells are space-separated, so a coordinate like
   // "(1,1)" or any value containing a space would otherwise read as two cells.
-  const safe = /^-?\d+(\.\d+)?$/.test(text) || text === '_' ? text : JSON.stringify(text)
+  //
+  // `quote: false` is for a run of single characters that is *already* being wrapped as one string
+  // — a `VizString` renders each char through here and then wraps the join, so quoting each one
+  // produced `word: ""a""d""` instead of `word: "ad"`, on every string problem, in the tool the
+  // audits read their evidence from.
+  const safe = !quote || /^-?\d+(\.\d+)?$/.test(text) || text === '_' ? text : JSON.stringify(text)
   return `${safe}${glyphs(marks)}`
 }
 
@@ -50,7 +55,7 @@ export function renderSnapshot(name: string, snapshot: StructureSnapshot): strin
     }
     case 'string': {
       const chars = [...snapshot.value].map((ch, i) =>
-        cell(ch, snapshot.marks.filter((m) => m.index === i)),
+        cell(ch, snapshot.marks.filter((m) => m.index === i), false),
       )
       const cursors = snapshot.cursors.map((c) => `${c.name}=${c.index}`).join(' ')
       return `${name}: "${chars.join('')}"${cursors ? `  ${cursors}` : ''}`

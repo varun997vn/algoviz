@@ -359,13 +359,6 @@ export default function letterCombinations(digits: string, viz: Viz): string[] {
     return []
   }
 
-  const branch: string[] = []
-  const unchoose = (): void => {
-    branch.pop()
-    tree.clearMarks('path')
-    for (const id of branch) tree.mark(id, 'path')
-  }
-
   const place = (node: string, i: number): void => {
     if (i === digits.length) {
       tree.setTerminal(node, word.toString())
@@ -377,9 +370,8 @@ export default function letterCombinations(digits: string, viz: Viz): string[] {
     for (const letter of KEYPAD[digits[i]]) {
       word.append(letter)
       const child = tree.addChild(node, letter)
-      branch.push(child)
       viz.group(\`digit \${digits[i]} -> '\${letter}'\`, () => place(child, i + 1))
-      unchoose()
+      tree.exitPath(child)
       word.removeLast()
     }
   }

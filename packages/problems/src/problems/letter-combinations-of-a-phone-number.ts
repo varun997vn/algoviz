@@ -46,12 +46,17 @@ const KEYPAD: Record<string, string> = {
  *
  * The classic way a backtracking animation lies is to only ever add: the final frame lights every
  * branch at once and claims the algorithm ended up everywhere simultaneously. So the un-choose is
- * two calls, `unchoose()` then `word.removeLast()`, and the invariant they buy is that the set of
- * `path`-marked nodes is always the live root→node chain — never a node from a branch that has
- * been left.
+ * two calls, `tree.exitPath(child)` then `word.removeLast()`, and the invariant they buy is that
+ * the set of `path`-marked nodes is always the live root→node chain — never a node from a branch
+ * that has been left.
  *
- * `unchoose()` should be one call into the tracer and is not; see the note on it below. It is the
- * single API gap this problem found.
+ * `exitPath` is the API gap this problem found. `VizTrie` could *add* a `path` mark — every
+ * `addChild` sets one — and had no way to take one back off a single node: no `unmark`, no
+ * `exitPath`/`onPath`, and `clearMarks('path')` is global. So retiring one choice meant clearing
+ * every choice and re-lighting the ones still standing, from an array kept solely for the purpose:
+ * `1 + depth` frames per un-choose instead of one. `VizTree` has had `exitPath` since it was
+ * written, for exactly this reason; the trie never got it because nothing had ever backtracked on
+ * one. It has it now, and this solution is the one line at the un-choose site.
  *
  * ## Ordering, given one frame per op
  *
@@ -94,21 +99,6 @@ export function reference(digits: string, viz: Viz): string[] {
     return []
   }
 
-  // The node ids from the root down to the live prefix.
-  //
-  // Pure bookkeeping for `unchoose`, and it should not exist. `VizTrie` can *add* a `path` mark —
-  // every `addChild` sets one — but has no way to take one back off a single node: no `unmark`,
-  // no `exitPath`/`onPath` (which is exactly what `VizTree` has, and the reason tree recursion
-  // unwinds correctly), and `clearMarks('path')` is global. So the only way to retire one choice
-  // is to clear every choice and re-light the ones still standing. With `tree.exitPath(child)`
-  // this array and the whole helper collapse into the one line at the un-choose site.
-  const branch: string[] = []
-  const unchoose = (): void => {
-    branch.pop()
-    tree.clearMarks('path')
-    for (const id of branch) tree.mark(id, 'path')
-  }
-
   const place = (node: string, i: number): void => {
     if (i === digits.length) {
       // Every digit is spent, so this node is a leaf and the word under the pen is an answer.
@@ -121,10 +111,9 @@ export function reference(digits: string, viz: Viz): string[] {
     for (const letter of KEYPAD[digits[i]]) {
       word.append(letter) //                      choose: the letter goes onto the paper...
       const child = tree.addChild(node, letter) // ...and the branch it opens lights up
-      branch.push(child)
       viz.group(`digit ${digits[i]} -> '${letter}'`, () => place(child, i + 1))
-      unchoose() //        un-choose: the branch goes dark first...
-      word.removeLast() // ...and only then does the pen come off the paper
+      tree.exitPath(child) // un-choose: the branch goes dark first...
+      word.removeLast() //   ...and only then does the pen come off the paper
     }
   }
 
@@ -154,16 +143,6 @@ export default function letterCombinations(digits: string, viz: Viz): string[] {
     return []
   }
 
-  // Bookkeeping, not algorithm: \`addChild\` lights the branch it creates, and re-lighting what is
-  // left is currently the only way to un-light one node. Call \`unchoose()\` when you take a
-  // letter back; leave the rest of this alone.
-  const branch: string[] = []
-  const unchoose = (): void => {
-    branch.pop()
-    tree.clearMarks('path')
-    for (const id of branch) tree.mark(id, 'path')
-  }
-
   const place = (node: string, i: number): void => {
     if (i === digits.length) {
       // TODO: every digit is spent, so this node is a leaf. Flag it with
@@ -172,15 +151,14 @@ export default function letterCombinations(digits: string, viz: Viz): string[] {
       return
     }
 
-    // TODO: for each letter of KEYPAD[digits[i]], in order. The order of these six lines is the
+    // TODO: for each letter of KEYPAD[digits[i]], in order. The order of these five lines is the
     // animation: the branch must go dark *before* the letter is erased, never after, or the tree
     // spends a frame claiming to be somewhere the search has already left.
     //   word.append(letter)                         // choose
-    //   const child = tree.addChild(node, letter)
-    //   branch.push(child)
+    //   const child = tree.addChild(node, letter)   // ...which lights the branch
     //   viz.group(\`digit \${digits[i]} -> '\${letter}'\`, () => place(child, i + 1))
-    //   unchoose()                                  // un-choose
-    //   word.removeLast()                           // ...the word must shrink here
+    //   tree.exitPath(child)                        // un-choose: the branch goes dark...
+    //   word.removeLast()                           // ...and only then does the word shrink
   }
 
   place(tree.root, 0)

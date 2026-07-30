@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { executeRun } from '@algoviz/runner'
 import { listProblems, requireProblem } from '@algoviz/problems'
 import { TraceReader, type StructureSnapshot } from '@algoviz/tracer'
+import { findRepoRoot, loadRoadmap, roadmapPath } from '@algoviz/roadmap/node'
 
 function snapshotsOfKind<K extends StructureSnapshot['kind']>(
   reader: TraceReader,
@@ -50,8 +51,41 @@ describe('every reference solution passes every one of its own cases', () => {
     }
   })
 
+  it('agrees with the roadmap about which structures each problem uses', () => {
+    // The missing link. The test below checks the *definition* against the *trace*, and its
+    // comment has always claimed that stops the roadmap's coverage matrix lying — but the roadmap
+    // is a third list, and `packages/roadmap` deliberately never imports `@algoviz/problems`, so
+    // nothing compared it to either. p017 declared `tree` while its solution builds a `trie`;
+    // `viz.tree` is binary and has no node-insertion API, so it could not possibly have been used.
+    //
+    // This matters beyond one wrong line: the coverage matrix is what problem selection is driven
+    // from — "which structures has nothing exercised yet" — so an unchecked entry does not just
+    // mis-report, it points the next batch at the wrong thing.
+    const roadmap = loadRoadmap(roadmapPath(findRepoRoot(process.cwd())))
+    const byId = new Map(roadmap.problems.map((p) => [p.slug, p]))
+    const drift: string[] = []
+    for (const problem of listProblems()) {
+      const entry = byId.get(problem.slug)
+      if (!entry) {
+        drift.push(`${problem.slug} has a definition but no roadmap entry`)
+        continue
+      }
+      // `cursor` is roadmap-only vocabulary on purpose — the schema calls it "an annotation rather
+      // than a structure but worth tracking for coverage", and `StructureKind` has no such kind. So
+      // it is excluded here rather than being forced into definitions where it would not typecheck.
+      const planned = entry.structures.filter((k) => k !== 'cursor')
+      const declared = [...problem.structures].sort().join(', ')
+      const plannedKinds = [...planned].sort().join(', ')
+      if (declared !== plannedKinds) {
+        drift.push(`${problem.slug}: roadmap [${plannedKinds}] vs definition [${declared}]`)
+      }
+    }
+    expect(drift).toEqual([])
+  })
+
   it('declares exactly the structure kinds its reference solution actually emits', () => {
-    // Without this, the roadmap's coverage matrix silently lies about what has been animated.
+    // Together with the roadmap check above, this makes the chain roadmap -> definition -> trace
+    // airtight: what was planned, what is claimed, and what actually happens all have to agree.
     for (const problem of listProblems()) {
       const result = executeRun({ problem: problem.slug, useReference: true, caseIndex: 0 })
       const emitted = new Set(result.results[0]?.trace.structures.map((s) => s.kind))

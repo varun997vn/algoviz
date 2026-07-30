@@ -71,7 +71,7 @@ Run the `solve-problem` skill to take the next one end to end.
 | # | Problem | Difficulty | Structures | Status | PR |
 | --- | --- | --- | --- | --- | --- |
 | 2215 | [Find the Difference of Two Arrays](https://leetcode.com/problems/find-the-difference-of-two-arrays/) | easy | `set, array` | ⬜ todo | — |
-| 1207 | [Unique Number of Occurrences](https://leetcode.com/problems/unique-number-of-occurrences/) | easy | `map, set` | ✅ done | #2 |
+| 1207 | [Unique Number of Occurrences](https://leetcode.com/problems/unique-number-of-occurrences/) | easy | `array, map, set` | ✅ done | #2 |
 | 1657 | [Determine if Two Strings Are Close](https://leetcode.com/problems/determine-if-two-strings-are-close/) | medium | `map, set` | ⬜ todo | — |
 | 2352 | [Equal Row and Column Pairs](https://leetcode.com/problems/equal-row-and-column-pairs/) | medium | `matrix, map` | ⬜ todo | — |
 
@@ -131,7 +131,7 @@ Run the `solve-problem` skill to take the next one end to end.
 | 841 | [Keys and Rooms](https://leetcode.com/problems/keys-and-rooms/) | medium | `graph, set` | ⬜ todo | — |
 | 547 | [Number of Provinces](https://leetcode.com/problems/number-of-provinces/) | medium | `graph, matrix, set` | ⬜ todo | — |
 | 1466 | [Reorder Routes to Make All Paths Lead to the City Zero](https://leetcode.com/problems/reorder-routes-to-make-all-paths-lead-to-the-city-zero/) | medium | `graph, set` | ✅ done | — |
-| 399 | [Evaluate Division](https://leetcode.com/problems/evaluate-division/) | medium | `graph, map` | 🟡 in-progress | — |
+| 399 | [Evaluate Division](https://leetcode.com/problems/evaluate-division/) | medium | `array, graph, map` | 🟡 in-progress | — |
 
 ### Graphs - BFS — 1/2
 
@@ -162,7 +162,7 @@ Run the `solve-problem` skill to take the next one end to end.
 
 | # | Problem | Difficulty | Structures | Status | PR |
 | --- | --- | --- | --- | --- | --- |
-| 17 | [Letter Combinations of a Phone Number](https://leetcode.com/problems/letter-combinations-of-a-phone-number/) | medium | `tree, array, string` | 🟡 in-progress | — |
+| 17 | [Letter Combinations of a Phone Number](https://leetcode.com/problems/letter-combinations-of-a-phone-number/) | medium | `trie, array, string` | 🟡 in-progress | — |
 | 216 | [Combination Sum III](https://leetcode.com/problems/combination-sum-iii/) | medium | `tree, array` | ⬜ todo | — |
 
 ### DP - 1D — 1/4
@@ -219,11 +219,11 @@ visualizer has no real user yet, however green its unit tests are.
 
 | Structure | Done | Planned |
 | --- | --- | --- |
-| `array` | 3 | 36 |
+| `array` | 4 | 38 |
 | `matrix` | 1 | 4 |
 | `string` | 1 | 13 |
 | `list` | 1 | 4 |
-| `tree` | 1 | 12 |
+| `tree` | 1 | 11 |
 | `graph` | 1 | 4 |
 | `stack` | 1 | 5 |
 | `queue` | 1 | 6 |
@@ -232,5 +232,5 @@ visualizer has no real user yet, however green its unit tests are.
 | `set` | 2 | 7 |
 | `dp` | 1 | 9 |
 | `intervals` | 1 | 2 |
-| `trie` | 0 | 2 |
+| `trie` | 0 | 3 |
 | `cursor` | 4 | 23 |

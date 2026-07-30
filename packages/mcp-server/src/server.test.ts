@@ -103,10 +103,18 @@ describe('algoviz MCP server', () => {
     })
 
     it('filters by structure', async () => {
+      // Third time this file has had a literal here rot. The count changes whenever a problem's
+      // structures are corrected — as `trie` just did, when p017 was found declaring `tree` for a
+      // solution that builds a trie — and a test failing because a record got *more* accurate is
+      // reporting on the wrong thing. Asserted as a property instead.
       const out = textOf(
-        await client.callTool({ name: 'roadmap_list', arguments: { structure: 'trie' } }),
+        await client.callTool({ name: 'roadmap_list', arguments: { structure: 'trie', limit: 100 } }),
       )
-      expect(out).toContain('2 match(es)')
+      const claimed = Number(/(\d+) match\(es\)/.exec(out)?.[1] ?? -1)
+      const rows = out.split('\n').filter((l) => /^p\d+\s/.test(l))
+      expect(rows).toHaveLength(claimed)
+      expect(rows.length).toBeGreaterThan(0)
+      for (const row of rows) expect(row, `row lacks trie: ${row}`).toContain('trie')
     })
   })
 
