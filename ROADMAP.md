@@ -5,33 +5,33 @@
 Every problem here is solved *inside the app*: you write the instrumented solution and
 watch your own algorithm execute over a live visualization of the structures it touches.
 
-**Progress: 3 / 75 done (4%)**
+**Progress: 6 / 75 done (8%)**
 
-`█░░░░░░░░░░░░░░░░░░░░░░░░░░░`
+`██░░░░░░░░░░░░░░░░░░░░░░░░░░`
 
 | Status | Count |
 | --- | --- |
 | ⬜ todo | 67 |
-| 🟡 in-progress | 5 |
+| 🟡 in-progress | 2 |
 | 🔵 review | 0 |
 | 🔴 blocked | 0 |
-| ✅ done | 3 |
+| ✅ done | 6 |
 
 ## Next up
 
-1. **1768. Merge Strings Alternately** — easy, array-string (`string, cursor`)
 1. **1071. Greatest Common Divisor of Strings** — easy, array-string (`string`)
 1. **1431. Kids With the Greatest Number of Candies** — easy, array-string (`array`)
+1. **605. Can Place Flowers** — easy, array-string (`array, cursor`)
 
 Run the `solve-problem` skill to take the next one end to end.
 
 ## Problems by category
 
-### Array / String — 0/9
+### Array / String — 1/9
 
 | # | Problem | Difficulty | Structures | Status | PR |
 | --- | --- | --- | --- | --- | --- |
-| 1768 | [Merge Strings Alternately](https://leetcode.com/problems/merge-strings-alternately/) | easy | `string, cursor` | 🟡 in-progress | — |
+| 1768 | [Merge Strings Alternately](https://leetcode.com/problems/merge-strings-alternately/) | easy | `string, cursor` | ✅ done | — |
 | 1071 | [Greatest Common Divisor of Strings](https://leetcode.com/problems/greatest-common-divisor-of-strings/) | easy | `string` | ⬜ todo | — |
 | 1431 | [Kids With the Greatest Number of Candies](https://leetcode.com/problems/kids-with-the-greatest-number-of-candies/) | easy | `array` | ⬜ todo | — |
 | 605 | [Can Place Flowers](https://leetcode.com/problems/can-place-flowers/) | easy | `array, cursor` | ⬜ todo | — |
@@ -90,13 +90,13 @@ Run the `solve-problem` skill to take the next one end to end.
 | 933 | [Number of Recent Calls](https://leetcode.com/problems/number-of-recent-calls/) | easy | `queue` | ⬜ todo | — |
 | 649 | [Dota2 Senate](https://leetcode.com/problems/dota2-senate/) | medium | `queue, string` | ⬜ todo | — |
 
-### Linked List — 0/4
+### Linked List — 1/4
 
 | # | Problem | Difficulty | Structures | Status | PR |
 | --- | --- | --- | --- | --- | --- |
 | 2095 | [Delete the Middle Node of a Linked List](https://leetcode.com/problems/delete-the-middle-node-of-a-linked-list/) | medium | `list, cursor` | ⬜ todo | — |
 | 328 | [Odd Even Linked List](https://leetcode.com/problems/odd-even-linked-list/) | medium | `list, cursor` | ⬜ todo | — |
-| 206 | [Reverse Linked List](https://leetcode.com/problems/reverse-linked-list/) | easy | `list, cursor` | 🟡 in-progress | — |
+| 206 | [Reverse Linked List](https://leetcode.com/problems/reverse-linked-list/) | easy | `list, cursor` | ✅ done | — |
 | 2130 | [Maximum Twin Sum of a Linked List](https://leetcode.com/problems/maximum-twin-sum-of-a-linked-list/) | medium | `list, cursor, array` | ⬜ todo | — |
 
 ### Binary Tree - DFS — 1/6
@@ -165,11 +165,11 @@ Run the `solve-problem` skill to take the next one end to end.
 | 17 | [Letter Combinations of a Phone Number](https://leetcode.com/problems/letter-combinations-of-a-phone-number/) | medium | `tree, array, string` | ⬜ todo | — |
 | 216 | [Combination Sum III](https://leetcode.com/problems/combination-sum-iii/) | medium | `tree, array` | ⬜ todo | — |
 
-### DP - 1D — 0/4
+### DP - 1D — 1/4
 
 | # | Problem | Difficulty | Structures | Status | PR |
 | --- | --- | --- | --- | --- | --- |
-| 1137 | [N-th Tribonacci Number](https://leetcode.com/problems/n-th-tribonacci-number/) | easy | `dp` | 🟡 in-progress | — |
+| 1137 | [N-th Tribonacci Number](https://leetcode.com/problems/n-th-tribonacci-number/) | easy | `dp` | ✅ done | — |
 | 746 | [Min Cost Climbing Stairs](https://leetcode.com/problems/min-cost-climbing-stairs/) | easy | `dp, array` | ⬜ todo | — |
 | 198 | [House Robber](https://leetcode.com/problems/house-robber/) | medium | `dp, array` | ⬜ todo | — |
 | 790 | [Domino and Tromino Tiling](https://leetcode.com/problems/domino-and-tromino-tiling/) | medium | `dp` | ⬜ todo | — |
@@ -221,8 +221,8 @@ visualizer has no real user yet, however green its unit tests are.
 | --- | --- | --- |
 | `array` | 1 | 36 |
 | `matrix` | 0 | 4 |
-| `string` | 0 | 13 |
-| `list` | 0 | 4 |
+| `string` | 1 | 13 |
+| `list` | 1 | 4 |
 | `tree` | 1 | 12 |
 | `graph` | 1 | 4 |
 | `stack` | 0 | 5 |
@@ -230,7 +230,7 @@ visualizer has no real user yet, however green its unit tests are.
 | `heap` | 0 | 4 |
 | `map` | 0 | 6 |
 | `set` | 1 | 7 |
-| `dp` | 0 | 9 |
+| `dp` | 1 | 9 |
 | `intervals` | 0 | 2 |
 | `trie` | 0 | 2 |
-| `cursor` | 1 | 23 |
+| `cursor` | 3 | 23 |

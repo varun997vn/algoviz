@@ -43,10 +43,17 @@ problems:
     order: 1
     structures: [ string, cursor ]
     techniques: [ two-pointers ]
-    status: in-progress
-    branch: null
+    status: done
+    branch: claude/leetcode-visualizer-w01nr6
     pr: null
-    notes: null
+    notes: "trace-verifier: faithful (re-audit). Both carets present at index ===
+      length on the final frame of all 8 cases; step labels name the
+      interleave/tail-drain decision rather than restating the accumulator.
+      Follow-ups from the re-audit's low-severity list also closed: a character
+      is marked consumed in its source before it is appended, \"draining ...
+      from index N\" became \"took [N]\" (it is re-emitted per character, so it
+      named a range it did not mean), and the starter no longer teaches
+      `viz.step(`merged: ${merged}`)`."
     dependsOn: []
   - id: p1071
     leetcode: 1071
@@ -464,10 +471,21 @@ problems:
     order: 31
     structures: [ list, cursor ]
     techniques: [ pointer-rewiring ]
-    status: in-progress
-    branch: null
+    status: done
+    branch: claude/leetcode-visualizer-w01nr6
     pr: null
-    notes: null
+    notes: "trace-verifier: reference faithful (re-audit) — 0 caret/watch
+      disagreements over 1604 checks, arrows derived from real `next` links with
+      0 missing or phantom on all 24 frames of the example, 4n+4 frames,
+      detached row non-empty through the whole run. The re-audit found the fix
+      had landed only in the reference: the starter still prescribed
+      single-pointer `list.cursor()` calls and `list.head = prev`, and a
+      solution following it contradicted itself on 10 of 29 frames. Starter
+      rewritten to teach `setCursors` and head-before-advance; an integration
+      test transcribes its guidance and applies the same check, and the old
+      guidance fails it with 15 contradictions. The `next` stash also gained a
+      caret for the span where it is genuinely a third node — in the watch panel
+      alone it equalled `current` on every narrated frame."
     dependsOn: []
   - id: p2130
     leetcode: 2130
@@ -858,10 +876,14 @@ problems:
     order: 59
     structures: [ dp ]
     techniques: [ dp, memoization ]
-    status: in-progress
-    branch: null
+    status: done
+    branch: claude/leetcode-visualizer-w01nr6
     pr: null
-    notes: null
+    notes: "trace-verifier: faithful. The dp table fills left to right with
+      `dependsOn` lighting the three recurrence inputs on their own frame and
+      clearing after it, so no stale dependency marks survive. `VizDpTable` is
+      generic in the cell type, so the line that is the recurrence is
+      cast-free."
     dependsOn: []
   - id: p746
     leetcode: 746
