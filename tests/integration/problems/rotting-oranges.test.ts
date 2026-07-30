@@ -152,6 +152,44 @@ describe('the picture and the answer agree about how long it took', () => {
     expect(watch?.fresh).toBe(0)
   })
 
+  it('is an assertion a per-cell BFS fails despite returning the right answer', () => {
+    // Proof that the scope count is not a tautology. This solution carries the minute along with
+    // each coordinate and takes the maximum — textbook, correct, and it animates a single
+    // undifferentiated drain in which no minute is ever visible. Same 4, zero minute scopes.
+    const source = `
+export default function orangesRotting(grid: number[][], viz: Viz): number {
+  const g = viz.matrix(grid, { name: 'grid' })
+  const q = viz.queue<string>([], { name: 'frontier' })
+  let fresh = 0
+  for (let r = 0; r < g.rows; r += 1) {
+    for (let c = 0; c < g.cols; c += 1) {
+      if (g.peek(r, c) === 2) q.push(\`\${r},\${c},0\`)
+      else if (g.peek(r, c) === 1) fresh += 1
+    }
+  }
+  let best = 0
+  while (!q.isEmpty) {
+    const [r, c, d] = (q.shift() as string).split(',').map(Number)
+    if (d > best) best = d
+    for (const [dr, dc] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+      const nr = r + dr
+      const nc = c + dc
+      if (!g.inBounds(nr, nc) || g.peek(nr, nc) !== 1) continue
+      g.set(nr, nc, 2)
+      q.push(\`\${nr},\${nc},\${d + 1}\`)
+      fresh -= 1
+    }
+  }
+  return fresh > 0 ? -1 : best
+}
+`
+    const run = executeRun({ problem: PROBLEM, source, caseIndex: 0 })
+    expect(run.diagnostics).toEqual([])
+    expect(run.results[0]?.returned).toBe(4)
+    expect(run.results[0]?.passed).toBe(true)
+    expect(minuteScopes(run.results[0]!.trace)).toEqual([])
+  })
+
   it('counts BFS levels, not productive minutes, on an impossible grid', () => {
     // The rot still spreads for a while before it stalls; the answer is -1 because a fresh
     // orange survives, not because no minute elapsed.
