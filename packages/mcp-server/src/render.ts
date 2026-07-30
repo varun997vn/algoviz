@@ -32,7 +32,10 @@ function glyphs(marks: readonly { class: string }[]): string {
 
 function cell(value: unknown, marks: readonly { class: string }[]): string {
   const text = value === null ? '_' : String(value)
-  return `${text}${glyphs(marks)}`
+  // Quote anything that isn't a plain number: cells are space-separated, so a coordinate like
+  // "(1,1)" or any value containing a space would otherwise read as two cells.
+  const safe = /^-?\d+(\.\d+)?$/.test(text) || text === '_' ? text : JSON.stringify(text)
+  return `${safe}${glyphs(marks)}`
 }
 
 export function renderSnapshot(name: string, snapshot: StructureSnapshot): string {
@@ -157,9 +160,19 @@ export function renderSnapshot(name: string, snapshot: StructureSnapshot): strin
       const cycle = cursor !== null ? ` (cycle back to ${cursor})` : ''
       const detached = snapshot.nodes.filter((n) => !seen.has(n.id))
       const cursors = snapshot.cursors.map((c) => `${c.name}->${c.id ?? 'null'}`).join(' ')
+      // Detached nodes get their mark glyphs too, and their real `next`. Without the glyphs a
+      // rewire frame rendered identically to the frame before it, so the one frame whose whole
+      // purpose was the rewire looked like a duplicate — which is how a genuine arrow bug in
+      // ListViz shipped past its author, who was reading this output.
+      const detachedText = detached
+        .map((n) => {
+          const target = n.next === null ? '' : `->${n.next}`
+          return `${String(n.value)}${glyphs(snapshot.marks.filter((m) => m.id === n.id))}${target}`
+        })
+        .join(' ')
       return (
         `${name} (list): ${parts.join(' -> ')}${cycle}` +
-        (detached.length > 0 ? `  detached: ${detached.map((n) => String(n.value)).join(' ')}` : '') +
+        (detached.length > 0 ? `  detached: ${detachedText}` : '') +
         (cursors ? `  ${cursors}` : '')
       )
     }
@@ -240,7 +253,7 @@ export function renderGroups(trace: Trace): string {
 
 export function renderSummary(trace: Trace): string {
   const lines = [
-    `frames: ${trace.frames.length}  ops: ${trace.opCount}`,
+    `frames: ${trace.frames.length}  recorded ops: ${trace.opCount}`,
     `structures: ${trace.structures.map((s) => `${s.name} (${s.kind}, id=${s.id})`).join(', ') || 'none'}`,
   ]
   if (trace.result) {
@@ -255,8 +268,11 @@ export function renderSummary(trace: Trace): string {
 
   const opCounts = new Map<string, number>()
   for (const f of trace.frames) opCounts.set(f.op, (opCounts.get(f.op) ?? 0) + 1)
+  // Labelled "frames by op", not "op mix": these count *frames*, and the terminal frame is
+  // emitted without incrementing the op counter, so the two totals legitimately differ by one.
+  // Under similar names that read as an off-by-one bug in the tool.
   lines.push(
-    `op mix: ${[...opCounts.entries()]
+    `frames by op: ${[...opCounts.entries()]
       .sort((a, b) => b[1] - a[1])
       .map(([op, n]) => `${op}=${n}`)
       .join(' ')}`,

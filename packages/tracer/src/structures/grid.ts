@@ -88,6 +88,23 @@ export class VizMatrix<T extends Primitive> extends BaseStructure {
     this.rec.record({ op: 'mark', structure: this, label: `mark (${row},${col}) as ${cls}` })
   }
 
+  /** Remove every mark from a cell. */
+  unmark(row: number, col: number): void {
+    this.marks.remove(row, col)
+    this.rec.record({ op: 'mark', structure: this, label: `unmark (${row},${col})` })
+  }
+
+  /**
+   * Remove one class from a cell, leaving its others intact.
+   *
+   * The counterpart of marks layering: a grid BFS that puts a cell `on the path` and later takes
+   * it off must not also erase the conclusion that it was `visited`.
+   */
+  unmarkClass(row: number, col: number, cls: MarkClass): void {
+    this.marks.removeClass(row, col, cls)
+    this.rec.record({ op: 'mark', structure: this, label: `unmark ${cls} at (${row},${col})` })
+  }
+
   clearMarks(cls?: MarkClass): void {
     this.marks.clear(cls)
     this.rec.record({ op: 'mark', structure: this, label: 'clear marks' })
@@ -188,11 +205,31 @@ export class VizDpTable extends BaseStructure {
     this.pending = undefined
   }
 
-  /** Mark the cells the value just written was derived from — the recurrence, made visible. */
-  dependsOn(cells: readonly [number, number][], note?: string): void {
-    for (const [r, c] of cells) this.marks.set(r, c, 'compare', note)
+  /**
+   * Mark the cells the value just written was derived from — the recurrence, made visible.
+   *
+   * Emitted through the *transient* channel, so the highlight lasts exactly one frame by
+   * construction. Writing it into the persistent store and deleting it afterwards was wrong twice
+   * over: the delete was class-blind and destroyed any `visited`/`result` state on those cells,
+   * and the mark survived on every carried-forward frame until the table was next touched — so a
+   * solution that narrated between iterations showed stale dependency arrows against captions
+   * that had already moved on. It also made `never-marked-at-end compare` unable to fail, because
+   * the terminal frame is re-snapshotted after the delete.
+   *
+   * Accepts plain indices for a 1-D table; `[row, col]` pairs for a 2-D one.
+   */
+  dependsOn(cells: readonly number[] | readonly [number, number][], note?: string): void {
+    const pairs: [number, number][] = cells.map((cell) =>
+      typeof cell === 'number' ? [0, cell] : [cell[0], cell[1]],
+    )
+    this.pending = pairs.map(([row, col]) => ({
+      row,
+      col,
+      class: 'compare' as const,
+      ...(note !== undefined ? { note } : {}),
+    }))
     this.rec.record({ op: 'compare', structure: this, label: note ?? 'recurrence inputs' })
-    for (const [r, c] of cells) this.marks.remove(r, c)
+    this.pending = undefined
   }
 
   mark(row: number, col: number, cls: MarkClass, note?: string): void {

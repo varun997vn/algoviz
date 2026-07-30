@@ -15,6 +15,24 @@ import {
 type Of<K extends StructureSnapshot['kind']> = Extract<StructureSnapshot, { kind: K }>
 
 /**
+ * The note attached to a mark, if any.
+ *
+ * `mark(index, class, note)` has always stored a note that no component rendered — which is
+ * exactly the affordance a stack of indices needs to say what its numbers mean.
+ */
+function noteFor(marks: readonly { index: number; note?: string }[], index: number): string | undefined {
+  return marks.filter((m) => m.index === index).find((m) => m.note !== undefined)?.note
+}
+
+function noteAt(
+  marks: readonly { row: number; col: number; note?: string }[],
+  row: number,
+  col: number,
+): string | undefined {
+  return marks.filter((m) => m.row === row && m.col === col).find((m) => m.note !== undefined)?.note
+}
+
+/**
  * Assign each cursor a vertical lane so two pointers at the same index stay legible.
  *
  * A two-pointer scan spends its most interesting moment with `left` and `right` adjacent or
@@ -47,7 +65,9 @@ export function ArrayViz({ snapshot }: { snapshot: Of<'array'> }): ReactNode {
 
   const [from, to] = visibleRange(values.length, cursors)
   const lanes = laneFor(cursors)
-  const width = (to - from) * (CELL + GAP)
+  // One extra slot so a caret parked one past the last element has somewhere to be drawn.
+  const restingCaret = cursors.some((c) => c.index === to)
+  const width = (to - from + (restingCaret ? 1 : 0)) * (CELL + GAP)
   const cursorLanes = Math.max(1, new Set(cursors.map((c) => c.index)).size > 0 ? Math.max(...[...lanes.values()]) + 1 : 1)
   const height = CELL + 22 + cursorLanes * 16 + 8
 
@@ -74,8 +94,14 @@ export function ArrayViz({ snapshot }: { snapshot: Of<'array'> }): ReactNode {
             />
           )
         })}
+        {/*
+          `<= to` rather than `< to`: a caret resting one past the last element is the normal
+          terminal state of any `while (i < n)` loop, so filtering it out blanked the pointers on
+          the final frame of every array and string problem. It renders in the slot just beyond
+          the last cell, which reads as "past the end" rather than as a phantom cell.
+        */}
         {cursors
-          .filter((c) => c.index >= from && c.index < to)
+          .filter((c) => c.index >= from && c.index <= to)
           .map((c) => (
             <Caret
               key={c.name}
@@ -124,6 +150,7 @@ export function StackViz({ snapshot }: { snapshot: Of<'stack'> }): ReactNode {
                 value={value}
                 marks={marksAt(marks, index)}
                 nodeId={String(index)}
+                {...(noteFor(marks, index) !== undefined ? { title: noteFor(marks, index) } : {})}
               />
               {index === values.length - 1 ? (
                 <text
@@ -322,12 +349,16 @@ function GridViz({
   cursors,
   label,
   rowLabels,
+  colIndexLabels,
 }: {
   values: readonly (readonly unknown[])[]
   marks: readonly { row: number; col: number; class: never }[]
   cursors?: readonly { name: string; row: number; col: number }[]
   label: string
   rowLabels?: boolean
+  /** Number each column under the cell. A dp narration says "T(6)"; without this there is no
+   *  way to find cell 6 except counting along the row. */
+  colIndexLabels?: boolean
 }): ReactNode {
   const rows = values.length
   const cols = values[0]?.length ?? 0
@@ -335,7 +366,7 @@ function GridViz({
 
   const offsetX = rowLabels ? 26 : 0
   const width = cols * (CELL + GAP) + offsetX
-  const height = rows * (CELL + GAP) + 16
+  const height = rows * (CELL + GAP) + (colIndexLabels ? 30 : 16)
 
   return (
     <Scroll>
@@ -349,7 +380,8 @@ function GridViz({
               value={value as never}
               marks={marksAtCell(marks as never, r, c)}
               nodeId={`${r},${c}`}
-              title={`(${r}, ${c})`}
+              title={noteAt(marks as never, r, c) ?? `(${r}, ${c})`}
+              {...(colIndexLabels && r === rows - 1 ? { indexLabel: String(c) } : {})}
             />
           )),
         )}
@@ -401,7 +433,15 @@ export function MatrixViz({ snapshot }: { snapshot: Of<'matrix'> }): ReactNode {
 
 export function DpViz({ snapshot }: { snapshot: Of<'dp'> }): ReactNode {
   const values = snapshot.dims === 1 ? [snapshot.values as unknown[]] : (snapshot.values as unknown[][])
-  return <GridViz values={values} marks={snapshot.marks as never} label="dp table" rowLabels={snapshot.dims === 2} />
+  return (
+    <GridViz
+      values={values}
+      marks={snapshot.marks as never}
+      label="dp table"
+      rowLabels={snapshot.dims === 2}
+      colIndexLabels
+    />
+  )
 }
 
 /** Interval list on a shared numeric axis, greedily packed into lanes. */

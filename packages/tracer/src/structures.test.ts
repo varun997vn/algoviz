@@ -327,6 +327,85 @@ describe('VizDpTable', () => {
     expect(finalOf(t, 'dp1', 'dp').marks).toEqual([])
   })
 
+  it('does not destroy persistent marks on the cells a recurrence names', () => {
+    // Regression: Mark2DStore keyed by cell alone, so dependsOn's class-blind delete wiped any
+    // visited/result state on those cells. Same defect NodeMarkStore was written to avoid — a
+    // correct algorithm produced an animation that showed nothing, every test still green.
+    const { trace: t } = trace((viz) => {
+      const dp = viz.dp1d(6, 0)
+      dp.mark(0, 0, 'visited')
+      dp.mark(0, 1, 'visited')
+      dp.mark(0, 2, 'visited')
+      dp.dependsOn([0, 1, 2], 'recurrence')
+      return 0
+    })
+    const marks = finalOf(t, 'dp1', 'dp').marks
+    expect(marks.filter((m) => m.class === 'visited')).toHaveLength(3)
+  })
+
+  it('lets two classes coexist on one cell, newest winning visually', () => {
+    const { trace: t } = trace((viz) => {
+      const dp = viz.dp1d(2, 0)
+      dp.mark(0, 0, 'visited')
+      dp.mark(0, 0, 'result')
+      return 0
+    })
+    const marks = finalOf(t, 'dp1', 'dp').marks
+    expect(marks.map((m) => m.class)).toEqual(['visited', 'result'])
+  })
+
+  it('removes only the named class from a cell', () => {
+    const { trace: t } = trace((viz) => {
+      const g = viz.matrix([[1, 2]])
+      g.mark(0, 0, 'visited')
+      g.mark(0, 0, 'path')
+      g.unmarkClass(0, 0, 'path')
+      return 0
+    })
+    expect(finalOf(t, 'mtx1', 'matrix').marks.map((m) => m.class)).toEqual(['visited'])
+  })
+
+  it('keeps a dependency highlight to exactly one frame, even across later narration', () => {
+    // It used to be written to the persistent store, so it survived every carried-forward frame
+    // until the table was next touched — stale arrows against captions that had moved on. And
+    // because the terminal frame is re-snapshotted after the delete, `never-marked-at-end
+    // compare` could not fail, so nothing caught it.
+    const { trace: t } = trace((viz) => {
+      const dp = viz.dp1d(6, 0)
+      dp.set(3, 2)
+      dp.dependsOn([0, 1, 2], 'T(3) = T(2)+T(1)+T(0)')
+      viz.step('store it')
+      viz.step('advance i')
+      return 0
+    })
+    const reader = new TraceReader(t)
+    const compareAt = t.frames.findIndex((f) => f.op === 'compare')
+    const at = (i: number): number => {
+      const snap = reader.structureAt('dp1', i)
+      return snap && 'marks' in snap ? snap.marks.filter((m) => m.class === 'compare').length : 0
+    }
+    expect(at(compareAt)).toBe(3)
+    expect(at(compareAt + 1)).toBe(0)
+    expect(at(compareAt + 2)).toBe(0)
+  })
+
+  it('accepts plain indices for a 1-D table and pairs for a 2-D one', () => {
+    const { trace: t } = trace((viz) => {
+      const one = viz.dp1d(3, 0)
+      const two = viz.dp2d(2, 2, 0)
+      one.dependsOn([0, 1])
+      two.dependsOn([[0, 0], [1, 1]])
+      return 0
+    })
+    const compares = t.frames.filter((f) => f.op === 'compare')
+    expect(compares).toHaveLength(2)
+    const first = compares[0]?.snapshots['dp1']
+    expect(first?.kind === 'dp' && first.marks.map((m) => [m.row, m.col])).toEqual([
+      [0, 0],
+      [0, 1],
+    ])
+  })
+
   it('rejects a write outside a 2-D table', () => {
     expect(() =>
       trace((viz) => {

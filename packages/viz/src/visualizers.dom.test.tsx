@@ -101,6 +101,38 @@ describe('ArrayViz', () => {
     expect(screen.getByTestId('cursor-i')).toBeInTheDocument()
   })
 
+  it('renders a caret resting one past the last element', () => {
+    // The bug this pins: the filter was `c.index < to` with `to === values.length`, so a caret at
+    // exactly `length` was dropped. Every `while (i < n)` loop ends there, which meant the final
+    // frame of every array and string problem showed no carets at all.
+    const container = renderSnapshot({
+      kind: 'array',
+      values: [1, 2, 3],
+      cursors: [{ name: 'i', index: 3 }],
+      marks: [],
+    })
+    const caret = screen.getByTestId('cursor-i')
+    expect(caret).toBeInTheDocument()
+    // It must sit past the last cell, not on top of it.
+    const lastCell = container.querySelector('[data-node-id="2"] rect')
+    const lastX = Number(lastCell?.getAttribute('x'))
+    const caretX = Number(caret.querySelector('path')?.getAttribute('d')?.match(/M ([\d.]+)/)?.[1])
+    expect(caretX).toBeGreaterThan(lastX)
+    // And the SVG must be wide enough to actually show it.
+    const svg = container.querySelector('svg')
+    expect(Number(svg?.getAttribute('width'))).toBeGreaterThan(caretX)
+  })
+
+  it('still drops a caret that is genuinely out of bounds', () => {
+    renderSnapshot({
+      kind: 'array',
+      values: [1, 2, 3],
+      cursors: [{ name: 'far', index: 9 }],
+      marks: [],
+    })
+    expect(screen.queryByTestId('cursor-far')).toBeNull()
+  })
+
   it('gives two cursors on the same index different lanes so both stay readable', () => {
     const container = renderSnapshot({
       kind: 'array',

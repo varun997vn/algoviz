@@ -243,7 +243,7 @@ describe('algoviz MCP server', () => {
       )
       expect(out).toContain('structures: height (array')
       expect(out).toContain('returned: 49')
-      expect(out).toContain('op mix:')
+      expect(out).toContain('frames by op:')
     })
 
     it('renders a frame as a readable diagram with cursors and a legend', async () => {
