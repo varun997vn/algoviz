@@ -11,6 +11,34 @@ function traceOf(groups: string[][]): Trace {
   return { frames, structures: [], opCount: frames.length }
 }
 
+describe('renderSnapshot — trie root', () => {
+  it('shows a mark on the root, which a failed lookup is', () => {
+    // `walk` emitted a line only for `depth > 0`, so the root and its marks were never printed —
+    // and a failed lookup marks the root `excluded` exactly so a miss does not render identically
+    // to a hit. A trie whose only content is root marks rendered completely blank.
+    const out = renderSnapshot('t', {
+      kind: 'trie',
+      nodes: [{ id: 'p1', char: '', terminal: false, children: [] }],
+      root: 'p1',
+      marks: [{ id: 'p1', class: 'excluded' }],
+    })
+    expect(out).toContain('(root)x')
+  })
+
+  it('leaves an unmarked root out, so an ordinary trie is unchanged', () => {
+    const out = renderSnapshot('t', {
+      kind: 'trie',
+      nodes: [
+        { id: 'p1', char: '', terminal: false, children: ['p2'] },
+        { id: 'p2', char: 'a', terminal: true, children: [] },
+      ],
+      root: 'p1',
+      marks: [],
+    })
+    expect(out).toBe('t (trie):\n  a.')
+  })
+})
+
 describe('renderSnapshot — graph edge marks', () => {
   // The same rule as `GraphViz`, implemented independently here. Two copies of one rule with no
   // test on either can drift apart silently — and the player disagreeing with the tool an audit

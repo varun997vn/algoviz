@@ -145,8 +145,15 @@ export function renderSnapshot(name: string, snapshot: StructureSnapshot): strin
       const walk = (id: string, depth: number): void => {
         const node = byId.get(id)
         if (!node) return
-        if (depth > 0) {
-          const marks = snapshot.marks.filter((m) => m.id === id)
+        const marks = snapshot.marks.filter((m) => m.id === id)
+        // The root prints when it carries a mark. It used to be skipped unconditionally, so a
+        // failed lookup — which marks the root `excluded` precisely so a miss does not look like a
+        // hit — rendered with no glyph anywhere, and a trie that is nothing *but* root marks
+        // rendered blank. That is the same defect `TrieViz` was just fixed for, one layer over, in
+        // the tool an auditor reads its evidence from.
+        if (depth === 0) {
+          if (marks.length > 0) lines.push(`  (root)${glyphs(marks)}`)
+        } else {
           lines.push(`  ${'  '.repeat(depth - 1)}${node.char}${node.terminal ? '.' : ''}${glyphs(marks)}`)
         }
         for (const child of node.children) walk(child, depth + 1)

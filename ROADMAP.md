@@ -5,17 +5,17 @@
 Every problem here is solved *inside the app*: you write the instrumented solution and
 watch your own algorithm execute over a live visualization of the structures it touches.
 
-**Progress: 11 / 75 done (15%)**
+**Progress: 12 / 75 done (16%)**
 
 `████░░░░░░░░░░░░░░░░░░░░░░░░`
 
 | Status | Count |
 | --- | --- |
 | ⬜ todo | 57 |
-| 🟡 in-progress | 7 |
+| 🟡 in-progress | 6 |
 | 🔵 review | 0 |
 | 🔴 blocked | 0 |
-| ✅ done | 11 |
+| ✅ done | 12 |
 
 ## Next up
 
@@ -191,11 +191,11 @@ Run the `solve-problem` skill to take the next one end to end.
 | 136 | [Single Number](https://leetcode.com/problems/single-number/) | easy | `array` | ⬜ todo | — |
 | 1318 | [Minimum Flips to Make a OR b Equal to c](https://leetcode.com/problems/minimum-flips-to-make-a-or-b-equal-to-c/) | medium | `array` | ⬜ todo | — |
 
-### Trie — 0/2
+### Trie — 1/2
 
 | # | Problem | Difficulty | Structures | Status | PR |
 | --- | --- | --- | --- | --- | --- |
-| 208 | [Implement Trie (Prefix Tree)](https://leetcode.com/problems/implement-trie-prefix-tree/) | medium | `trie` | 🟡 in-progress | #2 |
+| 208 | [Implement Trie (Prefix Tree)](https://leetcode.com/problems/implement-trie-prefix-tree/) | medium | `trie` | ✅ done | #2 |
 | 1268 | [Search Suggestions System](https://leetcode.com/problems/search-suggestions-system/) | medium | `trie, array` | ⬜ todo | — |
 
 ### Intervals — 1/2
@@ -232,5 +232,5 @@ visualizer has no real user yet, however green its unit tests are.
 | `set` | 2 | 7 |
 | `dp` | 1 | 9 |
 | `intervals` | 1 | 2 |
-| `trie` | 0 | 3 |
+| `trie` | 1 | 3 |
 | `cursor` | 4 | 23 |

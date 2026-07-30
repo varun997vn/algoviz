@@ -202,9 +202,10 @@ describe('Kth Largest Element in an Array — reference trace semantics', () => 
     expect(heap.values).toHaveLength(k)
     expect(heap.values[0]).toBe(returned)
     expect(heap.marks.filter((m) => m.class === 'result').map((m) => m.index)).toEqual([0])
-    // Nothing moves after the mark is set, which is why marking slot 0 is safe here: `VizHeap`
-    // keys marks by array slot and never moves them when it swaps, so a mark set mid-run would
-    // drift onto whatever value sifted into that slot later.
+    // Nothing moves after the mark is set, so slot 0 is the answer for good. (This comment used
+    // to justify that by claiming `VizHeap` never moves marks when it swaps. That was true when
+    // it was written and is not now — `IndexMarkStore.swap`/`move` carry a mark with its value,
+    // and the heap tests assert it. The assertion below still holds; its old reason did not.)
     expect(reader.captionAt(last)).toMatch(/is the 4th largest/)
   })
 
@@ -436,7 +437,7 @@ export default function findKthLargest(nums: number[], k: number, viz: Viz): num
   const top = viz.heap<number>([], { name: 'the k largest so far' })
   const kth = viz.array<number>(nums.length, { name: 'k-th largest so far', fill: null })
   const i = viz.cursor('i', 0, a)
-  viz.watch(() => ({ i: i.value, kept: top.size, kth: top.peek() ?? null }))
+  viz.watch(() => ({ i: i.value, kept: top.size, kth: top.size === k ? top.peek() : null }))
 
   for (i.value = 0; i.value < a.length; i.inc()) {
     const x = a[i.value]
@@ -462,6 +463,27 @@ export default function findKthLargest(nums: number[], k: number, viz: Viz): num
   return answer
 }
 `
+
+  it('is a transcription of the shipped starter, not a different program', () => {
+    // Without this, the block below tests whatever the *test* happens to say. That is not
+    // hypothetical: this file's `filled` snippet put the `kth` write above `viz.step` while the
+    // shipped starter had it below, so "keeps the payoff panel level with the caption" passed
+    // against a program no learner would ever have — and the starter reproduced, verbatim, the
+    // 140-frame lag the reference had just been fixed for. An audit found it; CI could not.
+    // The starter's own placeholders, which its TODOs explicitly say to replace. Everything else
+    // is scaffolding the learner is told to leave alone, so a difference there is drift.
+    const placeholders = ["viz.step('at ' + x)", 'return 0']
+    const starter = requireProblem(PROBLEM).starter
+    const scaffolding = starter
+      .split('\n')
+      .map((l) => l.trim())
+      .filter((l) => l.length > 6 && !l.startsWith('//') && !l.startsWith('*'))
+      .filter((l) => !placeholders.includes(l))
+    const missing = scaffolding.filter((l) => !filled.includes(l))
+    expect(missing, 'the filled solution has drifted from the starter it claims to fill in').toEqual(
+      [],
+    )
+  })
 
   it('produces a passing, invariant-holding trace when followed literally', () => {
     const run = executeRun({ problem: PROBLEM, source: filled, caseIndex: 'all' })

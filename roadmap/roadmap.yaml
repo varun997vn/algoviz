@@ -1087,22 +1087,23 @@ problems:
     order: 70
     structures: [ trie ]
     techniques: [ trie, design ]
-    status: in-progress
+    status: done
     branch: claude/leetcode-visualizer-w01nr6
     pr: 2
-    notes: "trace-verifier: reference faithful, problem misleading — the starter
-      made `search` and `startsWith` frame-identical, which is the single claim
-      this problem exists to make. Its TODOs never mentioned marking the node
-      the walk lands on, so a learner's two lookups drew identical frames and
-      disagreed only in the caption. Fixed, along with three shared defects the
-      audit found: `VizTrie.retireWalk` cleared `path`/`excluded` but not
-      `match` — the mark every lookup actually ends on — so successive lookups
-      accumulated answers; `TrieViz` bailed to a placeholder for a single-node
-      trie, blanking the whole panel on the case that is nothing but misses
-      against an empty trie; and `renderGroups` merged disjoint scopes sharing a
-      label, reporting `search(\"app\")` as frames 19..46 when it was 19..25 and
-      40..46, which is the tool an auditor navigates by. Awaiting re-audit
-      before this is marked done."
+    notes: "trace-verifier: faithful (re-audit). All four fixes verified. The
+      starter, filled literally from its TODOs, now produces byte-for-byte the
+      reference's op sequence on the disagreement case — `search(\"app\")`
+      frames 10-16 against `startsWith(\"app\")` 17-23, with exactly one
+      non-caption frame differing: `mark p4 as excluded` vs `mark p4 as match`.
+      `retireWalk` retires `match` too, so a solution relying on it alone shows
+      no accumulation (max 1 match mark and 1 excluded mark on any frame, all 8
+      cases). `TrieViz` draws a marked one-node trie and still shows the
+      placeholder for a bare one. `renderGroups` reports the two
+      `search(\"app\")` scopes as separate ranges. Node count equals distinct
+      prefixes on all 8 cases; `insert(\"app\")` after `insert(\"apple\")` emits
+      three reuse visits and zero inserts. `VizTrie.exitPath`, added later for
+      017, does not touch this problem. Note the test file has no starter block,
+      so nothing keeps finding 1 fixed — worth adding."
     dependsOn: []
   - id: p1268
     leetcode: 1268

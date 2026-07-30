@@ -42,7 +42,10 @@ export function reference(nums: number[], k: number, viz: Viz): number {
   const top = viz.heap<number>([], { name: 'the k largest so far' })
   const kth = viz.array<number>(nums.length, { name: 'k-th largest so far', fill: null })
   const i = viz.cursor('i', 0, a)
-  viz.watch(() => ({ i: i.value, kept: top.size, kth: top.peek() ?? null }))
+  // `kth` only once there *is* one. Reporting `top.peek()` while the heap is still filling put a
+  // number in the watch panel on 32 frames whose caption says "only 1 of 4 values so far" and whose
+  // payoff panel is deliberately blank for exactly that reason — two panels of one frame disagreeing.
+  viz.watch(() => ({ i: i.value, kept: top.size, kth: top.size === k ? top.peek() : null }))
 
   for (i.value = 0; i.value < a.length; i.inc()) {
     const x = a[i.value]
@@ -118,7 +121,9 @@ export default function findKthLargest(nums: number[], k: number, viz: Viz): num
   // largest yet, and a blank cell says that where a 0 would look like a real answer.
   const kth = viz.array<number>(nums.length, { name: 'k-th largest so far', fill: null })
   const i = viz.cursor('i', 0, a)
-  viz.watch(() => ({ i: i.value, kept: top.size, kth: top.peek() ?? null }))
+  // kth only once there IS one: reporting the root while the heap is still filling puts a
+  // number beside a caption that says the answer is not known yet.
+  viz.watch(() => ({ i: i.value, kept: top.size, kth: top.size === k ? top.peek() : null }))
 
   for (i.value = 0; i.value < a.length; i.inc()) {
     const x = a[i.value]
@@ -134,12 +139,12 @@ export default function findKthLargest(nums: number[], k: number, viz: Viz): num
     // decision this algorithm makes — with a silent read it is narrated on every element
     // and shown on none, and the heap panel just goes grey while the caption claims a
     // comparison happened.
-    viz.step('at ' + x)
 
-    // Once the heap is full the root is the answer so far; record it so the panel shows the
-    // k-th largest climbing towards the final one. Record it BEFORE the viz.step above, or
-    // the frame carrying the caption is one element behind the panel it is describing.
+    // Once the heap is full the root is the answer so far, so record it here — *before* the
+    // narration below. Written after the viz.step it lands in its own uncaptioned frame, and
+    // every narrated frame then shows this panel one element short of what its caption claims.
     if (top.size === k) kth[i.value] = top.peek() as number
+    viz.step('at ' + x)
   }
 
   // TODO: return the root — the smallest of the k largest values, and mark it 'result' so
