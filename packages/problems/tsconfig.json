@@ -1,0 +1,18 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    // Solution code is the one place where `nums[i]` must read exactly as it does on
+    // LeetCode. With `noUncheckedIndexedAccess` on, every `h[left]` needs a `!`, which is
+    // precisely the "instrumented code looks like homework" failure this project exists to
+    // avoid. The strict setting stays on everywhere else, including the tracer internals
+    // that back these arrays.
+    "noUncheckedIndexedAccess": false,
+    "outDir": "./dist",
+    "rootDir": "./src"
+  },
+  "include": ["src/**/*"],
+  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx", "src/**/*.dom.test.tsx"],
+  "references": [
+    { "path": "../tracer" }
+  ]
+}

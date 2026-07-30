@@ -169,7 +169,9 @@ export class VizTree extends BaseStructure {
   }
 
   exitPath(id: NodeId): void {
-    this.marks.remove(id)
+    // Only the path mark comes off — a `result` or `visited` mark set while we were down here
+    // is a conclusion about the node and must survive the unwind.
+    this.marks.removeClass(id, 'path')
     this.rec.record({ op: 'mark', structure: this, label: `leave ${formatVal(this.peek(id))}` })
   }
 
