@@ -39,8 +39,10 @@ export function reference(head: number[], viz: Viz): number[] {
 
     // Everything from `prev` backwards is already reversed, so `prev` is the head now.
     list.head = prev
-    list.cursor('prev', prev)
+    // `current` is moved before `prev`: one cursor per frame means whichever goes second
+    // would otherwise share a node with the other for a frame and both labels would pile up.
     list.cursor('current', current)
+    list.cursor('prev', prev)
     viz.step(
       current
         ? `reversed ${prev.rawValue}, next up ${current.rawValue}`
@@ -73,8 +75,8 @@ export default function reverseList(head: number[], viz: Viz): number[] {
     // TODO: stash current.rawNext (rawNext does not record a frame), point current.next
     // at prev, then advance prev and current. Assign list.head = prev as well, so the
     // reversed prefix stays on the main row and the untouched suffix renders as detached.
-    list.cursor('prev', prev)
     list.cursor('current', current)
+    list.cursor('prev', prev)
     viz.step('rewire one link')
     break
   }
