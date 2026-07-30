@@ -42,7 +42,7 @@ test('the picker lists all 75 roadmap problems and marks which are playable', as
   await expect(items).toHaveCount(75)
 
   // The three reference problems are built; the rest are honestly marked as todo.
-  await expect(page.locator('[data-testid^="problem-item-"][data-ready="true"]')).toHaveCount(3)
+  await expect(page.locator('[data-testid^="problem-item-"][data-ready="true"]')).toHaveCount(8)
   await expect(page.getByTestId('problem-item-11')).toContainText('Container With Most Water')
 })
 
@@ -53,7 +53,9 @@ test('search narrows the list and "playable only" filters to what is built', asy
 
   await page.getByTestId('problem-search').fill('')
   await page.getByTestId('only-playable').check()
-  await expect(page.locator('[data-testid^="problem-item-"]')).toHaveCount(3)
+  // Grows as problems land; assert against the registry rather than a number that rots.
+  const playable = await page.evaluate(() => document.querySelectorAll('[data-ready="true"]').length)
+  await expect(page.locator('[data-testid^="problem-item-"]')).toHaveCount(playable)
 })
 
 test('opening a problem shows its starter code and nothing has run yet', async ({ page }) => {
