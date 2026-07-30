@@ -102,6 +102,23 @@ Corollaries:
   is the one place `nums[i]` must read exactly as it does on LeetCode. The setting stays on
   everywhere else.
 
+### Known gap: one frame per op
+
+There is no way to say "these two mutations are one step". Three audits have now reported the
+same consequence independently: `waiting.push(day)` then `t.mark(day, 'pinned')` are two frames,
+so for one frame the day is on the stack and not yet marked, and any invariant that ties two
+structures together is briefly false. Every such case so far has been fixable by *ordering* the
+ops so the lag runs in the harmless direction — a mark that trails the queue rather than leading
+it, an answer written before the mark that announces it — and where ordering was enough, that is
+what was done, because the alternative is not free.
+
+A coalescing primitive (`viz.atomic(label, () => { ... })`, emitting one frame carrying every
+structure the body touched) would remove the lag entirely. It would also erase the per-op frames,
+and the op log is what the integration tests and `trace_assert` reason over: "`visited` is never
+set before the frame that dequeues the cell" is only checkable because the dequeue *has* a frame.
+Deciding that trade is a design question, not a cleanup — do it deliberately, with the op-level
+assertions rewritten first, or not at all.
+
 ## Prefer the MCP tools over ad-hoc scripts
 
 `run_solution` executes a solution headlessly and returns pass/fail plus trace IDs.

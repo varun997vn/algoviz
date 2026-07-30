@@ -47,14 +47,16 @@ export function reference(temperatures: number[], viz: Viz): number[] {
     while (!waiting.isEmpty && t.compare(waiting.requireTop(), day.value) < 0) {
       const earlier = waiting.requireTop()
       const wait = day.value - earlier
-      // Marked *before* the pop, not after. A day that has already left the stack while still
-      // wearing "still waiting" inverts the one heuristic the split panels exist for — rightmost
-      // pinned cell == top of stack — and it did so on the pop frames, which are precisely the
-      // ones worth stopping on.
-      t.mark(earlier, 'result', `warmer after ${wait} days`)
-      waiting.pop()
+      // Three ops, and the order is the whole point. The answer is written first, so no frame ever
+      // declares a day resolved while its answer cell is still blank. The mark comes second and
+      // still lands *before* the pop, because a day that has left the stack while wearing "still
+      // waiting" inverts the one heuristic the split panels exist for — rightmost pinned cell ==
+      // top of stack — on precisely the frames worth stopping on. `resolved` is incremented beside
+      // the mark rather than after the write, so the counter and the marks it counts never disagree.
       answer[earlier] = wait
       resolved += 1
+      t.mark(earlier, 'result', `warmer after ${wait} days`)
+      waiting.pop()
       viz.step(`day ${day.value} is the first warmer day for day ${earlier} — waited ${wait}`)
     }
 
@@ -76,7 +78,14 @@ export function reference(temperatures: number[], viz: Viz): number[] {
     answer[stranded] = 0
     t.mark(stranded, 'excluded', 'no warmer day ever comes')
   }
-  viz.step(`${waiting.size} day(s) never warmed up — every day still pinned is still on the stack`)
+  // Say the mapping between the two panels, since it is the one thing the split design asks a
+  // viewer to work out unaided: the stack renders bottom-to-top and the array left-to-right, so
+  // correlating them is a rotation. "every day still pinned is also on the stack" was the earlier
+  // wording and it was unobservable on its own frame — by the time this fires the closing loop has
+  // already flipped every pinned cell to `excluded`, so it described a screen nobody was looking at.
+  viz.step(
+    `${waiting.size} day(s) never warmed up — the ruled-out cells are exactly the stack, bottom of the stack leftmost`,
+  )
 
   return answer.toArray()
 }

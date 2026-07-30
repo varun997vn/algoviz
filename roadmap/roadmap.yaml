@@ -1090,10 +1090,25 @@ problems:
     order: 74
     structures: [ stack, array ]
     techniques: [ monotonic-stack ]
-    status: in-progress
+    status: done
     branch: claude/leetcode-visualizer-w01nr6
     pr: 1
-    notes: null
+    notes: 'trace-verifier: faithful (re-audit; the first audit returned
+      misleading). Verified on all 10 cases: zero non-blank answer cells that
+      differ from the final answer at any frame (the cold snap is legitimately
+      blank for frames 0-211, since nothing is decided until day 41 arrives);
+      popLag zero; all 122 compare frames light exactly the stack top and the
+      day caret with labels whose quoted temperatures match; all 153 step labels
+      re-derived from the stack snapshot at their own frame with zero false
+      claims, including the tie case "day 41 at 100 is not warmer than day 0 at
+      100". Frame count fell 498 to 420 on the cold snap. Three sub-frame
+      ordering lags the re-audit found were then fixed: the answer is written
+      before the mark that announces it, `resolved` is incremented beside that
+      mark, and the closing narration states the panel mapping while it is still
+      observable. Residual, and an API gap rather than a solution defect: `push`
+      and `mark pinned` are two frames, so "rightmost pinned cell == top of
+      stack" is briefly false on push frames. See the "one frame per op" note in
+      CLAUDE.md.'
     dependsOn: []
   - id: p901
     leetcode: 901

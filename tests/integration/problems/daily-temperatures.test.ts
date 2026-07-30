@@ -233,6 +233,52 @@ describe('Daily Temperatures — reference trace semantics', () => {
         pinned.filter((d) => !onStack.includes(d)),
         `frame ${i}: day(s) marked "still waiting" are no longer on the stack`,
       ).toEqual([])
+
+      // The inverse, which the first version of this test left unchecked. A day *is* marked
+      // `result` for one frame while still physically on the stack — the mark lands before the pop
+      // on purpose — so this cannot assert zero. What it can assert is that such a day is always
+      // the top of the stack, i.e. the one about to leave. Any deeper day wearing `result` would
+      // mean the mark had run away from the pops.
+      const resultOnStack = temps.marks
+        .filter((m) => m.class === 'result' && !m.transient)
+        .map((m) => m.index)
+        .filter((d) => onStack.includes(d))
+      for (const day of resultOnStack) {
+        expect(day, `frame ${i}: day ${day} is resolved but buried in the stack`).toBe(
+          onStack[onStack.length - 1],
+        )
+      }
+    }
+  })
+
+  it('never declares a day resolved while its answer cell is still blank', () => {
+    // Marking before the pop fixed the pinned lag and left this behind: for two frames per pop the
+    // array showed a day as answered while the panel meant to hold that answer was empty. Writing
+    // the answer first costs nothing and removes it.
+    for (let i = 0; i < reader.frameCount; i += 1) {
+      const temps = resolve(reader, TEMPS, 'array', i)
+      const answer = resolve(reader, ANSWER, 'array', i)
+      if (!temps || !answer) continue
+      for (const mark of temps.marks) {
+        if (mark.class !== 'result' || mark.transient) continue
+        expect(
+          answer.values[mark.index],
+          `frame ${i}: day ${mark.index} is marked resolved with a blank answer`,
+        ).not.toBeNull()
+      }
+    }
+  })
+
+  it('keeps the resolved counter in step with the marks it counts', () => {
+    // `resolved += 1` sat after the answer write, so the watch panel trailed the picture by three
+    // frames per pop — 120 of 420 frames on the cold snap disagreed with the marks beside them.
+    for (let i = 0; i < reader.frameCount; i += 1) {
+      const temps = resolve(reader, TEMPS, 'array', i)
+      const watch = reader.watchAt(i)
+      if (!temps || !watch) continue
+      const marks = temps.marks.filter((m) => m.class === 'result' && !m.transient).length
+      expect(watch.resolved, `frame ${i}: panel says ${String(watch.resolved)}, picture shows ${marks}`)
+        .toBe(marks)
     }
   })
 

@@ -5,17 +5,17 @@
 Every problem here is solved *inside the app*: you write the instrumented solution and
 watch your own algorithm execute over a live visualization of the structures it touches.
 
-**Progress: 6 / 75 done (8%)**
+**Progress: 7 / 75 done (9%)**
 
-`██░░░░░░░░░░░░░░░░░░░░░░░░░░`
+`███░░░░░░░░░░░░░░░░░░░░░░░░░`
 
 | Status | Count |
 | --- | --- |
 | ⬜ todo | 67 |
-| 🟡 in-progress | 2 |
+| 🟡 in-progress | 1 |
 | 🔵 review | 0 |
 | 🔴 blocked | 0 |
-| ✅ done | 6 |
+| ✅ done | 7 |
 
 ## Next up
 
@@ -205,11 +205,11 @@ Run the `solve-problem` skill to take the next one end to end.
 | 435 | [Non-overlapping Intervals](https://leetcode.com/problems/non-overlapping-intervals/) | medium | `intervals` | ⬜ todo | — |
 | 452 | [Minimum Number of Arrows to Burst Balloons](https://leetcode.com/problems/minimum-number-of-arrows-to-burst-balloons/) | medium | `intervals` | ⬜ todo | — |
 
-### Monotonic Stack — 0/2
+### Monotonic Stack — 1/2
 
 | # | Problem | Difficulty | Structures | Status | PR |
 | --- | --- | --- | --- | --- | --- |
-| 739 | [Daily Temperatures](https://leetcode.com/problems/daily-temperatures/) | medium | `stack, array` | 🟡 in-progress | #1 |
+| 739 | [Daily Temperatures](https://leetcode.com/problems/daily-temperatures/) | medium | `stack, array` | ✅ done | #1 |
 | 901 | [Online Stock Span](https://leetcode.com/problems/online-stock-span/) | medium | `stack, array` | ⬜ todo | — |
 
 ## Visualizer coverage
@@ -219,13 +219,13 @@ visualizer has no real user yet, however green its unit tests are.
 
 | Structure | Done | Planned |
 | --- | --- | --- |
-| `array` | 1 | 36 |
+| `array` | 2 | 36 |
 | `matrix` | 0 | 4 |
 | `string` | 1 | 13 |
 | `list` | 1 | 4 |
 | `tree` | 1 | 12 |
 | `graph` | 1 | 4 |
-| `stack` | 0 | 5 |
+| `stack` | 1 | 5 |
 | `queue` | 0 | 6 |
 | `heap` | 0 | 4 |
 | `map` | 0 | 6 |
