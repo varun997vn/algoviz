@@ -1,0 +1,77 @@
+/**
+ * Semantic mark classes → colours.
+ *
+ * This file is the *only* place a mark class becomes a colour. The tracer never emits a colour,
+ * which is what lets the same trace be asserted in a Node test and re-themed here.
+ */
+:root {
+  --av-bg: #0f1117;
+  --av-surface: #171a23;
+  --av-surface-2: #1f2430;
+  --av-border: #2c323f;
+  --av-text: #e6e8ee;
+  --av-text-dim: #9aa2b1;
+  --av-accent: #6ea8fe;
+
+  --av-cell-bg: #232936;
+  --av-cell-text: #e6e8ee;
+
+  /* Mark classes. Chosen to stay distinguishable for the common forms of colour blindness:
+     hue is never the only signal — the components also vary weight, ring, and label. */
+  --av-active: #ffd23f;
+  --av-compare: #7ee787;
+  --av-swap: #ff8f6b;
+  --av-visited: #5a6376;
+  --av-frontier: #58a6ff;
+  --av-path: #d2a8ff;
+  --av-result: #3fb950;
+  --av-match: #3fb950;
+  --av-excluded: #4a4f5c;
+  --av-pinned: #f778ba;
+
+  /* Edge states */
+  --av-edge: #3d4350;
+  --av-edge-active: #ffd23f;
+  --av-edge-tree: #3fb950;
+  --av-edge-rejected: #6e2d2d;
+  --av-edge-reversed: #ff8f6b;
+  --av-edge-path: #d2a8ff;
+  --av-edge-visited: #5a6376;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --av-bg: #ffffff;
+    --av-surface: #f6f7f9;
+    --av-surface-2: #eceef2;
+    --av-border: #d5d9e0;
+    --av-text: #1c1f26;
+    --av-text-dim: #5c6370;
+    --av-cell-bg: #e9ecf1;
+    --av-cell-text: #1c1f26;
+    --av-visited: #a7aeba;
+    --av-excluded: #c8ccd4;
+    --av-edge: #b6bcc7;
+  }
+}
+
+.av-mark-active { fill: var(--av-active); }
+.av-mark-compare { fill: var(--av-compare); }
+.av-mark-swap { fill: var(--av-swap); }
+.av-mark-visited { fill: var(--av-visited); }
+.av-mark-frontier { fill: var(--av-frontier); }
+.av-mark-path { fill: var(--av-path); }
+.av-mark-result { fill: var(--av-result); }
+.av-mark-match { fill: var(--av-match); }
+.av-mark-excluded { fill: var(--av-excluded); }
+.av-mark-pinned { fill: var(--av-pinned); }
+
+/* Transitions are disabled wholesale in test mode and under reduced-motion, so a UI test
+   never has to wait for an animation and can assert immediately. */
+.av-animate * {
+  transition:
+    fill 120ms ease-out,
+    stroke 120ms ease-out,
+    transform 160ms ease-out,
+    opacity 120ms ease-out;
+}

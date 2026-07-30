@@ -1,9 +1,9 @@
-import { readFileSync, writeFileSync } from 'node:fs'
+import { readFileSync, writeFileSync, existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join, resolve } from 'node:path'
-import { existsSync } from 'node:fs'
 import { parseDocument, type Document } from 'yaml'
-import { roadmapSchema, validateRoadmap, type Roadmap, type RoadmapProblem } from './schema.js'
+import { RoadmapError, parseRoadmap } from './parse.js'
+import type { Roadmap, RoadmapProblem } from './schema.js'
 
 /** Walk up from this module until we find the workspace root, so cwd can't break resolution. */
 export function findRepoRoot(from = dirname(fileURLToPath(import.meta.url))): string {
@@ -22,25 +22,6 @@ export function roadmapPath(repoRoot = findRepoRoot()): string {
 
 export function roadmapMarkdownPath(repoRoot = findRepoRoot()): string {
   return join(repoRoot, 'ROADMAP.md')
-}
-
-export class RoadmapError extends Error {}
-
-export function parseRoadmap(source: string): Roadmap {
-  const parsed = roadmapSchema.safeParse(parseDocument(source).toJS())
-  if (!parsed.success) {
-    const detail = parsed.error.issues
-      .map((i) => `  ${i.path.join('.') || '(root)'}: ${i.message}`)
-      .join('\n')
-    throw new RoadmapError(`roadmap.yaml failed schema validation:\n${detail}`)
-  }
-  const issues = validateRoadmap(parsed.data)
-  if (issues.length > 0) {
-    throw new RoadmapError(
-      `roadmap.yaml has integrity problems:\n${issues.map((i) => `  ${i.path}: ${i.message}`).join('\n')}`,
-    )
-  }
-  return parsed.data
 }
 
 export function loadRoadmap(path = roadmapPath()): Roadmap {

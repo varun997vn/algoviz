@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { renderMarkdown } from './generate.js'
-import { findRepoRoot, loadRoadmap, parseRoadmap, RoadmapError, roadmapMarkdownPath } from './load.js'
+import { findRepoRoot, loadRoadmap, roadmapMarkdownPath } from './load.js'
+import { parseRoadmap, RoadmapError } from './parse.js'
 import { nextProblems, STRUCTURE_KINDS, validateRoadmap, type Roadmap } from './schema.js'
 
 const repoRoot = findRepoRoot()
