@@ -197,6 +197,66 @@ describe('Daily Temperatures — reference trace semantics', () => {
     expect(steps.length).toBe(returned.length + returned.filter((v) => v > 0).length + 1)
   })
 
+  it('never shows a zero in the answer panel that is not a decided zero', () => {
+    // `viz.array<number>(n)` zero-fills, so the panel named `answer` asserted `0` for every day
+    // from the first frame — the same digit as the days whose real answer is 0, with nothing to
+    // tell them apart. On the cold snap that was 484 frames of 498 carrying at least one lie.
+    // Seeded with `{ fill: null }`, an untouched cell is blank, so this holds: at every frame,
+    // every non-blank cell already equals its final answer.
+    for (let i = 0; i < reader.frameCount; i += 1) {
+      const answer = resolve(reader, ANSWER, 'array', i)
+      if (!answer) continue
+      for (const [day, shown] of answer.values.entries()) {
+        if (shown === null) continue
+        expect(shown, `frame ${i}: answer[${day}] shows ${String(shown)}`).toBe(returned[day])
+      }
+    }
+    // And the panel is genuinely blank early on, rather than this passing because it fills instantly.
+    const early = resolve(reader, ANSWER, 'array', 1)!
+    expect(early.values.filter((v) => v === null).length).toBe(returned.length)
+  })
+
+  it('flips a day out of "still waiting" no later than the frame that pops it', () => {
+    // The split-panel design's payoff is that the array alone tells the story: the rightmost
+    // pinned cell is the top of the stack. A day that has left the stack while still marked
+    // `pinned` inverts exactly that, and it did so for two frames per pop — on the pop frames,
+    // which are the ones worth stopping on. Marking before the pop removes it entirely.
+    const stackId = idOf(trace, STACK)
+    let onStack: number[] = []
+    for (let i = 0; i < reader.frameCount; i += 1) {
+      const temps = resolve(reader, TEMPS, 'array', i)
+      const stack = trace.frames[i]?.snapshots[stackId]
+      if (stack?.kind === 'stack') onStack = stack.values as number[]
+      if (!temps) continue
+      const pinned = temps.marks.filter((m) => m.class === 'pinned' && !m.transient).map((m) => m.index)
+      expect(
+        pinned.filter((d) => !onStack.includes(d)),
+        `frame ${i}: day(s) marked "still waiting" are no longer on the stack`,
+      ).toEqual([])
+    }
+  })
+
+  it('puts both compared temperatures on screen together, in one frame', () => {
+    // The guard is the only real decision this algorithm makes. Written as two array reads it
+    // emitted two frames, neither of which ever showed the pair being compared — the `compare`
+    // mark class never appeared once in the whole trace.
+    const compareFrames = trace.frames.filter((f) => f.op === 'compare')
+    expect(compareFrames.length).toBeGreaterThan(0)
+    for (const frame of compareFrames) {
+      const snap = frame.snapshots[idOf(trace, TEMPS)]
+      expect(snap?.kind).toBe('array')
+      const lit = snap?.kind === 'array' ? snap.marks.filter((m) => m.class === 'compare') : []
+      expect(lit, `frame ${frame.index} lights ${lit.length} cells`).toHaveLength(2)
+    }
+  })
+
+  it('names the rejection, not just the pushes', () => {
+    // "day 3 at 71 is not warmer than day 2 at 75 — both keep waiting". The reject branch is the
+    // common case and had no narration at all: a viewer inferred it from the absence of a pop.
+    const labels = reader.stepFrames().map((i) => trace.frames[i]!.label ?? '')
+    expect(labels.filter((l) => /is not warmer than day/.test(l)).length).toBeGreaterThan(0)
+  })
+
   it('reports progress in the watch panel', () => {
     const watch = reader.watchAt(last)!
     expect(watch.resolved).toBe(returned.filter((v) => v > 0).length)

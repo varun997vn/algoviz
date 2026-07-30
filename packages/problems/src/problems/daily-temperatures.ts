@@ -15,16 +15,23 @@ import type { ProblemDefinition, Viz } from '../types.js'
  * waiting and in what order, and `temperatures` shows the readings, with every waiting day
  * marked `pinned`. The monotonic invariant is then a visible property of the *array* — the
  * pinned cells read downhill left to right — while the stack shows the LIFO order that makes it
- * hold. A day flips `pinned -> result` the frame it is popped, and the days still pinned when the
- * scan ends flip to `excluded`: they never warm up, so their answer stays 0.
+ * hold. A day flips `pinned -> result` on the frame it is popped, and the days still pinned when
+ * the scan ends flip to `excluded`: they never warm up, so their answer is 0.
  *
  * Note the invariant is *non-increasing*, not strictly decreasing. "Warmer" is strict, so an
  * equal temperature does not pop, and two tied days sit on the stack together — which is exactly
  * why the `all equal` and `duplicates mid-array` cases are here.
+ *
+ * `answer` is seeded blank rather than zero-filled, and that is load-bearing. Zero-filled, the
+ * panel named `answer` asserted `0` for 40 of 42 days from the first frame of the cold-snap case
+ * — the same digit as the two zeros that were the real answer, with nothing to tell them apart.
+ * Blank cells make "not decided yet" visible, and the price is that the days that never warm up
+ * have to be written explicitly at the end instead of arriving for free, which is an improvement:
+ * their 0 is a conclusion the algorithm reaches, and now there is a frame where it reaches it.
  */
 export function reference(temperatures: number[], viz: Viz): number[] {
   const t = viz.array(temperatures, { name: 'temperatures' })
-  const answer = viz.array<number>(temperatures.length, { name: 'answer' })
+  const answer = viz.array<number>(temperatures.length, { name: 'answer', fill: null })
   // Day numbers, not temperatures — the days still waiting for something warmer.
   const waiting = viz.stack<number>([], { name: 'waiting (day #)' })
   const day = viz.cursor('day', 0, t)
@@ -32,24 +39,44 @@ export function reference(temperatures: number[], viz: Viz): number[] {
   viz.watch(() => ({ day: day.value, waiting: waiting.size, resolved }))
 
   for (day.value = 0; day.value < t.length; day.inc()) {
-    // `top()` is the silent twin of `peek()`: the guard runs on every push as well as every
-    // pop, and a recorded peek there would double the timeline for no information.
-    while (!waiting.isEmpty && t[waiting.top() as number] < t[day.value]) {
-      const earlier = waiting.pop() as number
+    // `requireTop()` is the silent twin of `peek()`, typed as present so the guard needs no cast.
+    // `compare` is one frame with both temperatures lit, and returns their ordering — written as
+    // `t[waiting.requireTop()] < t[day.value]` this reads identically but emits two lone `read`
+    // frames, so the single comparison the whole algorithm turns on never appeared on screen *as*
+    // a comparison and the `compare` mark class never showed up once.
+    while (!waiting.isEmpty && t.compare(waiting.requireTop(), day.value) < 0) {
+      const earlier = waiting.requireTop()
       const wait = day.value - earlier
+      // Marked *before* the pop, not after. A day that has already left the stack while still
+      // wearing "still waiting" inverts the one heuristic the split panels exist for — rightmost
+      // pinned cell == top of stack — and it did so on the pop frames, which are precisely the
+      // ones worth stopping on.
+      t.mark(earlier, 'result', `warmer after ${wait} days`)
+      waiting.pop()
       answer[earlier] = wait
       resolved += 1
-      t.mark(earlier, 'result', `warmer after ${wait} days`)
       viz.step(`day ${day.value} is the first warmer day for day ${earlier} — waited ${wait}`)
     }
+
     waiting.push(day.value)
     t.mark(day.value, 'pinned', 'still waiting')
-    viz.step(`day ${day.value} at ${t.at(day.value)} joins ${waiting.size - 1} other(s) waiting`)
+    // Name the *rejection*. Not being warmer than the stack top is the common case, and it had no
+    // narration at all — a viewer had to infer it from the absence of a pop.
+    const below = waiting.size > 1 ? waiting.toArray()[waiting.size - 2] : undefined
+    viz.step(
+      below === undefined
+        ? `day ${day.value} at ${t.at(day.value)} starts the wait with an empty stack`
+        : `day ${day.value} at ${t.at(day.value)} is not warmer than day ${below} at ${t.at(below)} — both keep waiting`,
+    )
   }
 
-  // Whatever is left on the stack never saw a warmer day, and `answer` is already 0 there.
-  for (const stranded of waiting) t.mark(stranded, 'excluded', 'no warmer day ever comes')
-  viz.step(`${waiting.size} day(s) never warmed up`)
+  // Whatever is left on the stack never saw a warmer day. Their answer is decided *here*, so it
+  // is written here: with `answer` seeded blank, a 0 on screen only ever means a decided 0.
+  for (const stranded of waiting) {
+    answer[stranded] = 0
+    t.mark(stranded, 'excluded', 'no warmer day ever comes')
+  }
+  viz.step(`${waiting.size} day(s) never warmed up — every day still pinned is still on the stack`)
 
   return answer.toArray()
 }
@@ -73,7 +100,10 @@ const starter = `// Scan the days left to right, keeping a stack of day numbers 
 // temperature is not warmer, so tied days stack up together.)
 export default function dailyTemperatures(temperatures: number[], viz: Viz): number[] {
   const t = viz.array(temperatures, { name: 'temperatures' })
-  const answer = viz.array<number>(temperatures.length, { name: 'answer' })
+  // { fill: null } seeds the panel blank, so an untouched cell reads as "not decided yet"
+  // instead of as a 0 you cannot tell apart from a real answer of 0. The catch is that
+  // toArray() then refuses to invent a default: every day needs its answer written.
+  const answer = viz.array<number>(temperatures.length, { name: 'answer', fill: null })
   const waiting = viz.stack<number>([], { name: 'waiting (day #)' })
   const day = viz.cursor('day', 0, t)
   viz.watch(() => ({ day: day.value, waiting: waiting.size }))
@@ -85,11 +115,14 @@ export default function dailyTemperatures(temperatures: number[], viz: Viz): num
     // Invariant to preserve: the stack holds the day numbers still waiting, and their
     // temperatures never increase from the bottom of the stack to the top.
     //
-    // Use waiting.top() in the while guard, not waiting.peek() — top() is silent, so the
-    // timeline stays one frame per real event.
+    // For the guard, prefer t.compare(waiting.requireTop(), day.value) < 0 over
+    // t[waiting.requireTop()] < t[day.value]: same meaning, but one frame with both
+    // temperatures lit instead of two frames each showing one of them.
     viz.step('day ' + day.value)
   }
 
+  // TODO: the days still on the stack never warmed up. Write 0 for each of them and mark
+  // them 'excluded' — with a blank-seeded answer panel, nothing else will.
   return answer.toArray()
 }
 `
