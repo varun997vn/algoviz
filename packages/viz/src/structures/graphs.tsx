@@ -185,12 +185,17 @@ export function GraphViz({ snapshot }: { snapshot: Of<'graph'> }): ReactNode {
     nodes.map((n) => n.id),
     edges,
   )
-  // Edge marks are stored under the direction the edge was declared in; look both ways so a
-  // decision recorded as `next -> city` still lights up the edge drawn as `city -> next`.
+  // Edge marks are stored under the direction the edge was declared in, so on an *undirected*
+  // graph a decision recorded as `next -> city` must still light the edge drawn as `city -> next`.
+  //
+  // On a directed graph it must not. `a -> b` and `b -> a` are two different edges there — that is
+  // the whole point of the direction — and mirroring meant marking one lit both. Evaluate Division
+  // models every equation as an antiparallel pair, so a walk along `a/b` also lit `b/a`, which is
+  // the edge it deliberately did not take.
   const marked = new Map<string, EdgeMark>()
   for (const e of edgeMarks) {
     marked.set(`${e.from}->${e.to}`, e)
-    marked.set(`${e.to}->${e.from}`, e)
+    if (!directed) marked.set(`${e.to}->${e.from}`, e)
   }
 
   return (

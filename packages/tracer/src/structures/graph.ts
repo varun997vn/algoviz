@@ -197,6 +197,43 @@ export class VizGraph extends BaseStructure {
     this.rec.record({ op: 'mark', structure: this, label: 'clear marks' })
   }
 
+  /**
+   * Reset edge traversal state — the twin of `clearMarks` for edges.
+   *
+   * `edgeMarks` was a write-only map: `markEdge` put things in and nothing ever took them out.
+   * That was survivable only while every graph problem decided each edge exactly once. The moment
+   * a graph is traversed more than once — one walk per query, say — every edge the search has ever
+   * considered stays lit for the rest of the trace, and the workaround is to overwrite them all
+   * with some other state, which is itself a claim the algorithm never made.
+   */
+  clearEdges(state?: EdgeState): void {
+    if (state === undefined) this.edgeMarks.clear()
+    else for (const [k, v] of this.edgeMarks) if (v.class === state) this.edgeMarks.delete(k)
+    this.rec.record({
+      op: 'mark',
+      structure: this,
+      label: state ? `clear ${state} edges` : 'clear edge marks',
+    })
+  }
+
+  /**
+   * Neighbours with the weight of the edge you arrive along, lighting each edge as it is yielded.
+   *
+   * `neighbors` destructures `{ to }` from an adjacency entry that already holds `{ to, weight }`,
+   * so every weighted traversal had to call `weightOf(at, next)` on the next line — which returns
+   * `number | undefined` for an edge that provably exists, forcing a `?? 1` into the line that is
+   * the algorithm.
+   */
+  *weightedNeighbors(raw: number | string): IterableIterator<{ to: NodeId; weight: number }> {
+    const from = this.key(raw)
+    for (const { to, weight } of this.adj.get(from) ?? []) {
+      this.pendingEdges = [{ from, to, class: 'active' }]
+      this.emit('visit', [{ id: to, class: 'active' }], `consider ${from} -> ${to}`)
+      this.pendingEdges = undefined
+      yield { to, weight: weight ?? 1 }
+    }
+  }
+
   /** Set an edge's traversal state — `tree`, `rejected`, `reversed`, … */
   edge(rawFrom: number | string, rawTo: number | string, state: EdgeState, note?: string): void {
     const from = this.key(rawFrom)

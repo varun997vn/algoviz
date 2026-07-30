@@ -121,8 +121,12 @@ export function renderSnapshot(name: string, snapshot: StructureSnapshot): strin
       const arrow = snapshot.directed ? '->' : '--'
       const edges = snapshot.edges
         .map((e) => {
+          // Only look both ways on an undirected graph. On a directed one `a->b` and `b->a` are
+          // distinct edges, so mirroring reported a mark on whichever of the pair it found first.
           const mark = snapshot.edgeMarks.find(
-            (m) => (m.from === e.from && m.to === e.to) || (m.from === e.to && m.to === e.from),
+            (m) =>
+              (m.from === e.from && m.to === e.to) ||
+              (!snapshot.directed && m.from === e.to && m.to === e.from),
           )
           const weight = e.weight === undefined ? '' : `(${e.weight})`
           return `${e.from}${arrow}${e.to}${weight}${mark ? `:${mark.class}` : ''}`

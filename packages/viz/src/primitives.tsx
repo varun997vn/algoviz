@@ -43,6 +43,10 @@ export function edgeStroke(state: EdgeState | undefined): string {
 export function display(value: Primitive): string {
   if (value === null) return '∅'
   if (value === undefined) return '·'
+  // An empty string fell through to `String('')` and drew a completely blank cell — visually
+  // identical to one holding nothing at all. On Decode String it is the *most common* value on the
+  // stack: the saved prefix at every top-level `[`.
+  if (value === '') return 'ε'
   if (typeof value === 'boolean') return value ? 'T' : 'F'
   if (typeof value === 'number' && !Number.isFinite(value)) return value > 0 ? '∞' : '-∞'
   return String(value)
@@ -83,12 +87,19 @@ export function Cell({
   title,
 }: CellProps): ReactNode {
   const cls = winningClass(marks)
-  const text = display(value)
+  const full = display(value)
+  // `fontSizeFor` bottoms out at 9px and there is no truncation, so a long string ran straight out
+  // of its 44px cell: a 20-character value measured ~94px wide, its left end clipped away by the
+  // SVG viewport and its right end printed over the `← top` label. Nine glyphs is what fits at the
+  // floor size. `data-value` keeps the full string, so DOM assertions are unaffected, and the
+  // tooltip falls back to it whenever the visible text was cut.
+  const text = full.length > 9 ? `${full.slice(0, 8)}…` : full
   const isDim = cls === 'visited' || cls === 'excluded'
+  const tip = title ?? (text === full ? undefined : full)
 
   return (
-    <g data-node-id={nodeId} data-highlight={markAttr(marks)} data-value={text}>
-      {title ? <title>{title}</title> : null}
+    <g data-node-id={nodeId} data-highlight={markAttr(marks)} data-value={full}>
+      {tip !== undefined ? <title>{tip}</title> : null}
       {inWindow ? (
         <rect
           x={x - 3}

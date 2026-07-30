@@ -87,6 +87,25 @@ export class VizString extends BaseStructure {
     this.rec.record({ op: 'pop', structure: this, label: `remove last ${count}` })
   }
 
+  /**
+   * Replace the whole string in one frame.
+   *
+   * Not every string problem builds left to right. Decode String rewrites its accumulator wholesale
+   * at every `]` — `before + inner.repeat(times)` — and without this the only way to say that was
+   * `removeLast(s.length)` then `append(...)`: two ops and a clear-by-length idiom standing in for
+   * one assignment, in the line that *is* the algorithm. The alternative its author took was to
+   * demote the answer to a watch value, which costs it a panel.
+   */
+  replace(text: string): void {
+    this.chars = [...text]
+    this.rec.record({
+      op: 'write',
+      structure: this,
+      transient: this.chars.map((_, i) => ({ index: i, class: 'active' as const })),
+      label: `replace -> ${JSON.stringify(text)}`,
+    })
+  }
+
   swap(i: number, j: number): void {
     const a = this.chars[i] as string
     this.chars[i] = this.chars[j] as string

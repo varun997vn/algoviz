@@ -13,6 +13,9 @@ import { nonOverlappingIntervals } from './problems/non-overlapping-intervals.js
 import { maximumAverageSubarrayI } from './problems/maximum-average-subarray-i.js'
 import { binaryTreeRightSideView } from './problems/binary-tree-right-side-view.js'
 import { longestCommonSubsequence } from './problems/longest-common-subsequence.js'
+import { letterCombinationsOfAPhoneNumber } from './problems/letter-combinations-of-a-phone-number.js'
+import { decodeString } from './problems/decode-string.js'
+import { evaluateDivision } from './problems/evaluate-division.js'
 import type { ProblemDefinition } from './types.js'
 
 /**
@@ -38,6 +41,9 @@ export const PROBLEMS: readonly ProblemDefinition[] = [
   maximumAverageSubarrayI,
   binaryTreeRightSideView,
   longestCommonSubsequence,
+  letterCombinationsOfAPhoneNumber,
+  decodeString,
+  evaluateDivision,
 ]
 
 export function listProblems(): ProblemDefinition[] {
@@ -65,4 +71,5 @@ export { containerWithMostWater, countGoodNodes, reorderRoutes }
 export { mergeStringsAlternately, reverseLinkedList, dailyTemperatures, tribonacci, rottingOranges }
 export { kthLargestElementInAnArray, uniqueNumberOfOccurrences, implementTrie }
 export { nonOverlappingIntervals, maximumAverageSubarrayI, binaryTreeRightSideView }
-export { longestCommonSubsequence }
+export { longestCommonSubsequence, letterCombinationsOfAPhoneNumber }
+export { decodeString, evaluateDivision }

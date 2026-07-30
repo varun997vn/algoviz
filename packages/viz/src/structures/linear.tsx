@@ -417,23 +417,44 @@ function GridViz({
   label,
   rowLabels,
   colIndexLabels,
+  axisLabels,
 }: {
   values: readonly (readonly unknown[])[]
   marks: readonly { row: number; col: number; class: never }[]
   cursors?: readonly { name: string; row: number; col: number }[]
   label: string
   rowLabels?: boolean
-  /** Number each column under the cell. A dp narration says "T(6)"; without this there is no
-   *  way to find cell 6 except counting along the row. */
+  /**
+   * Label each column, in a header row *above* the grid.
+   *
+   * It used to be drawn under the bottom row, which is fine for a one-row 1-D table and wrong for
+   * a tall one: the column numbers sat hundreds of pixels below row 1, labelling columns at the
+   * end of their axis while rows were labelled at the start of theirs.
+   */
   colIndexLabels?: boolean
+  /**
+   * What the axes mean: `[rowsString, colsString]`, one character per cell.
+   *
+   * `viz.dp2d` has accepted `axisLabels` since it was written and **nothing ever read it** — the
+   * snapshot carried both strings and neither the SVG nor the MCP renderer mentioned them. On a
+   * Longest Common Subsequence table that left a separate `viz.string` panel and two carets as the
+   * only thing telling a viewer what row 3 stands for.
+   */
+  axisLabels?: readonly [string, string]
 }): ReactNode {
   const rows = values.length
   const cols = values[0]?.length ?? 0
   if (rows === 0 || cols === 0) return <EmptyState what={label} />
 
-  const offsetX = rowLabels ? 26 : 0
+  const gutter = rowLabels === true || axisLabels !== undefined
+  const header = colIndexLabels === true || axisLabels !== undefined
+  const offsetX = gutter ? 26 : 0
+  const headerH = header ? 16 : 0
   const width = cols * (CELL + GAP) + offsetX
-  const height = rows * (CELL + GAP) + (colIndexLabels ? 30 : 16)
+  const height = headerH + rows * (CELL + GAP) + 16
+  // Row 0 and column 0 of a dp table are the empty-prefix base cases, so character k of an axis
+  // string labels row/column k+1. Undefined for the base row, which leaves it blank — correct.
+  const axisChar = (axis: 0 | 1, i: number): string | undefined => axisLabels?.[axis]?.[i - 1]
 
   return (
     <Scroll>
@@ -443,27 +464,42 @@ function GridViz({
             <Cell
               key={`${r}-${c}`}
               x={offsetX + c * (CELL + GAP)}
-              y={r * (CELL + GAP)}
+              y={headerH + r * (CELL + GAP)}
               value={value as never}
               marks={marksAtCell(marks as never, r, c)}
               nodeId={`${r},${c}`}
               title={noteAt(marks as never, r, c) ?? `(${r}, ${c})`}
-              {...(colIndexLabels && r === rows - 1 ? { indexLabel: String(c) } : {})}
             />
           )),
         )}
-        {rowLabels
+        {header
+          ? (values[0] ?? []).map((_, c) => (
+              <text
+                key={`cl${c}`}
+                x={offsetX + c * (CELL + GAP) + CELL / 2}
+                y={headerH - 5}
+                textAnchor="middle"
+                fontSize={10}
+                fill="var(--av-text-dim)"
+                data-testid={`grid-col-label-${c}`}
+              >
+                {axisChar(1, c) ?? (colIndexLabels === true ? String(c) : '')}
+              </text>
+            ))
+          : null}
+        {gutter
           ? values.map((_, r) => (
               <text
                 key={`rl${r}`}
                 x={offsetX - 8}
-                y={r * (CELL + GAP) + CELL / 2}
+                y={headerH + r * (CELL + GAP) + CELL / 2}
                 textAnchor="end"
                 dominantBaseline="central"
                 fontSize={10}
                 fill="var(--av-text-dim)"
+                data-testid={`grid-row-label-${r}`}
               >
-                {r}
+                {axisChar(0, r) ?? (rowLabels === true ? String(r) : '')}
               </text>
             ))
           : null}
@@ -471,7 +507,7 @@ function GridViz({
           <rect
             key={c.name}
             x={offsetX + c.col * (CELL + GAP) - 2}
-            y={c.row * (CELL + GAP) - 2}
+            y={headerH + c.row * (CELL + GAP) - 2}
             width={CELL + 4}
             height={CELL + 4}
             rx={7}
@@ -507,6 +543,7 @@ export function DpViz({ snapshot }: { snapshot: Of<'dp'> }): ReactNode {
       label="dp table"
       rowLabels={snapshot.dims === 2}
       colIndexLabels
+      {...(snapshot.axisLabels ? { axisLabels: snapshot.axisLabels } : {})}
     />
   )
 }
