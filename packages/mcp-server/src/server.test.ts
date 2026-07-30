@@ -89,11 +89,17 @@ describe('algoviz MCP server', () => {
     })
 
     it('filters by status', async () => {
+      // Asserted as a self-consistency property, not against a snapshot of the live roadmap:
+      // "3 match(es)" and a named problem both rot the moment real work lands, and a test that
+      // fails because a problem got finished is a test reporting on the wrong thing.
       const out = textOf(
         await client.callTool({ name: 'roadmap_list', arguments: { status: 'done' } }),
       )
-      expect(out).toContain('3 match(es)')
-      expect(out).toContain('Container With Most Water')
+      const claimed = Number(/(\d+) match\(es\)/.exec(out)?.[1] ?? -1)
+      const rows = out.split('\n').filter((l) => /^p\d+\s/.test(l))
+      expect(rows).toHaveLength(claimed)
+      expect(rows.length).toBeGreaterThan(0)
+      for (const row of rows) expect(row, `row is not done: ${row}`).toContain('done')
     })
 
     it('filters by structure', async () => {
@@ -107,9 +113,16 @@ describe('algoviz MCP server', () => {
   describe('roadmap_next', () => {
     it('returns the first todo problem with the context needed to start', async () => {
       const out = textOf(await client.callTool({ name: 'roadmap_next', arguments: { count: 1 } }))
-      expect(out).toContain('Merge Strings Alternately')
       expect(out).toContain('structures:')
       expect(out).toContain('techniques:')
+      // Whichever problem it names must actually be outstanding — naming a specific title here
+      // would break as soon as that problem was finished, which is not a defect.
+      const id = /^(p\d+)\b/.exec(out)?.[1]
+      expect(id, `no problem id in:\n${out}`).toBeDefined()
+      const done = textOf(
+        await client.callTool({ name: 'roadmap_list', arguments: { status: 'done', limit: 100 } }),
+      )
+      expect(done).not.toContain(`${id!} `)
     })
   })
 
