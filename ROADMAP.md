@@ -11,8 +11,8 @@ watch your own algorithm execute over a live visualization of the structures it 
 
 | Status | Count |
 | --- | --- |
-| ⬜ todo | 72 |
-| 🟡 in-progress | 0 |
+| ⬜ todo | 67 |
+| 🟡 in-progress | 5 |
 | 🔵 review | 0 |
 | 🔴 blocked | 0 |
 | ✅ done | 3 |
@@ -31,7 +31,7 @@ Run the `solve-problem` skill to take the next one end to end.
 
 | # | Problem | Difficulty | Structures | Status | PR |
 | --- | --- | --- | --- | --- | --- |
-| 1768 | [Merge Strings Alternately](https://leetcode.com/problems/merge-strings-alternately/) | easy | `string, cursor` | ⬜ todo | — |
+| 1768 | [Merge Strings Alternately](https://leetcode.com/problems/merge-strings-alternately/) | easy | `string, cursor` | 🟡 in-progress | — |
 | 1071 | [Greatest Common Divisor of Strings](https://leetcode.com/problems/greatest-common-divisor-of-strings/) | easy | `string` | ⬜ todo | — |
 | 1431 | [Kids With the Greatest Number of Candies](https://leetcode.com/problems/kids-with-the-greatest-number-of-candies/) | easy | `array` | ⬜ todo | — |
 | 605 | [Can Place Flowers](https://leetcode.com/problems/can-place-flowers/) | easy | `array, cursor` | ⬜ todo | — |
@@ -96,7 +96,7 @@ Run the `solve-problem` skill to take the next one end to end.
 | --- | --- | --- | --- | --- | --- |
 | 2095 | [Delete the Middle Node of a Linked List](https://leetcode.com/problems/delete-the-middle-node-of-a-linked-list/) | medium | `list, cursor` | ⬜ todo | — |
 | 328 | [Odd Even Linked List](https://leetcode.com/problems/odd-even-linked-list/) | medium | `list, cursor` | ⬜ todo | — |
-| 206 | [Reverse Linked List](https://leetcode.com/problems/reverse-linked-list/) | easy | `list, cursor` | ⬜ todo | — |
+| 206 | [Reverse Linked List](https://leetcode.com/problems/reverse-linked-list/) | easy | `list, cursor` | 🟡 in-progress | — |
 | 2130 | [Maximum Twin Sum of a Linked List](https://leetcode.com/problems/maximum-twin-sum-of-a-linked-list/) | medium | `list, cursor, array` | ⬜ todo | — |
 
 ### Binary Tree - DFS — 1/6
@@ -138,7 +138,7 @@ Run the `solve-problem` skill to take the next one end to end.
 | # | Problem | Difficulty | Structures | Status | PR |
 | --- | --- | --- | --- | --- | --- |
 | 1926 | [Nearest Exit from Entrance in Maze](https://leetcode.com/problems/nearest-exit-from-entrance-in-maze/) | medium | `matrix, queue` | ⬜ todo | — |
-| 994 | [Rotting Oranges](https://leetcode.com/problems/rotting-oranges/) | medium | `matrix, queue` | ⬜ todo | — |
+| 994 | [Rotting Oranges](https://leetcode.com/problems/rotting-oranges/) | medium | `matrix, queue` | 🟡 in-progress | — |
 
 ### Heap / Priority Queue — 0/4
 
@@ -169,7 +169,7 @@ Run the `solve-problem` skill to take the next one end to end.
 
 | # | Problem | Difficulty | Structures | Status | PR |
 | --- | --- | --- | --- | --- | --- |
-| 1137 | [N-th Tribonacci Number](https://leetcode.com/problems/n-th-tribonacci-number/) | easy | `dp` | ⬜ todo | — |
+| 1137 | [N-th Tribonacci Number](https://leetcode.com/problems/n-th-tribonacci-number/) | easy | `dp` | 🟡 in-progress | — |
 | 746 | [Min Cost Climbing Stairs](https://leetcode.com/problems/min-cost-climbing-stairs/) | easy | `dp, array` | ⬜ todo | — |
 | 198 | [House Robber](https://leetcode.com/problems/house-robber/) | medium | `dp, array` | ⬜ todo | — |
 | 790 | [Domino and Tromino Tiling](https://leetcode.com/problems/domino-and-tromino-tiling/) | medium | `dp` | ⬜ todo | — |
@@ -209,7 +209,7 @@ Run the `solve-problem` skill to take the next one end to end.
 
 | # | Problem | Difficulty | Structures | Status | PR |
 | --- | --- | --- | --- | --- | --- |
-| 739 | [Daily Temperatures](https://leetcode.com/problems/daily-temperatures/) | medium | `stack, array` | ⬜ todo | — |
+| 739 | [Daily Temperatures](https://leetcode.com/problems/daily-temperatures/) | medium | `stack, array` | 🟡 in-progress | — |
 | 901 | [Online Stock Span](https://leetcode.com/problems/online-stock-span/) | medium | `stack, array` | ⬜ todo | — |
 
 ## Visualizer coverage

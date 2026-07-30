@@ -41,9 +41,9 @@ problems:
     difficulty: easy
     category: array-string
     order: 1
-    structures: [string, cursor]
-    techniques: [two-pointers]
-    status: todo
+    structures: [ string, cursor ]
+    techniques: [ two-pointers ]
+    status: in-progress
     branch: null
     pr: null
     notes: null
@@ -55,8 +55,8 @@ problems:
     difficulty: easy
     category: array-string
     order: 2
-    structures: [string]
-    techniques: [math, gcd]
+    structures: [ string ]
+    techniques: [ math, gcd ]
     status: todo
     branch: null
     pr: null
@@ -69,8 +69,8 @@ problems:
     difficulty: easy
     category: array-string
     order: 3
-    structures: [array]
-    techniques: [scan]
+    structures: [ array ]
+    techniques: [ scan ]
     status: todo
     branch: null
     pr: null
@@ -83,8 +83,8 @@ problems:
     difficulty: easy
     category: array-string
     order: 4
-    structures: [array, cursor]
-    techniques: [greedy]
+    structures: [ array, cursor ]
+    techniques: [ greedy ]
     status: todo
     branch: null
     pr: null
@@ -97,8 +97,8 @@ problems:
     difficulty: easy
     category: array-string
     order: 5
-    structures: [string, cursor]
-    techniques: [two-pointers]
+    structures: [ string, cursor ]
+    techniques: [ two-pointers ]
     status: todo
     branch: null
     pr: null
@@ -111,8 +111,8 @@ problems:
     difficulty: medium
     category: array-string
     order: 6
-    structures: [string, array]
-    techniques: [parsing]
+    structures: [ string, array ]
+    techniques: [ parsing ]
     status: todo
     branch: null
     pr: null
@@ -125,8 +125,8 @@ problems:
     difficulty: medium
     category: array-string
     order: 7
-    structures: [array]
-    techniques: [prefix-product]
+    structures: [ array ]
+    techniques: [ prefix-product ]
     status: todo
     branch: null
     pr: null
@@ -139,8 +139,8 @@ problems:
     difficulty: medium
     category: array-string
     order: 8
-    structures: [array, cursor]
-    techniques: [greedy]
+    structures: [ array, cursor ]
+    techniques: [ greedy ]
     status: todo
     branch: null
     pr: null
@@ -153,8 +153,8 @@ problems:
     difficulty: medium
     category: array-string
     order: 9
-    structures: [string, cursor]
-    techniques: [two-pointers]
+    structures: [ string, cursor ]
+    techniques: [ two-pointers ]
     status: todo
     branch: null
     pr: null
@@ -167,8 +167,8 @@ problems:
     difficulty: easy
     category: two-pointers
     order: 10
-    structures: [array, cursor]
-    techniques: [two-pointers]
+    structures: [ array, cursor ]
+    techniques: [ two-pointers ]
     status: todo
     branch: null
     pr: null
@@ -181,8 +181,8 @@ problems:
     difficulty: easy
     category: two-pointers
     order: 11
-    structures: [string, cursor]
-    techniques: [two-pointers]
+    structures: [ string, cursor ]
+    techniques: [ two-pointers ]
     status: todo
     branch: null
     pr: null
@@ -195,12 +195,13 @@ problems:
     difficulty: medium
     category: two-pointers
     order: 12
-    structures: [array, cursor]
-    techniques: [two-pointers, greedy]
+    structures: [ array, cursor ]
+    techniques: [ two-pointers, greedy ]
     status: done
     branch: claude/leetcode-visualizer-w01nr6
     pr: null
-    notes: "Reference problem for the array visualizer, named cursors and the two-pointer idiom."
+    notes: "Reference problem for the array visualizer, named cursors and the
+      two-pointer idiom."
     dependsOn: []
   - id: p1679
     leetcode: 1679
@@ -209,8 +210,8 @@ problems:
     difficulty: medium
     category: two-pointers
     order: 13
-    structures: [array, cursor, map]
-    techniques: [two-pointers, hashing]
+    structures: [ array, cursor, map ]
+    techniques: [ two-pointers, hashing ]
     status: todo
     branch: null
     pr: null
@@ -223,8 +224,8 @@ problems:
     difficulty: easy
     category: sliding-window
     order: 14
-    structures: [array, cursor]
-    techniques: [sliding-window]
+    structures: [ array, cursor ]
+    techniques: [ sliding-window ]
     status: todo
     branch: null
     pr: null
@@ -237,8 +238,8 @@ problems:
     difficulty: medium
     category: sliding-window
     order: 15
-    structures: [string, cursor]
-    techniques: [sliding-window]
+    structures: [ string, cursor ]
+    techniques: [ sliding-window ]
     status: todo
     branch: null
     pr: null
@@ -251,8 +252,8 @@ problems:
     difficulty: medium
     category: sliding-window
     order: 16
-    structures: [array, cursor]
-    techniques: [sliding-window]
+    structures: [ array, cursor ]
+    techniques: [ sliding-window ]
     status: todo
     branch: null
     pr: null
@@ -265,8 +266,8 @@ problems:
     difficulty: medium
     category: sliding-window
     order: 17
-    structures: [array, cursor]
-    techniques: [sliding-window]
+    structures: [ array, cursor ]
+    techniques: [ sliding-window ]
     status: todo
     branch: null
     pr: null
@@ -279,8 +280,8 @@ problems:
     difficulty: easy
     category: prefix-sum
     order: 18
-    structures: [array]
-    techniques: [prefix-sum]
+    structures: [ array ]
+    techniques: [ prefix-sum ]
     status: todo
     branch: null
     pr: null
@@ -293,8 +294,8 @@ problems:
     difficulty: easy
     category: prefix-sum
     order: 19
-    structures: [array, cursor]
-    techniques: [prefix-sum]
+    structures: [ array, cursor ]
+    techniques: [ prefix-sum ]
     status: todo
     branch: null
     pr: null
@@ -307,8 +308,8 @@ problems:
     difficulty: easy
     category: hashmap-set
     order: 20
-    structures: [set, array]
-    techniques: [hashing]
+    structures: [ set, array ]
+    techniques: [ hashing ]
     status: todo
     branch: null
     pr: null
@@ -321,8 +322,8 @@ problems:
     difficulty: easy
     category: hashmap-set
     order: 21
-    structures: [map, set]
-    techniques: [hashing, counting]
+    structures: [ map, set ]
+    techniques: [ hashing, counting ]
     status: todo
     branch: null
     pr: null
@@ -335,8 +336,8 @@ problems:
     difficulty: medium
     category: hashmap-set
     order: 22
-    structures: [map, set]
-    techniques: [hashing, counting]
+    structures: [ map, set ]
+    techniques: [ hashing, counting ]
     status: todo
     branch: null
     pr: null
@@ -349,8 +350,8 @@ problems:
     difficulty: medium
     category: hashmap-set
     order: 23
-    structures: [matrix, map]
-    techniques: [hashing]
+    structures: [ matrix, map ]
+    techniques: [ hashing ]
     status: todo
     branch: null
     pr: null
@@ -363,8 +364,8 @@ problems:
     difficulty: medium
     category: stack
     order: 24
-    structures: [stack, string]
-    techniques: [stack]
+    structures: [ stack, string ]
+    techniques: [ stack ]
     status: todo
     branch: null
     pr: null
@@ -377,8 +378,8 @@ problems:
     difficulty: medium
     category: stack
     order: 25
-    structures: [stack, array]
-    techniques: [stack, simulation]
+    structures: [ stack, array ]
+    techniques: [ stack, simulation ]
     status: todo
     branch: null
     pr: null
@@ -391,8 +392,8 @@ problems:
     difficulty: medium
     category: stack
     order: 26
-    structures: [stack, string]
-    techniques: [stack, parsing]
+    structures: [ stack, string ]
+    techniques: [ stack, parsing ]
     status: todo
     branch: null
     pr: null
@@ -405,8 +406,8 @@ problems:
     difficulty: easy
     category: queue
     order: 27
-    structures: [queue]
-    techniques: [queue, design]
+    structures: [ queue ]
+    techniques: [ queue, design ]
     status: todo
     branch: null
     pr: null
@@ -419,8 +420,8 @@ problems:
     difficulty: medium
     category: queue
     order: 28
-    structures: [queue, string]
-    techniques: [queue, simulation]
+    structures: [ queue, string ]
+    techniques: [ queue, simulation ]
     status: todo
     branch: null
     pr: null
@@ -433,8 +434,8 @@ problems:
     difficulty: medium
     category: linked-list
     order: 29
-    structures: [list, cursor]
-    techniques: [fast-slow-pointers]
+    structures: [ list, cursor ]
+    techniques: [ fast-slow-pointers ]
     status: todo
     branch: null
     pr: null
@@ -447,8 +448,8 @@ problems:
     difficulty: medium
     category: linked-list
     order: 30
-    structures: [list, cursor]
-    techniques: [pointer-rewiring]
+    structures: [ list, cursor ]
+    techniques: [ pointer-rewiring ]
     status: todo
     branch: null
     pr: null
@@ -461,9 +462,9 @@ problems:
     difficulty: easy
     category: linked-list
     order: 31
-    structures: [list, cursor]
-    techniques: [pointer-rewiring]
-    status: todo
+    structures: [ list, cursor ]
+    techniques: [ pointer-rewiring ]
+    status: in-progress
     branch: null
     pr: null
     notes: null
@@ -475,8 +476,8 @@ problems:
     difficulty: medium
     category: linked-list
     order: 32
-    structures: [list, cursor, array]
-    techniques: [fast-slow-pointers]
+    structures: [ list, cursor, array ]
+    techniques: [ fast-slow-pointers ]
     status: todo
     branch: null
     pr: null
@@ -489,8 +490,8 @@ problems:
     difficulty: easy
     category: binary-tree-dfs
     order: 33
-    structures: [tree]
-    techniques: [dfs, recursion]
+    structures: [ tree ]
+    techniques: [ dfs, recursion ]
     status: todo
     branch: null
     pr: null
@@ -503,8 +504,8 @@ problems:
     difficulty: easy
     category: binary-tree-dfs
     order: 34
-    structures: [tree, array]
-    techniques: [dfs]
+    structures: [ tree, array ]
+    techniques: [ dfs ]
     status: todo
     branch: null
     pr: null
@@ -517,12 +518,13 @@ problems:
     difficulty: medium
     category: binary-tree-dfs
     order: 35
-    structures: [tree]
-    techniques: [dfs, recursion]
+    structures: [ tree ]
+    techniques: [ dfs, recursion ]
     status: done
     branch: claude/leetcode-visualizer-w01nr6
     pr: null
-    notes: "Reference problem for tree layout and recursion: path state must unwind as the stack pops."
+    notes: "Reference problem for tree layout and recursion: path state must unwind
+      as the stack pops."
     dependsOn: []
   - id: p437
     leetcode: 437
@@ -531,8 +533,8 @@ problems:
     difficulty: medium
     category: binary-tree-dfs
     order: 36
-    structures: [tree, map]
-    techniques: [dfs, prefix-sum]
+    structures: [ tree, map ]
+    techniques: [ dfs, prefix-sum ]
     status: todo
     branch: null
     pr: null
@@ -545,8 +547,8 @@ problems:
     difficulty: medium
     category: binary-tree-dfs
     order: 37
-    structures: [tree]
-    techniques: [dfs]
+    structures: [ tree ]
+    techniques: [ dfs ]
     status: todo
     branch: null
     pr: null
@@ -559,8 +561,8 @@ problems:
     difficulty: medium
     category: binary-tree-dfs
     order: 38
-    structures: [tree]
-    techniques: [dfs, recursion]
+    structures: [ tree ]
+    techniques: [ dfs, recursion ]
     status: todo
     branch: null
     pr: null
@@ -573,8 +575,8 @@ problems:
     difficulty: medium
     category: binary-tree-bfs
     order: 39
-    structures: [tree, queue, array]
-    techniques: [bfs]
+    structures: [ tree, queue, array ]
+    techniques: [ bfs ]
     status: todo
     branch: null
     pr: null
@@ -587,8 +589,8 @@ problems:
     difficulty: medium
     category: binary-tree-bfs
     order: 40
-    structures: [tree, queue]
-    techniques: [bfs]
+    structures: [ tree, queue ]
+    techniques: [ bfs ]
     status: todo
     branch: null
     pr: null
@@ -601,8 +603,8 @@ problems:
     difficulty: easy
     category: bst
     order: 41
-    structures: [tree]
-    techniques: [bst]
+    structures: [ tree ]
+    techniques: [ bst ]
     status: todo
     branch: null
     pr: null
@@ -615,8 +617,8 @@ problems:
     difficulty: medium
     category: bst
     order: 42
-    structures: [tree]
-    techniques: [bst]
+    structures: [ tree ]
+    techniques: [ bst ]
     status: todo
     branch: null
     pr: null
@@ -629,8 +631,8 @@ problems:
     difficulty: medium
     category: graphs-dfs
     order: 43
-    structures: [graph, set]
-    techniques: [dfs]
+    structures: [ graph, set ]
+    techniques: [ dfs ]
     status: todo
     branch: null
     pr: null
@@ -643,8 +645,8 @@ problems:
     difficulty: medium
     category: graphs-dfs
     order: 44
-    structures: [graph, matrix, set]
-    techniques: [dfs, union-find]
+    structures: [ graph, matrix, set ]
+    techniques: [ dfs, union-find ]
     status: todo
     branch: null
     pr: null
@@ -657,12 +659,13 @@ problems:
     difficulty: medium
     category: graphs-dfs
     order: 45
-    structures: [graph, set]
-    techniques: [dfs]
+    structures: [ graph, set ]
+    techniques: [ dfs ]
     status: done
     branch: claude/leetcode-visualizer-w01nr6
     pr: null
-    notes: Reference problem for graph layout and directed edge state (tree / rejected / reversed).
+    notes: Reference problem for graph layout and directed edge state (tree /
+      rejected / reversed).
     dependsOn: []
   - id: p399
     leetcode: 399
@@ -671,8 +674,8 @@ problems:
     difficulty: medium
     category: graphs-dfs
     order: 46
-    structures: [graph, map]
-    techniques: [dfs, weighted-graph]
+    structures: [ graph, map ]
+    techniques: [ dfs, weighted-graph ]
     status: todo
     branch: null
     pr: null
@@ -685,8 +688,8 @@ problems:
     difficulty: medium
     category: graphs-bfs
     order: 47
-    structures: [matrix, queue]
-    techniques: [bfs, grid]
+    structures: [ matrix, queue ]
+    techniques: [ bfs, grid ]
     status: todo
     branch: null
     pr: null
@@ -699,9 +702,9 @@ problems:
     difficulty: medium
     category: graphs-bfs
     order: 48
-    structures: [matrix, queue]
-    techniques: [bfs, grid, multi-source]
-    status: todo
+    structures: [ matrix, queue ]
+    techniques: [ bfs, grid, multi-source ]
+    status: in-progress
     branch: null
     pr: null
     notes: null
@@ -713,8 +716,8 @@ problems:
     difficulty: medium
     category: heap
     order: 49
-    structures: [heap, array]
-    techniques: [heap, quickselect]
+    structures: [ heap, array ]
+    techniques: [ heap, quickselect ]
     status: todo
     branch: null
     pr: null
@@ -727,8 +730,8 @@ problems:
     difficulty: medium
     category: heap
     order: 50
-    structures: [heap, set]
-    techniques: [heap, design]
+    structures: [ heap, set ]
+    techniques: [ heap, design ]
     status: todo
     branch: null
     pr: null
@@ -741,8 +744,8 @@ problems:
     difficulty: medium
     category: heap
     order: 51
-    structures: [heap, array]
-    techniques: [heap, greedy, sorting]
+    structures: [ heap, array ]
+    techniques: [ heap, greedy, sorting ]
     status: todo
     branch: null
     pr: null
@@ -755,8 +758,8 @@ problems:
     difficulty: medium
     category: heap
     order: 52
-    structures: [heap, array, cursor]
-    techniques: [heap, two-pointers]
+    structures: [ heap, array, cursor ]
+    techniques: [ heap, two-pointers ]
     status: todo
     branch: null
     pr: null
@@ -769,8 +772,8 @@ problems:
     difficulty: easy
     category: binary-search
     order: 53
-    structures: [array, cursor]
-    techniques: [binary-search]
+    structures: [ array, cursor ]
+    techniques: [ binary-search ]
     status: todo
     branch: null
     pr: null
@@ -783,8 +786,8 @@ problems:
     difficulty: medium
     category: binary-search
     order: 54
-    structures: [array, cursor]
-    techniques: [binary-search, sorting]
+    structures: [ array, cursor ]
+    techniques: [ binary-search, sorting ]
     status: todo
     branch: null
     pr: null
@@ -797,8 +800,8 @@ problems:
     difficulty: medium
     category: binary-search
     order: 55
-    structures: [array, cursor]
-    techniques: [binary-search]
+    structures: [ array, cursor ]
+    techniques: [ binary-search ]
     status: todo
     branch: null
     pr: null
@@ -811,8 +814,8 @@ problems:
     difficulty: medium
     category: binary-search
     order: 56
-    structures: [array, cursor]
-    techniques: [binary-search, answer-space]
+    structures: [ array, cursor ]
+    techniques: [ binary-search, answer-space ]
     status: todo
     branch: null
     pr: null
@@ -825,8 +828,8 @@ problems:
     difficulty: medium
     category: backtracking
     order: 57
-    structures: [tree, array, string]
-    techniques: [backtracking]
+    structures: [ tree, array, string ]
+    techniques: [ backtracking ]
     status: todo
     branch: null
     pr: null
@@ -839,8 +842,8 @@ problems:
     difficulty: medium
     category: backtracking
     order: 58
-    structures: [tree, array]
-    techniques: [backtracking, pruning]
+    structures: [ tree, array ]
+    techniques: [ backtracking, pruning ]
     status: todo
     branch: null
     pr: null
@@ -853,9 +856,9 @@ problems:
     difficulty: easy
     category: dp-1d
     order: 59
-    structures: [dp]
-    techniques: [dp, memoization]
-    status: todo
+    structures: [ dp ]
+    techniques: [ dp, memoization ]
+    status: in-progress
     branch: null
     pr: null
     notes: null
@@ -867,8 +870,8 @@ problems:
     difficulty: easy
     category: dp-1d
     order: 60
-    structures: [dp, array]
-    techniques: [dp]
+    structures: [ dp, array ]
+    techniques: [ dp ]
     status: todo
     branch: null
     pr: null
@@ -881,8 +884,8 @@ problems:
     difficulty: medium
     category: dp-1d
     order: 61
-    structures: [dp, array]
-    techniques: [dp]
+    structures: [ dp, array ]
+    techniques: [ dp ]
     status: todo
     branch: null
     pr: null
@@ -895,8 +898,8 @@ problems:
     difficulty: medium
     category: dp-1d
     order: 62
-    structures: [dp]
-    techniques: [dp, recurrence]
+    structures: [ dp ]
+    techniques: [ dp, recurrence ]
     status: todo
     branch: null
     pr: null
@@ -909,8 +912,8 @@ problems:
     difficulty: medium
     category: dp-multi
     order: 63
-    structures: [dp]
-    techniques: [dp, grid]
+    structures: [ dp ]
+    techniques: [ dp, grid ]
     status: todo
     branch: null
     pr: null
@@ -923,8 +926,8 @@ problems:
     difficulty: medium
     category: dp-multi
     order: 64
-    structures: [dp, string]
-    techniques: [dp]
+    structures: [ dp, string ]
+    techniques: [ dp ]
     status: todo
     branch: null
     pr: null
@@ -937,8 +940,8 @@ problems:
     difficulty: medium
     category: dp-multi
     order: 65
-    structures: [dp, array]
-    techniques: [dp, state-machine]
+    structures: [ dp, array ]
+    techniques: [ dp, state-machine ]
     status: todo
     branch: null
     pr: null
@@ -951,8 +954,8 @@ problems:
     difficulty: medium
     category: dp-multi
     order: 66
-    structures: [dp, string]
-    techniques: [dp]
+    structures: [ dp, string ]
+    techniques: [ dp ]
     status: todo
     branch: null
     pr: null
@@ -965,8 +968,8 @@ problems:
     difficulty: easy
     category: bit-manipulation
     order: 67
-    structures: [array, dp]
-    techniques: [bit-manipulation, dp]
+    structures: [ array, dp ]
+    techniques: [ bit-manipulation, dp ]
     status: todo
     branch: null
     pr: null
@@ -979,8 +982,8 @@ problems:
     difficulty: easy
     category: bit-manipulation
     order: 68
-    structures: [array]
-    techniques: [bit-manipulation, xor]
+    structures: [ array ]
+    techniques: [ bit-manipulation, xor ]
     status: todo
     branch: null
     pr: null
@@ -993,8 +996,8 @@ problems:
     difficulty: medium
     category: bit-manipulation
     order: 69
-    structures: [array]
-    techniques: [bit-manipulation]
+    structures: [ array ]
+    techniques: [ bit-manipulation ]
     status: todo
     branch: null
     pr: null
@@ -1007,8 +1010,8 @@ problems:
     difficulty: medium
     category: trie
     order: 70
-    structures: [trie]
-    techniques: [trie, design]
+    structures: [ trie ]
+    techniques: [ trie, design ]
     status: todo
     branch: null
     pr: null
@@ -1021,8 +1024,8 @@ problems:
     difficulty: medium
     category: trie
     order: 71
-    structures: [trie, array]
-    techniques: [trie, sorting]
+    structures: [ trie, array ]
+    techniques: [ trie, sorting ]
     status: todo
     branch: null
     pr: null
@@ -1035,8 +1038,8 @@ problems:
     difficulty: medium
     category: intervals
     order: 72
-    structures: [intervals]
-    techniques: [greedy, sorting]
+    structures: [ intervals ]
+    techniques: [ greedy, sorting ]
     status: todo
     branch: null
     pr: null
@@ -1049,8 +1052,8 @@ problems:
     difficulty: medium
     category: intervals
     order: 73
-    structures: [intervals]
-    techniques: [greedy, sorting]
+    structures: [ intervals ]
+    techniques: [ greedy, sorting ]
     status: todo
     branch: null
     pr: null
@@ -1063,9 +1066,9 @@ problems:
     difficulty: medium
     category: monotonic-stack
     order: 74
-    structures: [stack, array]
-    techniques: [monotonic-stack]
-    status: todo
+    structures: [ stack, array ]
+    techniques: [ monotonic-stack ]
+    status: in-progress
     branch: null
     pr: null
     notes: null
@@ -1077,8 +1080,8 @@ problems:
     difficulty: medium
     category: monotonic-stack
     order: 75
-    structures: [stack, array]
-    techniques: [monotonic-stack, design]
+    structures: [ stack, array ]
+    techniques: [ monotonic-stack, design ]
     status: todo
     branch: null
     pr: null

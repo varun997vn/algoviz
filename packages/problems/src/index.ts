@@ -1,6 +1,11 @@
 import { containerWithMostWater } from './problems/container-with-most-water.js'
 import { countGoodNodes } from './problems/count-good-nodes-in-binary-tree.js'
 import { reorderRoutes } from './problems/reorder-routes.js'
+import { mergeStringsAlternately } from './problems/merge-strings-alternately.js'
+import { reverseLinkedList } from './problems/reverse-linked-list.js'
+import { dailyTemperatures } from './problems/daily-temperatures.js'
+import { tribonacci } from './problems/n-th-tribonacci-number.js'
+import { rottingOranges } from './problems/rotting-oranges.js'
 import type { ProblemDefinition } from './types.js'
 
 /**
@@ -14,6 +19,11 @@ export const PROBLEMS: readonly ProblemDefinition[] = [
   containerWithMostWater,
   countGoodNodes,
   reorderRoutes,
+  mergeStringsAlternately,
+  reverseLinkedList,
+  dailyTemperatures,
+  tribonacci,
+  rottingOranges,
 ]
 
 export function listProblems(): ProblemDefinition[] {
@@ -38,3 +48,4 @@ export function requireProblem(idOrSlug: string): ProblemDefinition {
 
 export * from './types.js'
 export { containerWithMostWater, countGoodNodes, reorderRoutes }
+export { mergeStringsAlternately, reverseLinkedList, dailyTemperatures, tribonacci, rottingOranges }
