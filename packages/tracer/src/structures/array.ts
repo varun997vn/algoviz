@@ -181,9 +181,15 @@ export class VizArrayStructure<T extends Primitive> extends BaseStructure {
     return [...this.values]
   }
 
-  /** Build the user-facing proxy. Numeric access routes through read/write. */
+  /**
+   * Build the user-facing proxy. Numeric access routes through read/write.
+   *
+   * The proxy's traps close over the structure, so it is captured once here as `structure`
+   * rather than relying on `this` inside the handler (where `this` is the trap's own receiver).
+   */
   proxy(): VizArray<T> {
-    const target = this
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
+    const target: VizArrayStructure<T> = this
     const api: Record<string, unknown> = {
       at: (i: number) => target.peek(i),
       push: (...v: T[]) => target.push(...v),

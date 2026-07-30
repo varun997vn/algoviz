@@ -1,4 +1,4 @@
-import type { Frame, StructureId, StructureSnapshot, Trace } from './types.js'
+import type { Frame, Primitive, StructureId, StructureSnapshot, Trace } from './types.js'
 
 /**
  * Random access into a trace.
@@ -95,7 +95,7 @@ export class TraceReader {
   }
 
   /** Watch values resolved at `index` (they persist forward like snapshots do). */
-  watchAt(index: number): Record<string, import('./types.js').Primitive> | undefined {
+  watchAt(index: number): Record<string, Primitive> | undefined {
     for (let i = Math.min(index, this.trace.frames.length - 1); i >= 0; i -= 1) {
       const w = this.trace.frames[i]?.watch
       if (w) return w

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import { TraceReader, trace, type StructureSnapshot } from '@algoviz/tracer'
+import { TraceReader, trace, type StructureSnapshot, type Viz } from '@algoviz/tracer'
 import { executeRun } from '@algoviz/runner'
 import { Stage, VISUALIZERS, Visualizer, stageDigest } from './Visualizer.js'
 
@@ -10,7 +10,7 @@ function renderSnapshot(snapshot: StructureSnapshot): HTMLElement {
   return container
 }
 
-function snapshotFrom(build: (viz: import('@algoviz/tracer').Viz) => unknown, id: string): StructureSnapshot {
+function snapshotFrom(build: (viz: Viz) => unknown, id: string): StructureSnapshot {
   const { trace: t } = trace(build)
   const snap = new TraceReader(t).structureAt(id, t.frames.length - 1)
   if (!snap) throw new Error(`no snapshot for ${id}`)

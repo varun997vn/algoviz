@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { BudgetExceededError, TraceReader, Viz, lastAtMost, resolveFrame, trace } from './index.js'
+import type { Viz} from './index.js';
+import { BudgetExceededError, TraceReader, lastAtMost, resolveFrame, trace } from './index.js'
 import type { StructureSnapshot, Trace } from './types.js'
 
 /** Mirrors the reader's carry-forward semantics, written independently for the replay test. */

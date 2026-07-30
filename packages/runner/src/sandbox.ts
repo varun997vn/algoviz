@@ -107,7 +107,7 @@ export function compileSolution(js: string, entryName: string): SolutionModule {
 
   let factory: () => unknown
   try {
-    // eslint-disable-next-line @typescript-eslint/no-implied-eval, no-new-func
+     
     factory = new Function(body) as () => unknown
   } catch (error) {
     throw new SandboxError(
@@ -146,7 +146,7 @@ export function calibrateLineOffset(): number {
   const probeBodyLine = 2 // the `throw` sits on the second line of the body below
   const body = 'const marker = 1;\nthrow new Error("algoviz-probe");'
   try {
-    // eslint-disable-next-line @typescript-eslint/no-implied-eval, no-new-func
+     
     new Function(body)()
     calibratedOffset = 0
   } catch (error) {

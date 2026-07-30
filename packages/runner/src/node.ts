@@ -1,62 +1,83 @@
-import { Worker } from 'node:worker_threads'
+import { spawn } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { executeRun, type RunRequest, type RunResult } from './execute.js'
 
-/**
- * Run in-process. Fast, and stack traces stay intact — the right choice for Vitest.
- */
+/** Run in-process. Fast, stack traces intact — the right choice for Vitest. */
 export function runInProcess(request: RunRequest): RunResult {
   return executeRun(request)
 }
 
 export interface IsolatedOptions {
-  /** Hard wall-clock ceiling. The thread is terminated if it overruns. */
+  /** Hard wall-clock ceiling. The child is killed if it overruns. */
   timeoutMs?: number
-  maxOldGenerationSizeMb?: number
 }
 
+export class IsolatedRunError extends Error {}
+
 /**
- * Run in a `worker_threads` thread with a hard kill.
+ * Run in a child process with a hard kill.
  *
- * Used by the MCP server: the tracer's budgets cannot stop `while (true) {}` with no tracked
- * operations, and a runaway solution must never be able to hang the agent's MCP connection.
+ * Used by the MCP server. The tracer's own budgets stop any loop that touches a tracked
+ * structure, which is nearly all of them — but `while (true) {}` with no viz calls never yields,
+ * and a runaway solution must not be able to hang an agent's MCP connection.
  */
 export async function runIsolated(
   request: RunRequest,
   options: IsolatedOptions = {},
 ): Promise<RunResult> {
-  const timeoutMs = options.timeoutMs ?? 15_000
-  const workerPath = fileURLToPath(new URL('./node-worker.ts', import.meta.url))
+  const timeoutMs = options.timeoutMs ?? 20_000
+  const cliPath = fileURLToPath(new URL('./run-cli.ts', import.meta.url))
 
   return new Promise<RunResult>((resolve, reject) => {
-    const worker = new Worker(workerPath, {
-      workerData: request,
-      resourceLimits: { maxOldGenerationSizeMb: options.maxOldGenerationSizeMb ?? 512 },
-      execArgv: ['--import', 'tsx'],
+    const child = spawn('npx', ['tsx', cliPath], {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      env: process.env,
     })
 
+    let stdout = ''
+    let stderr = ''
+    let settled = false
+
     const timer = setTimeout(() => {
-      void worker.terminate()
+      settled = true
+      child.kill('SIGKILL')
       reject(
-        new Error(
-          `Solution exceeded ${timeoutMs}ms of wall clock without completing — almost certainly ` +
-            'an infinite loop that never touches a tracked structure.',
+        new IsolatedRunError(
+          `Solution exceeded ${timeoutMs}ms without completing — almost certainly an infinite ` +
+            'loop that never touches a tracked structure. The sandbox was killed.',
         ),
       )
     }, timeoutMs)
 
-    worker.once('message', (result: RunResult) => {
-      clearTimeout(timer)
-      void worker.terminate()
-      resolve(result)
+    child.stdout.on('data', (chunk: Buffer) => {
+      stdout += chunk.toString('utf8')
     })
-    worker.once('error', (error) => {
+    child.stderr.on('data', (chunk: Buffer) => {
+      stderr += chunk.toString('utf8')
+    })
+
+    child.on('error', (error) => {
+      if (settled) return
+      settled = true
       clearTimeout(timer)
       reject(error)
     })
-    worker.once('exit', (code) => {
+
+    child.on('close', (code) => {
+      if (settled) return
+      settled = true
       clearTimeout(timer)
-      if (code !== 0) reject(new Error(`Solution worker exited with code ${code}`))
+      if (code !== 0) {
+        reject(new IsolatedRunError(`Solution runner exited with code ${String(code)}: ${stderr.trim()}`))
+        return
+      }
+      try {
+        resolve(JSON.parse(stdout) as RunResult)
+      } catch {
+        reject(new IsolatedRunError(`Solution runner produced unreadable output: ${stdout.slice(0, 400)}`))
+      }
     })
+
+    child.stdin.end(JSON.stringify(request))
   })
 }

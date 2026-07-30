@@ -1,6 +1,6 @@
 import type { EdgeMark, MarkClass, NodeId, StructureSnapshot } from '@algoviz/tracer'
 import type { ReactNode } from 'react'
-import { CELL, Cell, EmptyState, GAP, Scroll, display, edgeStroke, marksOnNode, markAttr, winningClass } from '../primitives.js'
+import { CELL, Cell, EmptyState, Scroll, display, edgeStroke, marksOnNode, markAttr, winningClass } from '../primitives.js'
 import { layoutGraph, layoutTree, layoutTrie, NODE_R, type LaidOut, type Point } from '../layout.js'
 
 type Of<K extends StructureSnapshot['kind']> = Extract<StructureSnapshot, { kind: K }>

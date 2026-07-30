@@ -52,7 +52,16 @@ export default defineConfig({
         '**/*.test.tsx',
         '**/*.dom.test.tsx',
         '**/index.ts',
+        // Type-only module: no runtime code to cover.
+        'packages/runner/src/protocol.ts',
+        // Process entry points. These are covered by the stdio integration test and by
+        // `pnpm roadmap:check`, but both run in a child process where v8 coverage cannot see
+        // them, so counting them here would just be reporting a number we can't act on.
         'packages/mcp-server/src/index.ts',
+        'packages/runner/src/run-cli.ts',
+        'packages/roadmap/src/cli.ts',
+        // Reference solutions are exercised end-to-end by the integration suite; measuring them
+        // as library code would reward instrumenting for coverage rather than for clarity.
         'packages/problems/src/problems/**',
       ],
       thresholds: {

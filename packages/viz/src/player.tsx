@@ -79,7 +79,13 @@ export function usePlayer({ reader, clock = rafClock, baseFrameMs = 220 }: UsePl
   const setFrame = useCallback((next: number) => setFrameRaw(clamp(next)), [clamp])
 
   // A new trace resets playback rather than leaving the scrubber parked past the end.
+  //
+  // Keyed on the underlying trace, not the reader object: a caller that constructs the reader
+  // inline would otherwise hand us a fresh identity on every render and pin the frame at 0.
+  const traceRef = useRef(reader.trace)
   useEffect(() => {
+    if (traceRef.current === reader.trace) return
+    traceRef.current = reader.trace
     setFrameRaw(0)
     setPlaying(false)
     accumulated.current = 0

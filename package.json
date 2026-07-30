@@ -28,10 +28,13 @@
     "verify:all": "pnpm verify && pnpm build && pnpm test:ui"
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["esbuild"]
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
   },
   "devDependencies": {
     "@eslint/js": "9.39.5",
+    "@modelcontextprotocol/sdk": "1.30.0",
     "@playwright/test": "1.56.1",
     "@testing-library/dom": "10.4.1",
     "@testing-library/jest-dom": "6.9.1",
@@ -51,6 +54,7 @@
     "typescript": "5.9.3",
     "typescript-eslint": "8.65.0",
     "vite": "7.3.6",
-    "vitest": "3.2.7"
+    "vitest": "3.2.7",
+    "zod": "4.4.3"
   }
 }
