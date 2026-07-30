@@ -78,13 +78,35 @@ export class TraceReader {
     const memo = this.strippedCache.get(snap)
     if (memo) return memo
 
-    if (!('marks' in snap) || !Array.isArray(snap.marks)) return snap
-    const kept = (snap.marks as { transient?: boolean }[]).filter((m) => m.transient !== true)
-    if (kept.length === snap.marks.length) {
+    const hasMarks = 'marks' in snap && Array.isArray(snap.marks)
+    // `edgeMarks` were copied through untouched, so even once `EdgeMark` gained a `transient` flag
+    // nothing would have stripped it. Trees and graphs carry both lists and both need the same
+    // treatment.
+    const hasEdges = 'edgeMarks' in snap && Array.isArray((snap as { edgeMarks?: unknown }).edgeMarks)
+    if (!hasMarks && !hasEdges) return snap
+
+    const marks = hasMarks
+      ? (snap.marks as { transient?: boolean }[]).filter((m) => m.transient !== true)
+      : undefined
+    const edges = hasEdges
+      ? ((snap as { edgeMarks: { transient?: boolean }[] }).edgeMarks).filter(
+          (m) => m.transient !== true,
+        )
+      : undefined
+
+    const marksUnchanged = !hasMarks || marks?.length === (snap.marks as unknown[]).length
+    const edgesUnchanged =
+      !hasEdges || edges?.length === (snap as { edgeMarks: unknown[] }).edgeMarks.length
+    if (marksUnchanged && edgesUnchanged) {
       this.strippedCache.set(snap, snap)
       return snap
     }
-    const stripped = { ...snap, marks: kept } as StructureSnapshot
+
+    const stripped = {
+      ...snap,
+      ...(marks ? { marks } : {}),
+      ...(edges ? { edgeMarks: edges } : {}),
+    } as StructureSnapshot
     this.strippedCache.set(snap, stripped)
     return stripped
   }

@@ -823,7 +823,12 @@ describe('VizTree', () => {
     expect(value).toEqual([null, null, null, []])
   })
 
-  it('marks the traversed edge when following a child', () => {
+  it('lights the traversed edge for exactly the frame that walks it', () => {
+    // This asserted the edge marks were still there at the end, which is what the defect looked
+    // like: `left`/`right` wrote `active` into the *persistent* edge store, so a traversal left
+    // every edge it had ever walked permanently lit. On the first real tree BFS that was the whole
+    // tree, all of it claiming to be under consideration on the final frame — invariant 3, broken
+    // by the tree's headline API, because until now nothing had called it.
     const { trace: t } = trace((viz) => {
       const tr = viz.tree([1, 2, 3])
       const root = tr.root as string
@@ -831,7 +836,54 @@ describe('VizTree', () => {
       tr.right(root)
       return 0
     })
-    expect(finalOf(t, 'tree1', 'tree').edgeMarks).toHaveLength(2)
+
+    const reader = new TraceReader(t)
+    const walk = t.frames.filter((f) => f.label?.includes('.left') || f.label?.includes('.right'))
+    expect(walk).toHaveLength(2)
+
+    // Lit on its own frame...
+    for (const frame of walk) {
+      const snap = frame.snapshots['tree1']
+      expect(snap?.kind === 'tree' && snap.edgeMarks.filter((e) => e.class === 'active')).toHaveLength(1)
+    }
+    // ...and gone from every frame that merely carries the structure forward.
+    const final = finalOf(t, 'tree1', 'tree')
+    expect(final.edgeMarks.filter((e) => e.class === 'active')).toEqual([])
+    const carried = reader.structureAt('tree1', t.frames.length - 1)
+    expect(carried?.kind === 'tree' && carried.edgeMarks).toEqual([])
+  })
+
+  it('names what a step found, and lights the child rather than the parent', () => {
+    // A step onto a missing child used to emit a frame captioned `4.left` in which nothing
+    // observably happened — indistinguishable from a productive one.
+    const { trace: t } = trace((viz) => {
+      const tr = viz.tree([1, 2])
+      const root = tr.root as string
+      tr.left(root)
+      tr.right(root)
+      return 0
+    })
+    expect(labels(t)).toContain('1.left -> 2')
+    expect(labels(t)).toContain('1.right -> none')
+
+    const found = t.frames.find((f) => f.label === '1.left -> 2')
+    const snap = found?.snapshots['tree1']
+    // The interesting node is the one just arrived at, matching `VizGraph.neighbors`.
+    expect(snap?.kind === 'tree' && snap.marks.filter((m) => m.class === 'active').map((m) => m.id))
+      .toEqual(['t2'])
+  })
+
+  it('drops one class of mark from a node without touching its others', () => {
+    const { trace: t } = trace((viz) => {
+      const tr = viz.tree([1])
+      const root = tr.root as string
+      tr.mark(root, 'frontier')
+      tr.mark(root, 'result')
+      tr.unmarkClass(root, 'frontier')
+      return 0
+    })
+    expect(finalOf(t, 'tree1', 'tree').marks.map((m) => m.class)).toEqual(['result'])
+    expect(labels(t)).toContain('unmark frontier on 1')
   })
 
   it('unwinds a path mark while keeping a result mark set beneath it', () => {

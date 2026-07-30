@@ -45,6 +45,8 @@ export class VizGraph extends BaseStructure {
   private readonly marks = new NodeMarkStore()
   private readonly edgeMarks = new Map<string, EdgeMark>()
   private pending: NodeMark[] | undefined
+  /** Edge highlights belonging to the current frame only — see `EdgeMark.transient`. */
+  private pendingEdges: EdgeMark[] | undefined
 
   constructor(rec: Recorder, init: GraphInit = {}) {
     super(rec, 'gph', init.name, 'graph')
@@ -85,7 +87,10 @@ export class VizGraph extends BaseStructure {
       directed: this.directed,
       weighted: this.weighted,
       marks: this.marks.list(this.pending),
-      edgeMarks: [...this.edgeMarks.values()],
+      edgeMarks: [
+        ...this.edgeMarks.values(),
+        ...(this.pendingEdges ?? []).map((e) => ({ ...e, transient: true })),
+      ],
     }
   }
 
@@ -137,8 +142,12 @@ export class VizGraph extends BaseStructure {
   *neighbors(raw: number | string): IterableIterator<NodeId> {
     const from = this.key(raw)
     for (const { to } of this.adj.get(from) ?? []) {
-      this.markEdge(from, to, 'active')
+      // Transient, not persistent. Written into the persistent store this left every edge the
+      // search ever considered permanently `active`; it never showed only because the one graph
+      // problem overwrites each edge with a verdict via `g.edge(...)` immediately afterwards.
+      this.pendingEdges = [{ from, to, class: 'active' }]
       this.emit('visit', [{ id: to, class: 'active' }], `consider ${from} -> ${to}`)
+      this.pendingEdges = undefined
       yield to
     }
   }
@@ -174,6 +183,13 @@ export class VizGraph extends BaseStructure {
   unmark(raw: number | string): void {
     this.marks.remove(this.key(raw))
     this.rec.record({ op: 'mark', structure: this, label: `unmark ${this.key(raw)}` })
+  }
+
+  /** Drop one class of mark from a node, leaving its others intact — see `VizTree.unmarkClass`. */
+  unmarkClass(raw: number | string, cls: MarkClass): void {
+    const id = this.key(raw)
+    this.marks.removeClass(id, cls)
+    this.rec.record({ op: 'mark', structure: this, label: `unmark ${cls} on ${id}` })
   }
 
   clearMarks(cls?: MarkClass): void {

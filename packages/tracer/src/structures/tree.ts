@@ -46,6 +46,8 @@ export class VizTree extends BaseStructure {
   private rootNode: InternalNode | null = null
   private counter = 0
   private pending: NodeMark[] | undefined
+  /** Edge highlights belonging to the current frame only — see `EdgeMark.transient`. */
+  private pendingEdges: EdgeMark[] | undefined
 
   constructor(rec: Recorder, input: TreeInput, init: StructureInit = {}) {
     super(rec, 'tree', init.name, 'tree')
@@ -109,7 +111,10 @@ export class VizTree extends BaseStructure {
       nodes,
       root: this.rootNode?.id ?? null,
       marks: this.marks.list(this.pending),
-      edgeMarks: [...this.edgeMarks.values()],
+      edgeMarks: [
+        ...this.edgeMarks.values(),
+        ...(this.pendingEdges ?? []).map((e) => ({ ...e, transient: true })),
+      ],
     }
   }
 
@@ -134,16 +139,30 @@ export class VizTree extends BaseStructure {
   }
 
   left(id: NodeId): NodeId | null {
-    const child = this.require(id).left
-    if (child) this.markEdge(id, child.id, 'active')
-    this.emit('visit', [{ id, class: 'active' }], `${formatVal(this.peek(id))}.left`)
-    return child?.id ?? null
+    return this.step(id, 'left')
   }
 
   right(id: NodeId): NodeId | null {
-    const child = this.require(id).right
-    if (child) this.markEdge(id, child.id, 'active')
-    this.emit('visit', [{ id, class: 'active' }], `${formatVal(this.peek(id))}.right`)
+    return this.step(id, 'right')
+  }
+
+  /**
+   * One step down, lighting the edge for exactly the frame that walks it.
+   *
+   * The edge highlight is transient. It used to go through `markEdge` into the persistent store,
+   * so a traversal left every edge it had ever walked permanently `active` — on a full tree BFS
+   * that is the whole tree, all of it claiming to be under consideration on the final frame.
+   *
+   * The `active` node mark goes on the **child**, not the parent, matching `VizGraph.neighbors`:
+   * the interesting node is the one just arrived at. And the label names what was found, so a step
+   * onto a missing child stops being a frame in which nothing observably happens.
+   */
+  private step(id: NodeId, side: 'left' | 'right'): NodeId | null {
+    const child = side === 'left' ? this.require(id).left : this.require(id).right
+    const label = `${formatVal(this.peek(id))}.${side} -> ${child ? formatVal(child.value) : 'none'}`
+    if (child) this.pendingEdges = [{ from: id, to: child.id, class: 'active' }]
+    this.emit('visit', child ? [{ id: child.id, class: 'active' }] : [], label)
+    this.pendingEdges = undefined
     return child?.id ?? null
   }
 
@@ -192,7 +211,27 @@ export class VizTree extends BaseStructure {
 
   unmark(id: NodeId): void {
     this.marks.remove(id)
-    this.rec.record({ op: 'mark', structure: this, label: `unmark ${id}` })
+    // The *value*, not the internal node id — every other method formats the value, and a caption
+    // reading `unmark t4` names something no viewer has ever seen.
+    this.rec.record({ op: 'mark', structure: this, label: `unmark ${formatVal(this.peek(id))}` })
+  }
+
+  /**
+   * Drop one class of mark from a node, leaving its others intact.
+   *
+   * `VizMatrix.unmarkClass` exists for exactly this and `NodeMarkStore.removeClass` has always
+   * backed it; the tree only exposed `unmark` (every class on one node) and `clearMarks` (one class
+   * on every node). Retiring a `frontier` mark therefore meant `unmark`, which is safe only while
+   * the node happens to carry nothing else — the clobbering this store is keyed by `(id, class)` to
+   * prevent.
+   */
+  unmarkClass(id: NodeId, cls: MarkClass): void {
+    this.marks.removeClass(id, cls)
+    this.rec.record({
+      op: 'mark',
+      structure: this,
+      label: `unmark ${cls} on ${formatVal(this.peek(id))}`,
+    })
   }
 
   clearMarks(cls?: MarkClass): void {
