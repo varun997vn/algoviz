@@ -45,7 +45,7 @@ problems:
     techniques: [ two-pointers ]
     status: done
     branch: claude/leetcode-visualizer-w01nr6
-    pr: null
+    pr: 1
     notes: "trace-verifier: faithful (re-audit). Both carets present at index ===
       length on the final frame of all 8 cases; step labels name the
       interleave/tail-drain decision rather than restating the accumulator.
@@ -473,7 +473,7 @@ problems:
     techniques: [ pointer-rewiring ]
     status: done
     branch: claude/leetcode-visualizer-w01nr6
-    pr: null
+    pr: 1
     notes: "trace-verifier: reference faithful (re-audit) — 0 caret/watch
       disagreements over 1604 checks, arrows derived from real `next` links with
       0 missing or phantom on all 24 frames of the example, 4n+4 frames,
@@ -723,8 +723,8 @@ problems:
     structures: [ matrix, queue ]
     techniques: [ bfs, grid, multi-source ]
     status: in-progress
-    branch: null
-    pr: null
+    branch: claude/leetcode-visualizer-w01nr6
+    pr: 1
     notes: null
     dependsOn: []
   - id: p215
@@ -878,7 +878,7 @@ problems:
     techniques: [ dp, memoization ]
     status: done
     branch: claude/leetcode-visualizer-w01nr6
-    pr: null
+    pr: 1
     notes: "trace-verifier: faithful. The dp table fills left to right with
       `dependsOn` lighting the three recurrence inputs on their own frame and
       clearing after it, so no stale dependency marks survive. `VizDpTable` is
@@ -1091,8 +1091,8 @@ problems:
     structures: [ stack, array ]
     techniques: [ monotonic-stack ]
     status: in-progress
-    branch: null
-    pr: null
+    branch: claude/leetcode-visualizer-w01nr6
+    pr: 1
     notes: null
     dependsOn: []
   - id: p901
