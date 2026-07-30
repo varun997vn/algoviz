@@ -29,20 +29,11 @@ import type { ProblemDefinition, Viz } from '../types.js'
  *    quantity the algorithm is tracking climbing to the returned value, and it is the panel that
  *    makes the invariant checkable frame by frame instead of only at the end.
  *
- * `peek()` is the silent twin, used both for the guard and inside `viz.watch` — reading the root
- * to decide is not itself an event, and a watch sampler that recorded frames would recurse.
- *
- * Two things about `VizHeap` shaped this solution and are worth knowing before changing it:
- *
- *  - It has no recording comparison — no twin of `VizArray.compare(i, j)` — so the one decision
- *    this algorithm makes ("is x bigger than the root?") is narrated but never *lit*. The
- *    eviction and both sifts that follow are fully animated; the frame where the choice is made
- *    is not, and `(top.peek() as number)` is the cast that a `compareRoot(value)` twin would
- *    remove along with the blind spot.
- *  - Its marks are keyed by **array slot** and are not moved when it swaps or pops, so a mark set
- *    while the heap is still working drifts onto whatever value later sifts into that slot. That
- *    is why the only mark here is set after the loop has finished: index 0 is the root, nothing
- *    moves afterwards, so `result` lands on the answer and stays on it.
+ * `peek()` is the silent twin, used inside `viz.watch` — a watch sampler that recorded frames
+ * would recurse. The *guard* uses `compareRoot`, which is the recording one: "is x bigger than the
+ * smallest I am keeping?" is the only decision this algorithm makes, and with a silent read it was
+ * narrated on every element and lit on none — the heap panel went grey while the caption asserted a
+ * comparison the picture never showed.
  */
 export function reference(nums: number[], k: number, viz: Viz): number {
   const a = viz.array(nums, { name: 'nums' })
@@ -55,39 +46,44 @@ export function reference(nums: number[], k: number, viz: Viz): number {
 
   for (i.value = 0; i.value < a.length; i.inc()) {
     const x = a[i.value]
+    let outcome: string
     if (top.size < k) {
       top.push(x)
-      viz.step(
-        `keeping ${x} — only ${top.size} of ${k} values so far, so nothing can be ruled out yet`,
-      )
-    } else if (x > (top.peek() as number)) {
+      outcome = `keeping ${x} — only ${top.size} of ${k} values so far, so nothing can be ruled out yet`
+      // `compareRoot` lights the root and returns the ordering, so the guard that *is* this
+      // algorithm is one frame showing the value being weighed against the value it is weighed
+      // against. `x > (top.peek() as number)` reads the same and shows nothing.
+    } else if (top.compareRoot(x) < 0) {
       // The heap is full and `x` beats its weakest member, so that member is out. `pop` lifts the
       // last leaf to the root and sifts it down; `push` puts `x` at the next leaf and sifts it up.
       // Both sifts are frames, which is the entire point of animating this with a heap.
       const evicted = top.pop() as number
       top.push(x)
-      viz.step(
+      outcome =
         `${x} beats the weakest kept value ${evicted} — ${evicted} drops out, ${x} sifts into place, ` +
-          `and the ${ordinal(k)} largest is now ${top.peek()}`,
-      )
+        `and the ${ordinal(k)} largest is now ${top.peek()}`
     } else {
       a.mark(i.value, 'excluded', `not bigger than the ${ordinal(k)} largest so far`)
-      viz.step(
+      outcome =
         `${x} is not bigger than the ${ordinal(k)} largest so far (${top.peek()}) — the root only ever ` +
-          `rises, so ${x} can never reach the top ${k}`,
-      )
+        `rises, so ${x} can never reach the top ${k}`
     }
-    // Written *after* the branch, so the panel never reports a k-th largest the heap has not
-    // settled on yet, and only once there are k values to be k-th among.
+
+    // Recorded *before* the narration, so the frame carrying the caption also carries the value the
+    // caption is about. Written after `viz.step` this landed in its own unnarrated frame, and the
+    // panel the problem exists for was one element short on every single narrated frame. The heap
+    // has settled by here in all three branches, so nothing is reported early.
     if (top.size === k) kth[i.value] = top.peek() as number
+    viz.step(outcome)
   }
 
   const answer = top.peek() as number
-  // Marked here rather than as soon as the heap fills: `VizHeap` marks belong to array slots, not
-  // to values, and it never moves them when it swaps — so a `result` on the root set mid-run
-  // would sit still while values sifted underneath it. After the loop nothing moves again, so
-  // slot 0 is the answer for good. It is the last thing the animation says: of the k values still
-  // standing, the one on top is the k-th largest overall.
+  // The last thing the animation says: of the k values still standing, the one on top is the k-th
+  // largest overall. (An earlier version of this comment said the mark had to wait until the end
+  // because `VizHeap` marks belong to array slots and do not move when the heap swaps. That was
+  // true when this was written and is not any more — `IndexMarkStore` now swaps and moves marks
+  // with their values, and the heap tests assert it. Marking mid-run would be safe; it is still
+  // done here because the claim only becomes true once the scan is over.)
   top.mark(0, 'result', `the ${ordinal(k)} largest`)
   viz.step(
     `the heap holds the ${k} largest values in ${a.length}, and the smallest of them — its root, ` +
@@ -131,15 +127,23 @@ export default function findKthLargest(nums: number[], k: number, viz: Viz): num
     //   - x beats the root: the root is no longer in the top k, so pop it and push x.
     //   - otherwise: x loses to the weakest value you are keeping, so it can never be in
     //     the top k — mark it 'excluded' and move on.
-    // top.peek() reads the root without recording a frame, which is what you want in a guard.
+    //
+    // Use top.compareRoot(x) for the guard, not top.peek(). Both read the root, but
+    // compareRoot records a frame with the root lit and returns the ordering the way a
+    // comparator does (negative when the root is the smaller). That comparison is the only
+    // decision this algorithm makes — with a silent read it is narrated on every element
+    // and shown on none, and the heap panel just goes grey while the caption claims a
+    // comparison happened.
     viz.step('at ' + x)
 
     // Once the heap is full the root is the answer so far; record it so the panel shows the
-    // k-th largest climbing towards the final one.
+    // k-th largest climbing towards the final one. Record it BEFORE the viz.step above, or
+    // the frame carrying the caption is one element behind the panel it is describing.
     if (top.size === k) kth[i.value] = top.peek() as number
   }
 
-  // TODO: return the root — the smallest of the k largest values.
+  // TODO: return the root — the smallest of the k largest values, and mark it 'result' so
+  // the final picture says which of the survivors is the answer.
   return 0
 }
 `

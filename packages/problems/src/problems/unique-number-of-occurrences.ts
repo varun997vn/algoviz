@@ -117,9 +117,16 @@ export default function uniqueOccurrences(arr, viz) {
   // to \`claimed\`.
   //   - claimed.has(count) is the one decision this problem makes, so let it be a frame
   //     (claimed.contains(count) is the silent twin, and here you want the noisy one).
-  //   - if the count is already claimed, two values tie. That is the whole animation, so give
-  //     it a frame of its own: mark BOTH map rows 'excluded' — not just the one you are on —
-  //     then viz.step() saying which two values tie and at what count, then return false.
+  //   - if the count is already claimed, two values tie. That is the whole animation, so light
+  //     all three panels on that one frame, not just the map:
+  //       * mark BOTH map rows 'excluded' — not only the one you are standing on. The rival is
+  //         the row whose count equals this one; occurrences.toEntries() finds it without
+  //         recording a frame.
+  //       * mark the contested cell in \`claimed\` 'excluded' too — the set is what rejected it.
+  //       * mark every position in \`arr\` holding either value 'excluded', so the array says
+  //         where the tie came from instead of going dead for the whole second pass.
+  //     Then viz.step() naming which two values tie and at what count, and return false.
+  //     Two panels out of three is the difference between a picture and an assertion.
   //     occurrences.toEntries() is the map's non-recording twin; the first entry with this
   //     count is the value that claimed it.
   //   - otherwise claimed.add(count) and mark the row 'result', so a viewer can see which row
@@ -149,17 +156,23 @@ export const uniqueNumberOfOccurrences: ProblemDefinition = {
   reference: reference as ProblemDefinition['reference'],
   cases: [
     {
+      // The smallest possible false, and LeetCode's own second example.
+      //
+      // First on purpose. The workbench opens on case 0, and a `false` answer is the one a stub
+      // that does nothing yet cannot accidentally get right — this problem's own note says a
+      // boolean is the easiest kind to let a solution grade itself on, and with the `true` case
+      // first the untouched starter passed the very case a learner sees first. It was the only
+      // problem in the set where that happened.
+      name: 'example — two values, one occurrence each',
+      args: [[1, 2]],
+      expected: false,
+      tags: ['example'],
+    },
+    {
       // 1 -> 3, 2 -> 2, 3 -> 1. Three values, three different counts.
       name: 'example — counts 3, 2 and 1 are all different',
       args: [[1, 2, 2, 1, 1, 3]],
       expected: true,
-      tags: ['example'],
-    },
-    {
-      // The smallest possible false: two values, one occurrence each.
-      name: 'example — two values, one occurrence each',
-      args: [[1, 2]],
-      expected: false,
       tags: ['example'],
     },
     {

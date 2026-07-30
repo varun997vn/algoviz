@@ -131,11 +131,18 @@ export default function trieOperations(ops: [string, string][], viz: Viz): (bool
 
   const search = (word: string): boolean => {
     // TODO: follow one child per character. Give up as soon as a character has no branch.
+    //
+    // Then mark the node you land on with your verdict — t.mark(id, 'match') when the word
+    // is really here, t.mark(id, 'excluded') when the walk ended somewhere that is not the
+    // end of a word. Without that mark the two lookups below draw exactly the same frames
+    // and disagree only in the caption, which is the one thing this problem exists to show.
     return false
   }
 
   const startsWith = (prefix: string): boolean => {
-    // TODO: the same walk as search — but a different question at the end.
+    // TODO: the same walk as search — but a different question at the end, and therefore a
+    // different mark on the very same node. Those two frames are the payoff: identical walk,
+    // one glyph apart.
     return false
   }
 

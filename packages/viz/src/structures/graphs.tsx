@@ -226,7 +226,11 @@ export function GraphViz({ snapshot }: { snapshot: Of<'graph'> }): ReactNode {
 
 export function TrieViz({ snapshot }: { snapshot: Of<'trie'> }): ReactNode {
   const { nodes, root, marks } = snapshot
-  if (nodes.length <= 1) return <EmptyState what="trie" />
+  // An empty trie *is* one node, so bailing on `length <= 1` blanked the whole panel for the run
+  // of a case that only ever looks things up in an empty trie — including the `excluded` mark the
+  // tracer puts on the root precisely so a miss does not look like a hit. Draw the root whenever it
+  // has something to say; a bare, unmarked root really is nothing to look at.
+  if (nodes.length <= 1 && marks.length === 0) return <EmptyState what="trie" />
 
   const laid = layoutTrie(nodes, root)
 

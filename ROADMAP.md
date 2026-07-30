@@ -5,17 +5,17 @@
 Every problem here is solved *inside the app*: you write the instrumented solution and
 watch your own algorithm execute over a live visualization of the structures it touches.
 
-**Progress: 8 / 75 done (11%)**
+**Progress: 11 / 75 done (15%)**
 
-`███░░░░░░░░░░░░░░░░░░░░░░░░░`
+`████░░░░░░░░░░░░░░░░░░░░░░░░`
 
 | Status | Count |
 | --- | --- |
 | ⬜ todo | 62 |
-| 🟡 in-progress | 5 |
+| 🟡 in-progress | 2 |
 | 🔵 review | 0 |
 | 🔴 blocked | 0 |
-| ✅ done | 8 |
+| ✅ done | 11 |
 
 ## Next up
 
@@ -50,11 +50,11 @@ Run the `solve-problem` skill to take the next one end to end.
 | 11 | [Container With Most Water](https://leetcode.com/problems/container-with-most-water/) | medium | `array, cursor` | ✅ done | — |
 | 1679 | [Max Number of K-Sum Pairs](https://leetcode.com/problems/max-number-of-k-sum-pairs/) | medium | `array, cursor, map` | ⬜ todo | — |
 
-### Sliding Window — 0/4
+### Sliding Window — 1/4
 
 | # | Problem | Difficulty | Structures | Status | PR |
 | --- | --- | --- | --- | --- | --- |
-| 643 | [Maximum Average Subarray I](https://leetcode.com/problems/maximum-average-subarray-i/) | easy | `array, cursor` | 🟡 in-progress | — |
+| 643 | [Maximum Average Subarray I](https://leetcode.com/problems/maximum-average-subarray-i/) | easy | `array, cursor` | ✅ done | #1 |
 | 1456 | [Maximum Number of Vowels in a Substring of Given Length](https://leetcode.com/problems/maximum-number-of-vowels-in-a-substring-of-given-length/) | medium | `string, cursor` | ⬜ todo | — |
 | 1004 | [Max Consecutive Ones III](https://leetcode.com/problems/max-consecutive-ones-iii/) | medium | `array, cursor` | ⬜ todo | — |
 | 1493 | [Longest Subarray of 1's After Deleting One Element](https://leetcode.com/problems/longest-subarray-of-1s-after-deleting-one-element/) | medium | `array, cursor` | ⬜ todo | — |
@@ -66,12 +66,12 @@ Run the `solve-problem` skill to take the next one end to end.
 | 1732 | [Find the Highest Altitude](https://leetcode.com/problems/find-the-highest-altitude/) | easy | `array` | ⬜ todo | — |
 | 724 | [Find Pivot Index](https://leetcode.com/problems/find-pivot-index/) | easy | `array, cursor` | ⬜ todo | — |
 
-### HashMap / Set — 0/4
+### HashMap / Set — 1/4
 
 | # | Problem | Difficulty | Structures | Status | PR |
 | --- | --- | --- | --- | --- | --- |
 | 2215 | [Find the Difference of Two Arrays](https://leetcode.com/problems/find-the-difference-of-two-arrays/) | easy | `set, array` | ⬜ todo | — |
-| 1207 | [Unique Number of Occurrences](https://leetcode.com/problems/unique-number-of-occurrences/) | easy | `map, set` | 🟡 in-progress | — |
+| 1207 | [Unique Number of Occurrences](https://leetcode.com/problems/unique-number-of-occurrences/) | easy | `map, set` | ✅ done | #1 |
 | 1657 | [Determine if Two Strings Are Close](https://leetcode.com/problems/determine-if-two-strings-are-close/) | medium | `map, set` | ⬜ todo | — |
 | 2352 | [Equal Row and Column Pairs](https://leetcode.com/problems/equal-row-and-column-pairs/) | medium | `matrix, map` | ⬜ todo | — |
 
@@ -144,7 +144,7 @@ Run the `solve-problem` skill to take the next one end to end.
 
 | # | Problem | Difficulty | Structures | Status | PR |
 | --- | --- | --- | --- | --- | --- |
-| 215 | [Kth Largest Element in an Array](https://leetcode.com/problems/kth-largest-element-in-an-array/) | medium | `heap, array` | 🟡 in-progress | — |
+| 215 | [Kth Largest Element in an Array](https://leetcode.com/problems/kth-largest-element-in-an-array/) | medium | `heap, array` | 🟡 in-progress | #1 |
 | 2336 | [Smallest Number in Infinite Set](https://leetcode.com/problems/smallest-number-in-infinite-set/) | medium | `heap, set` | ⬜ todo | — |
 | 2542 | [Maximum Subsequence Score](https://leetcode.com/problems/maximum-subsequence-score/) | medium | `heap, array` | ⬜ todo | — |
 | 2462 | [Total Cost to Hire K Workers](https://leetcode.com/problems/total-cost-to-hire-k-workers/) | medium | `heap, array, cursor` | ⬜ todo | — |
@@ -195,14 +195,14 @@ Run the `solve-problem` skill to take the next one end to end.
 
 | # | Problem | Difficulty | Structures | Status | PR |
 | --- | --- | --- | --- | --- | --- |
-| 208 | [Implement Trie (Prefix Tree)](https://leetcode.com/problems/implement-trie-prefix-tree/) | medium | `trie` | 🟡 in-progress | — |
+| 208 | [Implement Trie (Prefix Tree)](https://leetcode.com/problems/implement-trie-prefix-tree/) | medium | `trie` | 🟡 in-progress | #1 |
 | 1268 | [Search Suggestions System](https://leetcode.com/problems/search-suggestions-system/) | medium | `trie, array` | ⬜ todo | — |
 
-### Intervals — 0/2
+### Intervals — 1/2
 
 | # | Problem | Difficulty | Structures | Status | PR |
 | --- | --- | --- | --- | --- | --- |
-| 435 | [Non-overlapping Intervals](https://leetcode.com/problems/non-overlapping-intervals/) | medium | `intervals` | 🟡 in-progress | — |
+| 435 | [Non-overlapping Intervals](https://leetcode.com/problems/non-overlapping-intervals/) | medium | `intervals` | ✅ done | #1 |
 | 452 | [Minimum Number of Arrows to Burst Balloons](https://leetcode.com/problems/minimum-number-of-arrows-to-burst-balloons/) | medium | `intervals` | ⬜ todo | — |
 
 ### Monotonic Stack — 1/2
@@ -219,7 +219,7 @@ visualizer has no real user yet, however green its unit tests are.
 
 | Structure | Done | Planned |
 | --- | --- | --- |
-| `array` | 2 | 36 |
+| `array` | 3 | 36 |
 | `matrix` | 1 | 4 |
 | `string` | 1 | 13 |
 | `list` | 1 | 4 |
@@ -228,9 +228,9 @@ visualizer has no real user yet, however green its unit tests are.
 | `stack` | 1 | 5 |
 | `queue` | 1 | 6 |
 | `heap` | 0 | 4 |
-| `map` | 0 | 6 |
-| `set` | 1 | 7 |
+| `map` | 1 | 6 |
+| `set` | 2 | 7 |
 | `dp` | 1 | 9 |
-| `intervals` | 0 | 2 |
+| `intervals` | 1 | 2 |
 | `trie` | 0 | 2 |
-| `cursor` | 3 | 23 |
+| `cursor` | 4 | 23 |

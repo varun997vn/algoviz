@@ -424,3 +424,111 @@ describe('Kth Largest Element in an Array — the invariant holds on every case'
     expect(heap.values).toEqual([5, 5, 5])
   })
 })
+
+describe('the starter teaches the same picture, not just the same answer', () => {
+  // Three times in this repo's history a fix has landed in a reference solution and left the
+  // starter prescribing the defect — and the starter is what a learner actually runs, so it is the
+  // trace that matters most. This block fills the starter in from its own TODO comments and holds
+  // the result to the same standard as the reference.
+  const filled = `
+export default function findKthLargest(nums: number[], k: number, viz: Viz): number {
+  const a = viz.array(nums, { name: 'nums' })
+  const top = viz.heap<number>([], { name: 'the k largest so far' })
+  const kth = viz.array<number>(nums.length, { name: 'k-th largest so far', fill: null })
+  const i = viz.cursor('i', 0, a)
+  viz.watch(() => ({ i: i.value, kept: top.size, kth: top.peek() ?? null }))
+
+  for (i.value = 0; i.value < a.length; i.inc()) {
+    const x = a[i.value]
+    let outcome: string
+    if (top.size < k) {
+      top.push(x)
+      outcome = 'keeping ' + x
+    } else if (top.compareRoot(x) < 0) {
+      const evicted = top.pop() as number
+      top.push(x)
+      outcome = x + ' beats ' + evicted
+    } else {
+      a.mark(i.value, 'excluded', 'not big enough')
+      outcome = x + ' is not big enough'
+    }
+    if (top.size === k) kth[i.value] = top.peek() as number
+    viz.step(outcome)
+  }
+
+  const answer = top.peek() as number
+  top.mark(0, 'result', 'the answer')
+  viz.step('the root is the answer')
+  return answer
+}
+`
+
+  it('produces a passing, invariant-holding trace when followed literally', () => {
+    const run = executeRun({ problem: PROBLEM, source: filled, caseIndex: 'all' })
+    expect(run.diagnostics).toEqual([])
+    expect(run.results.filter((r) => !r.passed)).toEqual([])
+    const problem = requireProblem(PROBLEM)
+    const args = problem.cases[1]!.args as [number[], number]
+    expectCappedKLargestEveryStep(run.results[1]!.trace, args[0], args[1], 'filled starter')
+    expectSiftIsAnimated(run.results[1]!.trace, 'filled starter')
+  })
+
+  it('lights the guard, which a silent peek() never did', () => {
+    // The one decision this algorithm makes. Written `x > (top.peek() as number)` it was narrated
+    // on every element and shown on none: the heap panel went grey while the caption asserted a
+    // comparison the picture never made. The starter now names `compareRoot`, so this holds for a
+    // learner's trace too, not only the reference.
+    for (const source of [undefined, filled]) {
+      const run = executeRun(
+        source === undefined
+          ? { problem: PROBLEM, useReference: true, caseIndex: 1 }
+          : { problem: PROBLEM, source, caseIndex: 1 },
+      )
+      const trace = run.results[0]!.trace
+      const heapId = idOf(trace, HEAP)
+      const lit = trace.frames.filter((f) => {
+        const snap = f.snapshots[heapId]
+        return snap?.kind === 'heap' && snap.marks.some((m) => m.class === 'compare' && m.transient)
+      })
+      expect(lit.length, source === undefined ? 'reference' : 'filled starter').toBeGreaterThan(0)
+    }
+  })
+
+  it('keeps the payoff panel level with the caption describing it', () => {
+    // The `kth` write used to sit after `viz.step`, so it landed in its own unnarrated frame and
+    // every single narrated frame showed the panel one element short of what its caption claimed.
+    for (const source of [undefined, filled]) {
+      const run = executeRun(
+        source === undefined
+          ? { problem: PROBLEM, useReference: true, caseIndex: 1 }
+          : { problem: PROBLEM, source, caseIndex: 1 },
+      )
+      const trace = run.results[0]!.trace
+      const reader = new TraceReader(trace)
+      const k = 4
+      for (const frame of reader.stepFrames()) {
+        const heap = resolve(reader, HEAP, 'heap', frame)
+        const panel = resolve(reader, PANEL, 'array', frame)
+        const cursor = panel?.cursors ?? []
+        if (!heap || !panel || heap.values.length < k) continue
+        // The cell for the element the caption is about must already hold the root.
+        const scan = resolve(reader, NUMS, 'array', frame)
+        const at = scan?.cursors.find((c) => c.name === 'i')?.index ?? cursor.length
+        if (at >= panel.values.length) continue
+        expect(
+          panel.values[at],
+          `frame ${frame}: caption describes element ${at} but its cell is still blank`,
+        ).not.toBeNull()
+      }
+    }
+  })
+
+  it('ends with the answer marked, so the final picture says which survivor it is', () => {
+    const run = executeRun({ problem: PROBLEM, source: filled, caseIndex: 1 })
+    const reader = new TraceReader(run.results[0]!.trace)
+    const heap = resolve(reader, HEAP, 'heap', reader.frameCount - 1)!
+    const marked = heap.marks.filter((m) => m.class === 'result')
+    expect(marked).toHaveLength(1)
+    expect(heap.values[marked[0]!.index]).toBe(run.results[0]!.returned)
+  })
+})

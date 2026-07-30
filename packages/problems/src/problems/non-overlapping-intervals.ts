@@ -50,23 +50,19 @@ import type { ProblemDefinition, Viz } from '../types.js'
  * **API gaps found while writing this** (reported rather than patched — `packages/tracer` and
  * `packages/viz` are owned elsewhere):
  *
- *  1. `viz.intervals` takes `readonly (readonly [number, number])[]`, but every intervals problem
- *     on LeetCode hands you `number[][]`, which is not assignable to it. Hence the
- *     `.map((p) => [p[0], p[1]] as const)` below, which is pure ceremony.
- *  2. `VizIntervals.read()` returns `IntervalItem | undefined`, so the one line that should read
- *     like the plain solution needs a `!`. `VizStack.requireTop()` is the precedent for a twin
- *     typed present.
- *  3. There is no way to draw the boundary itself on the timeline, which is the one thing this
- *     problem most wants to show.
+ *  1. There is no way to draw the boundary itself on the timeline, which is the one thing this
+ *     problem most wants to show. `lastKept` exists only so `compare` can light the incumbent as
+ *     a stand-in; a marker affordance would retire that variable entirely.
+ *
+ * Two others were reported and have since been fixed: `viz.intervals` now takes `number[][]`
+ * directly rather than a tuple type nothing on LeetCode is assignable to, and `iv.require(i)` is
+ * the present-typed twin of `read`, so neither line needs ceremony any more.
  */
 export function reference(intervals: number[][], viz: Viz): number {
   // Sort by END, not by start. Among intervals that conflict, the one that finishes soonest is
   // always the safest to keep, because it leaves the most room for everything after it.
   const byEnd = [...intervals].sort((a, b) => a[1] - b[1])
-  const iv = viz.intervals(
-    byEnd.map((p) => [p[0], p[1]] as const),
-    { name: 'intervals (sorted by end)' },
-  )
+  const iv = viz.intervals(byEnd, { name: 'intervals (sorted by end)' })
 
   // The boundary: the right edge of the interval we kept most recently, and the only thing the
   // next decision depends on. `null` until something is kept — deliberately not `-Infinity`,
@@ -79,7 +75,7 @@ export function reference(intervals: number[][], viz: Viz): number {
   viz.watch(() => ({ lastEnd, removed }))
 
   for (let i = 0; i < iv.length; i += 1) {
-    const cur = iv.read(i)!
+    const cur = iv.require(i)
     if (lastKept >= 0) {
       // One frame, both bars lit: the incumbent's right edge against the candidate's left edge.
       // This is the entire decision, and written as two separate reads it would never appear on
@@ -88,11 +84,18 @@ export function reference(intervals: number[][], viz: Viz): number {
     }
 
     if (lastEnd === null || cur.start >= lastEnd) {
+      // The first interval is kept without a comparison — there is no boundary yet to compare it
+      // against, and no `compare` frame was emitted for it either. Saying "it starts at or after
+      // the boundary" on that frame asserted a test that never ran, against a `lastEnd` the watch
+      // panel only shows because the assignment below had already happened.
+      const opening = lastEnd === null
       lastEnd = cur.end
       lastKept = i
       iv.mark(i, 'result', 'kept')
       viz.step(
-        `keep [${cur.start},${cur.end}] — it starts at or after the boundary, so the boundary moves to ${cur.end}`,
+        opening
+          ? `keep [${cur.start},${cur.end}] — it ends soonest of all, so it is always safe to keep, and the boundary starts at ${cur.end}`
+          : `keep [${cur.start},${cur.end}] — it starts at or after the boundary, so the boundary moves to ${cur.end}`,
       )
     } else {
       removed += 1
@@ -146,6 +149,9 @@ export default function eraseOverlapIntervals(intervals: number[][], viz: Viz): 
     //
     // For the comparison itself prefer iv.compare(lastKept, i, '...') over reading the two
     // ends separately: one frame with both bars lit instead of two frames showing one each.
+    // Guard it with \`if (lastKept >= 0)\` though — the first interval has no incumbent to be
+    // compared against, and iv.compare(-1, 0) draws a comparison frame lighting a single bar,
+    // which is precisely the half-a-picture that using compare was meant to avoid.
     viz.step('interval ' + i)
   }
 

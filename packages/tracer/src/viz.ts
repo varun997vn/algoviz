@@ -150,11 +150,20 @@ export class Viz {
     return s
   }
 
+  /**
+   * A timeline of intervals.
+   *
+   * Takes `readonly number[][]` rather than a tuple type on purpose: every intervals problem on
+   * LeetCode hands you `number[][]`, which is not assignable to `[number, number][]`, so the tuple
+   * signature forced `.map((p) => [p[0], p[1]] as const)` — pure ceremony in the line that should
+   * read like the plain solution.
+   */
   intervals(
-    items: readonly (readonly [number, number])[],
+    items: readonly (readonly number[])[],
     init: StructureInit = {},
   ): VizIntervals {
-    const s = new VizIntervals(this.rec, items, init)
+    const pairs = items.map((p) => [p[0] ?? 0, p[1] ?? 0] as const)
+    const s = new VizIntervals(this.rec, pairs, init)
     this.rec.register(s)
     return s
   }

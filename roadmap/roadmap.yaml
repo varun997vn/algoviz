@@ -233,10 +233,19 @@ problems:
     order: 14
     structures: [ array, cursor ]
     techniques: [ sliding-window ]
-    status: in-progress
+    status: done
     branch: claude/leetcode-visualizer-w01nr6
-    pr: null
-    notes: null
+    pr: 1
+    notes: "trace-verifier: faithful. Verified on all 10 cases: the band is exactly
+      k wide on every frame carrying one, its left edge advances by exactly one
+      and never backwards, `clearWindow` clears, and the read count is exactly k
+      + 2(n-k) — so the add/drop pair is a property of the frame sequence, not
+      of a caption. The naive re-sum returns the identical answer and draws an
+      identical band; it is rejected at 10,966 frames against a bound of 1,820
+      that the reference meets at 1,167. Both viz fixes this problem drove were
+      confirmed by rendering: no outline edge falls outside the SVG viewport
+      including at index 0, and a window at index 260 of a 300-cell array is now
+      drawn."
     dependsOn: []
   - id: p1456
     leetcode: 1456
@@ -331,10 +340,22 @@ problems:
     order: 21
     structures: [ map, set ]
     techniques: [ hashing, counting ]
-    status: in-progress
+    status: done
     branch: claude/leetcode-visualizer-w01nr6
-    pr: null
-    notes: null
+    pr: 1
+    notes: "trace-verifier: faithful (reference). Verified: the map is a true prefix
+      tally at every frame, the set only grows and only by counts a map row
+      holds, nothing wears `excluded` before the tie, and on every false case
+      exactly one frame lights all three panels — with the two values it names
+      confirmed against the input to occur that many times each. The four
+      `VizSet`/`MapViz` fixes this problem drove were confirmed mechanically,
+      including a mark staying on its value across two deletions below it. Two
+      findings then fixed: the starter's TODO reached only two of the three
+      panels its own docstring calls the whole animation, and this was the one
+      problem in the set whose untouched starter passed the case the workbench
+      opens on — a `true` first example against a stub returning `true`. The
+      false example is now first, and a test asserts that property for every
+      problem rather than leaving it incidental."
     dependsOn: []
   - id: p1657
     leetcode: 1657
@@ -752,7 +773,7 @@ problems:
     techniques: [ heap, quickselect ]
     status: in-progress
     branch: claude/leetcode-visualizer-w01nr6
-    pr: null
+    pr: 1
     notes: null
     dependsOn: []
   - id: p2336
@@ -1050,8 +1071,20 @@ problems:
     techniques: [ trie, design ]
     status: in-progress
     branch: claude/leetcode-visualizer-w01nr6
-    pr: null
-    notes: null
+    pr: 1
+    notes: "trace-verifier: reference faithful, problem misleading — the starter
+      made `search` and `startsWith` frame-identical, which is the single claim
+      this problem exists to make. Its TODOs never mentioned marking the node
+      the walk lands on, so a learner's two lookups drew identical frames and
+      disagreed only in the caption. Fixed, along with three shared defects the
+      audit found: `VizTrie.retireWalk` cleared `path`/`excluded` but not
+      `match` — the mark every lookup actually ends on — so successive lookups
+      accumulated answers; `TrieViz` bailed to a placeholder for a single-node
+      trie, blanking the whole panel on the case that is nothing but misses
+      against an empty trie; and `renderGroups` merged disjoint scopes sharing a
+      label, reporting `search(\"app\")` as frames 19..46 when it was 19..25 and
+      40..46, which is the tool an auditor navigates by. Awaiting re-audit
+      before this is marked done."
     dependsOn: []
   - id: p1268
     leetcode: 1268
@@ -1076,10 +1109,22 @@ problems:
     order: 72
     structures: [ intervals ]
     techniques: [ greedy, sorting ]
-    status: in-progress
+    status: done
     branch: claude/leetcode-visualizer-w01nr6
-    pr: null
-    notes: null
+    pr: 1
+    notes: "trace-verifier: faithful. The lane-0 claim was verified mechanically on
+      all 12 cases by replaying `IntervalsViz`'s packing recurrence: lane 0 is
+      the kept set index-for-index, the kept set is pairwise disjoint, the
+      boundary never decreases, and `excluded` count equals the returned number.
+      Touching intervals correctly share lane 0. Two low findings then fixed:
+      the first interval's label claimed a comparison that never ran (there is
+      no boundary yet), and the starter's `compare` guidance omitted the
+      `lastKept >= 0` guard, so a learner's first frame lit a single bar. Two
+      API gaps the author reported were also closed — `viz.intervals` now takes
+      `number[][]` directly and `iv.require(i)` is the present-typed twin of
+      `read`. Still open and recorded: `viz.cursor` on an intervals structure is
+      a silent no-op, and `VizIntervals.reorder` corrupts on a malformed
+      permutation; neither is used here."
     dependsOn: []
   - id: p452
     leetcode: 452

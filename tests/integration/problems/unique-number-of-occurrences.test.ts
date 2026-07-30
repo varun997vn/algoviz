@@ -240,7 +240,13 @@ function expectPictureAgreesWithAnswer(trace: Trace, returned: unknown, label: s
 }
 
 describe('Unique Number of Occurrences — reference trace semantics', () => {
-  const result = executeRun({ problem: PROBLEM, useReference: true, caseIndex: 0 })
+  // Located by name, not by position: the case order is a product decision (the workbench opens on
+  // case 0, which must not be one an unwritten starter passes) and this block is about a specific
+  // input, so pinning it to an index couples two unrelated things.
+  const canonical = requireProblem(PROBLEM).cases.findIndex((c) =>
+    c.name.includes('counts 3, 2 and 1'),
+  )
+  const result = executeRun({ problem: PROBLEM, useReference: true, caseIndex: canonical })
   const caseResult = result.results[0]!
   const trace = caseResult.trace
   const reader = new TraceReader(trace)
@@ -603,7 +609,14 @@ export default function uniqueOccurrences(arr, viz) {${declarations}
     expect(run.results.every((r) => r.passed)).toBe(true)
 
     // The map half is genuinely animated, so the tally check passes...
-    expectMapIsATruePrefixTally(run.results[0]!.trace, [1, 2, 2, 1, 1, 3], 'off-screen decision')
+    const canonical = requireProblem(PROBLEM).cases.findIndex((c) =>
+      c.name.includes('counts 3, 2 and 1'),
+    )
+    expectMapIsATruePrefixTally(
+      run.results[canonical]!.trace,
+      requireProblem(PROBLEM).cases[canonical]!.args[0] as number[],
+      'off-screen decision',
+    )
     // ...and the half that matters is missing: the set never grows, and no false case can say
     // where its answer came from.
     const falseCase = requireProblem(PROBLEM).cases.findIndex((c) => c.expected === false)

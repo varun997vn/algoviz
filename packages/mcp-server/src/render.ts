@@ -231,23 +231,45 @@ export function renderOps(trace: Trace, from: number, to: number): string {
     .join('\n')
 }
 
-/** The `viz.group` tree with the frame range each scope covers. */
+/**
+ * The `viz.group` tree with the frame range each scope covers.
+ *
+ * Scopes are tracked as a *stack*, not as a map keyed by label path. Keyed by label, two disjoint
+ * scopes that happen to share a name merged into one range that swallowed everything between them
+ * — on a trie whose ops repeat, `search("app")` was reported as frames 19..46 when it was really
+ * 19..25 and 40..46, silently absorbing the three calls in between. This function is how an
+ * auditor navigates a trace, so a wrong range here sends the next investigation to the wrong
+ * frames.
+ */
 export function renderGroups(trace: Trace): string {
-  const seen = new Map<string, { from: number; to: number; depth: number }>()
+  type Scope = { label: string; from: number; to: number; depth: number }
+  const scopes: Scope[] = []
+  const open: Scope[] = []
+
   for (const frame of trace.frames) {
-    for (let depth = 0; depth < frame.groups.length; depth += 1) {
-      const key = frame.groups.slice(0, depth + 1).join(' > ')
-      const existing = seen.get(key)
-      if (existing) existing.to = frame.index
-      else seen.set(key, { from: frame.index, to: frame.index, depth })
+    // Pop while the innermost open scope is not the one this frame is in — a mismatch at some
+    // depth invalidates that depth and everything under it, and both are on top of the stack.
+    while (open.length > 0) {
+      const depth = open.length - 1
+      if (depth < frame.groups.length && open[depth]?.label === frame.groups[depth]) break
+      open.pop()
     }
+    for (let depth = open.length; depth < frame.groups.length; depth += 1) {
+      const entry = {
+        label: frame.groups[depth] as string,
+        from: frame.index,
+        to: frame.index,
+        depth,
+      }
+      open.push(entry)
+      scopes.push(entry)
+    }
+    for (const scope of open) scope.to = frame.index
   }
-  if (seen.size === 0) return 'No viz.group() scopes in this trace.'
-  return [...seen.entries()]
-    .map(([key, { from, to, depth }]) => {
-      const label = key.split(' > ').pop() ?? key
-      return `${'  '.repeat(depth)}${label}  frames ${from}..${to}`
-    })
+
+  if (scopes.length === 0) return 'No viz.group() scopes in this trace.'
+  return scopes
+    .map(({ label, from, to, depth }) => `${'  '.repeat(depth)}${label}  frames ${from}..${to}`)
     .join('\n')
 }
 

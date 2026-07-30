@@ -17,6 +17,9 @@ interface TrieInternal {
   children: Map<string, TrieInternal>
 }
 
+/** Every mark class a walk can leave on a node, and therefore everything a new walk must retire. */
+const WALK_MARKS = ['path', 'excluded', 'match'] as const
+
 /** A prefix tree. Insert and search both animate the walk down the branch. */
 export class VizTrie extends BaseStructure {
   readonly kind: StructureKind = 'trie'
@@ -186,11 +189,20 @@ export class VizTrie extends BaseStructure {
     this.emit('read', marks, label)
   }
 
-  /** A walk always restarts at the root, so that is where the previous one is retired. */
+  /**
+   * Retire the previous walk's marks when a new one steps off the root.
+   *
+   * Every class a walk can leave behind, not just some of them: this cleared `path` and `excluded`
+   * and left `match`, which is the mark `search`/`startsWith` actually end on — so successive
+   * lookups accumulated `match` nodes and the picture claimed several answers at once. Partial
+   * cleanup documented as complete is worse than none, because nothing prompts you to check.
+   *
+   * It fires on the first *step*, so a zero-character walk retires nothing — there is no step to
+   * hang it on. Call `clearMarks()` explicitly if a solution can look up the empty string.
+   */
   private retireWalk(id: NodeId): void {
     if (id !== this.rootNode.id) return
-    this.marks.clear('path')
-    this.marks.clear('excluded')
+    for (const cls of WALK_MARKS) this.marks.clear(cls)
   }
 
   private require(id: NodeId): TrieInternal {
