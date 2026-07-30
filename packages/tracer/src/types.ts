@@ -133,6 +133,16 @@ export interface EdgeMark {
   to: NodeId
   class: EdgeState
   note?: string
+  /**
+   * Same meaning as `Mark.transient`, and it was the one mark type without it.
+   *
+   * `VizTree.left`/`right` highlight the edge they traverse `active`, which is a statement about
+   * the frame doing the traversing — but with nowhere to say so it went into the persistent store,
+   * so on the first problem that actually called them every edge in the tree ended the run
+   * permanently yellow, all of them claiming to be under consideration at once. Invariant 3 in
+   * CLAUDE.md, broken by the tree's own headline API, because nothing had ever used it.
+   */
+  transient?: boolean
 }
 
 export interface KeyMark {

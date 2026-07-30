@@ -14,13 +14,23 @@ import type { MarkClass, Primitive, Trace, VizOptions } from './types.js'
 import type { StructureInit } from './structures/base.js'
 
 /**
- * What `viz.cursor` will attach to: any tracked structure, or a raw structure id.
+ * What `viz.cursor` will attach to: a structure that actually renders a free-standing caret, or a
+ * raw structure id.
  *
- * `viz.array` returns a proxy exposing `$id`; every other structure extends `BaseStructure` and
- * exposes `id`. Both are accepted, and a required property on each arm means an object with
- * neither is a compile error rather than a caret that silently renders nowhere.
+ * **`$id` is the marker, and that is the whole point.** A `viz.cursor` is resolved at snapshot time
+ * through `Recorder.cursorsFor(id)`, and exactly two structures call it — `VizArrayStructure` and
+ * `VizString`. Both expose `$id`; nothing else does. Every other structure inherits `id` from
+ * `BaseStructure`, so an `AttachTarget` that accepted `{ id: string }` accepted all thirteen kinds
+ * — and for eleven of them `viz.cursor` compiled, registered a cursor, and rendered nothing, for
+ * ever, with no error anywhere.
+ *
+ * That included two structures whose snapshots *do* carry a `cursors` field: `VizMatrix` and
+ * `VizList` populate theirs from their own `cursor()` / `setCursors()` methods, not from
+ * `cursorsFor`, so a `viz.cursor` pointed at them was silently dropped just the same. Those methods
+ * are the right API for them, and the compile error now says so instead of leaving it to be
+ * discovered by an audit.
  */
-export type AttachTarget = { $id: string } | { id: string } | string
+export type AttachTarget = { $id: string } | string
 
 /**
  * The instrumentation API a solution is written against.
@@ -179,15 +189,10 @@ export class Viz {
   /**
    * A named index. Attach to an array or string so it renders as a labelled caret.
    *
-   * `attachTo` takes any tracked structure, a raw structure id, or nothing (in which case the
+   * `attachTo` takes an array or a string, a raw structure id, or nothing (in which case the
    * cursor binds to the first structure declared — right for the common single-array solution).
-   *
-   * It used to read only `.$id`, which the `viz.array` proxy exposes but `BaseStructure` does not.
-   * So `viz.cursor('i', 0, someString)` type-checked, silently bound to the *wrong* structure, and
-   * rendered as a missing caret with no error anywhere — while `cursor-in-range` passed vacuously
-   * because the cursor was absent from the structure being asserted about. Accepting `.id` too is
-   * the fix; `AttachTarget` deliberately has no optional-only members, so passing something with
-   * neither is now a type error rather than a silent no-op.
+   * Anything else is a compile error; see `AttachTarget` for why, and for which method to use
+   * instead on a matrix or a list.
    */
   cursor(
     name: string,
@@ -196,13 +201,7 @@ export class Viz {
     cls: MarkClass = 'active',
   ): VizCursor {
     const id =
-      attachTo === undefined
-        ? undefined
-        : typeof attachTo === 'string'
-          ? attachTo
-          : '$id' in attachTo
-            ? attachTo.$id
-            : attachTo.id
+      attachTo === undefined ? undefined : typeof attachTo === 'string' ? attachTo : attachTo.$id
     const c = new VizCursor(this.rec, name, start, id, cls)
     this.rec.registerCursor(c)
     return c

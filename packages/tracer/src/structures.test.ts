@@ -584,6 +584,40 @@ describe('VizIntervals', () => {
     expect(finalOf(t, 'ivl1', 'intervals').items.map((i) => i.start)).toEqual([1, 5])
   })
 
+  it('refuses a reorder that is not a permutation, instead of silently losing bars', () => {
+    // It used to `map` then `filter(x => x !== undefined)`, so a duplicate or out-of-range index
+    // quietly *shrank* the timeline: three items in, two out, two of them sharing `id: "i0"` —
+    // duplicate React keys and missing bars, with no error anywhere. Nothing in the repo calls
+    // `reorder` yet, which is exactly why it survived.
+    const bad = (order: number[]) => (): unknown =>
+      trace((viz) => {
+        const iv = viz.intervals([
+          [1, 2],
+          [3, 4],
+          [5, 6],
+        ])
+        iv.reorder(order)
+        return iv.toArray()
+      })
+    expect(bad([0, 0, 2])).toThrow(/needs a permutation of 0\.\.2/)
+    expect(bad([0, 1, 9])).toThrow(/needs a permutation of 0\.\.2/)
+    expect(bad([0, 1])).toThrow(/needs a permutation of 0\.\.2/)
+
+    // A real permutation still works, and still clears marks — which the docstring now says.
+    const { value, trace: t } = trace((viz) => {
+      const iv = viz.intervals([
+        [1, 2],
+        [3, 4],
+        [5, 6],
+      ])
+      iv.mark(0, 'result')
+      iv.reorder([2, 0, 1])
+      return iv.toArray().map((i) => i.start)
+    })
+    expect(value).toEqual([5, 1, 3])
+    expect(finalOf(t, 'ivl1', 'intervals').marks).toEqual([])
+  })
+
   it('reports an out-of-range read instead of failing', () => {
     const { value, trace: t } = trace((viz) => {
       const iv = viz.intervals([[0, 1]])
@@ -637,6 +671,49 @@ describe('VizTrie', () => {
     expect(value.limited).toHaveLength(2)
     expect(value.unknown).toEqual([])
     expect(finalOf(t, 'tri1', 'trie').marks).toEqual([])
+  })
+})
+
+describe('VizTrie backtracking', () => {
+  it('takes a node off the live branch while leaving its conclusions alone', () => {
+    // `child`/`addChild` set a persistent `path` mark on the way down and the class had no way to
+    // remove one: no `unmark`, no `removeClass`, no `exitPath`. So the first problem to backtrack
+    // on a trie kept its own array of the live branch and re-lit it after a global
+    // `clearMarks('path')` — `1 + depth` frames per un-choose instead of one.
+    const { trace: t } = trace((viz) => {
+      const tr = viz.trie()
+      const a = tr.addChild(tr.root, 'a')
+      const b = tr.addChild(a, 'b')
+      tr.setTerminal(b, 'ab') // a conclusion about b, set while we are down here
+      tr.exitPath(b)
+      return 0
+    })
+
+    const snap = finalOf(t, 'tri1', 'trie')
+    const on = (id: string, cls: string): boolean =>
+      snap.marks.some((m) => m.id === id && m.class === cls)
+    // `b` leaves the branch...
+    expect(on('p3', 'path')).toBe(false)
+    // ...`a` is still on it, and `b`'s terminal flag — the conclusion — survives.
+    expect(on('p2', 'path')).toBe(true)
+    expect(snap.nodes.find((n) => n.id === 'p3')?.terminal).toBe(true)
+    expect(labels(t)).toContain("unchoose 'b'")
+  })
+
+  it('unwinds through onPath even when the body throws', () => {
+    const { trace: t } = trace((viz) => {
+      const tr = viz.trie()
+      const a = tr.addChild(tr.root, 'a')
+      try {
+        tr.onPath(a, () => {
+          throw new Error('boom')
+        })
+      } catch {
+        /* swallowed — the branch must still unwind */
+      }
+      return 0
+    })
+    expect(finalOf(t, 'tri1', 'trie').marks.filter((m) => m.class === 'path')).toEqual([])
   })
 })
 
@@ -789,7 +866,12 @@ describe('VizTree', () => {
     expect(value).toEqual([null, null, null, []])
   })
 
-  it('marks the traversed edge when following a child', () => {
+  it('lights the traversed edge for exactly the frame that walks it', () => {
+    // This asserted the edge marks were still there at the end, which is what the defect looked
+    // like: `left`/`right` wrote `active` into the *persistent* edge store, so a traversal left
+    // every edge it had ever walked permanently lit. On the first real tree BFS that was the whole
+    // tree, all of it claiming to be under consideration on the final frame — invariant 3, broken
+    // by the tree's headline API, because until now nothing had called it.
     const { trace: t } = trace((viz) => {
       const tr = viz.tree([1, 2, 3])
       const root = tr.root as string
@@ -797,7 +879,54 @@ describe('VizTree', () => {
       tr.right(root)
       return 0
     })
-    expect(finalOf(t, 'tree1', 'tree').edgeMarks).toHaveLength(2)
+
+    const reader = new TraceReader(t)
+    const walk = t.frames.filter((f) => f.label?.includes('.left') || f.label?.includes('.right'))
+    expect(walk).toHaveLength(2)
+
+    // Lit on its own frame...
+    for (const frame of walk) {
+      const snap = frame.snapshots['tree1']
+      expect(snap?.kind === 'tree' && snap.edgeMarks.filter((e) => e.class === 'active')).toHaveLength(1)
+    }
+    // ...and gone from every frame that merely carries the structure forward.
+    const final = finalOf(t, 'tree1', 'tree')
+    expect(final.edgeMarks.filter((e) => e.class === 'active')).toEqual([])
+    const carried = reader.structureAt('tree1', t.frames.length - 1)
+    expect(carried?.kind === 'tree' && carried.edgeMarks).toEqual([])
+  })
+
+  it('names what a step found, and lights the child rather than the parent', () => {
+    // A step onto a missing child used to emit a frame captioned `4.left` in which nothing
+    // observably happened — indistinguishable from a productive one.
+    const { trace: t } = trace((viz) => {
+      const tr = viz.tree([1, 2])
+      const root = tr.root as string
+      tr.left(root)
+      tr.right(root)
+      return 0
+    })
+    expect(labels(t)).toContain('1.left -> 2')
+    expect(labels(t)).toContain('1.right -> none')
+
+    const found = t.frames.find((f) => f.label === '1.left -> 2')
+    const snap = found?.snapshots['tree1']
+    // The interesting node is the one just arrived at, matching `VizGraph.neighbors`.
+    expect(snap?.kind === 'tree' && snap.marks.filter((m) => m.class === 'active').map((m) => m.id))
+      .toEqual(['t2'])
+  })
+
+  it('drops one class of mark from a node without touching its others', () => {
+    const { trace: t } = trace((viz) => {
+      const tr = viz.tree([1])
+      const root = tr.root as string
+      tr.mark(root, 'frontier')
+      tr.mark(root, 'result')
+      tr.unmarkClass(root, 'frontier')
+      return 0
+    })
+    expect(finalOf(t, 'tree1', 'tree').marks.map((m) => m.class)).toEqual(['result'])
+    expect(labels(t)).toContain('unmark frontier on 1')
   })
 
   it('unwinds a path mark while keeping a result mark set beneath it', () => {

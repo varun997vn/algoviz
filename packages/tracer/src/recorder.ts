@@ -64,6 +64,8 @@ export class Recorder {
 
   private opCount = 0
   private quietDepth = 0
+  /** Structures mutated inside a `quiet` block, owed a snapshot on the next emitted frame. */
+  private readonly mutedSinceLastFrame = new Set<TrackedStructure>()
   private currentLine: number | undefined
   private truncated: TraceTruncation | undefined
   private idCounter = 0
@@ -141,7 +143,16 @@ export class Recorder {
     this.watchers.push(fn)
   }
 
-  /** Suppress frame emission for setup/parsing code. Ops still count against the budget. */
+  /**
+   * Suppress frame emission for setup/parsing code. Ops still count against the budget.
+   *
+   * Structures mutated in here are remembered and their snapshots ride along on the *next* frame
+   * that is emitted. Without that, a structure changed only inside a quiet block kept resolving to
+   * its pre-quiet snapshot — because a snapshot exists only on frames that touch the structure —
+   * so seeding a dp table quietly and then narrating "the border is filled in" produced a frame
+   * whose caption and picture flatly disagreed. Quiet still emits no frames of its own; it just no
+   * longer leaves the reader believing the work never happened.
+   */
   quiet<T>(fn: () => T): T {
     this.quietDepth += 1
     try {
@@ -171,7 +182,10 @@ export class Recorder {
     this.opCount += 1
     this.checkBudget()
 
-    if (this.quietDepth > 0) return
+    if (this.quietDepth > 0) {
+      if (structure) this.mutedSinceLastFrame.add(structure)
+      return
+    }
     if (this.frames.length >= this.opts.maxFrames) {
       this.fail('maxFrames')
     }
@@ -180,6 +194,12 @@ export class Recorder {
     if (structure) {
       snapshots[structure.id] = structure.snapshot(transient)
     }
+    // Anything changed while quiet catches up here, so the first frame after a quiet block is the
+    // truth rather than a caption over stale state.
+    for (const muted of this.mutedSinceLastFrame) {
+      if (!(muted.id in snapshots)) snapshots[muted.id] = muted.snapshot()
+    }
+    this.mutedSinceLastFrame.clear()
 
     const frame: Frame = {
       index: this.frames.length,
@@ -207,6 +227,7 @@ export class Recorder {
     for (const s of this.structures.values()) {
       snapshots[s.id] = s.snapshot()
     }
+    this.mutedSinceLastFrame.clear()
     const frame: Frame = {
       index: this.frames.length,
       op,

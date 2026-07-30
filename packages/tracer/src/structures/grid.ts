@@ -227,6 +227,16 @@ export class VizDpTable<T extends Primitive = Primitive> extends BaseStructure {
       const j = second as number
       const row = (this.values as (T | null)[][])[i]
       if (!row) throw new RangeError(`dp row ${i} out of bounds`)
+      // The column was unchecked, and the 1-D overload sits on the class regardless of `dims` — so
+      // `dp.set(1, 7)` on a 2-D table typechecked and wrote `undefined` with no error anywhere,
+      // while `dp.set(1, 7, v)` extended one row past the others into a *ragged* grid that no
+      // consumer handles: `GridViz` takes its column count from row 0 and silently drops the rest.
+      if (third === undefined) {
+        throw new TypeError(`${this.name} is 2-D — use set(row, col, value)`)
+      }
+      if (j < 0 || j >= row.length) {
+        throw new RangeError(`dp column ${j} out of bounds (0..${row.length - 1})`)
+      }
       row[j] = third as T
       this.pending = [{ row: i, col: j, class: 'active' }]
       this.rec.record({

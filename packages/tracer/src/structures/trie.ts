@@ -139,6 +139,37 @@ export class VizTrie extends BaseStructure {
     return this.require(id).terminal
   }
 
+  /**
+   * Take a node back off the live branch, leaving its other marks alone.
+   *
+   * The twin of the `path` mark that `child`/`addChild` set on the way down, and the thing that
+   * makes a backtracking animation unwind. `VizTree` has had `enterPath`/`exitPath`/`onPath` since
+   * it was written for exactly this; the trie never got them because nothing had ever backtracked
+   * on one — so the first problem that did had to keep its own array of the live branch, call
+   * `clearMarks('path')`, and then re-light every choice still standing. That is `1 + depth` frames
+   * per un-choose instead of one, and seven lines of bookkeeping in the middle of the algorithm.
+   *
+   * Only the `path` class comes off: a `match` or `result` mark set while we were down here is a
+   * conclusion about the node and has to survive the unwind — the same rule as `VizTree.exitPath`.
+   */
+  exitPath(id: NodeId): void {
+    this.marks.removeClass(id, 'path')
+    this.rec.record({
+      op: 'mark',
+      structure: this,
+      label: `unchoose '${this.require(id).char}'`,
+    })
+  }
+
+  /** Scope-safe choose/un-choose — the branch is retired even if `body` throws. */
+  onPath<T>(id: NodeId, body: () => T): T {
+    try {
+      return body()
+    } finally {
+      this.exitPath(id)
+    }
+  }
+
   /** Flag a node as the end of a word. */
   setTerminal(id: NodeId, word?: string): void {
     this.require(id).terminal = true

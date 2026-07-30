@@ -31,6 +31,17 @@ export class VizString extends BaseStructure {
     }
   }
 
+  /**
+   * The marker that makes this a legal `viz.cursor` target — see `AttachTarget`.
+   *
+   * `viz.array`'s proxy exposes the same property. Between them they are the only two structures
+   * whose snapshot resolves cursors through `Recorder.cursorsFor`, so `$id` is what separates
+   * "a caret here will render" from "a caret here is silently discarded".
+   */
+  get $id(): string {
+    return this.id
+  }
+
   get length(): number {
     return this.chars.length
   }
@@ -74,6 +85,25 @@ export class VizString extends BaseStructure {
   removeLast(count = 1): void {
     this.chars.splice(Math.max(0, this.chars.length - count), count)
     this.rec.record({ op: 'pop', structure: this, label: `remove last ${count}` })
+  }
+
+  /**
+   * Replace the whole string in one frame.
+   *
+   * Not every string problem builds left to right. Decode String rewrites its accumulator wholesale
+   * at every `]` — `before + inner.repeat(times)` — and without this the only way to say that was
+   * `removeLast(s.length)` then `append(...)`: two ops and a clear-by-length idiom standing in for
+   * one assignment, in the line that *is* the algorithm. The alternative its author took was to
+   * demote the answer to a watch value, which costs it a panel.
+   */
+  replace(text: string): void {
+    this.chars = [...text]
+    this.rec.record({
+      op: 'write',
+      structure: this,
+      transient: this.chars.map((_, i) => ({ index: i, class: 'active' as const })),
+      label: `replace -> ${JSON.stringify(text)}`,
+    })
   }
 
   swap(i: number, j: number): void {
@@ -161,9 +191,29 @@ export class VizIntervals extends BaseStructure {
     return item
   }
 
-  /** Reorder to match a sort the solution performed — keeps the picture honest. */
+  /**
+   * Reorder to match a sort the solution performed — keeps the picture honest.
+   *
+   * **Clears every mark**, because a mark is keyed by position and a reorder invalidates all of
+   * them at once; re-mark after sorting.
+   *
+   * Throws on anything that is not a permutation of the current indices. It used to `map` then
+   * `filter(x => x !== undefined)`, so a duplicate or out-of-range index silently *shrank* the
+   * timeline: `reorder([0, 0, 9])` on three items produced two items sharing `id: "i0"` — bars
+   * missing from the picture, duplicate React keys, and no error anywhere.
+   */
   reorder(order: readonly number[], label = 'sort'): void {
-    this.items = order.map((i) => this.items[i]).filter((x): x is IntervalItem => x !== undefined)
+    const n = this.items.length
+    const valid =
+      order.length === n &&
+      new Set(order).size === n &&
+      order.every((i) => Number.isInteger(i) && i >= 0 && i < n)
+    if (!valid) {
+      throw new RangeError(
+        `${this.name}.reorder() needs a permutation of 0..${n - 1}, got [${order.join(', ')}]`,
+      )
+    }
+    this.items = order.map((i) => this.items[i] as IntervalItem)
     this.marks.clear()
     this.rec.record({ op: 'write', structure: this, label })
   }

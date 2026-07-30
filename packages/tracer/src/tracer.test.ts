@@ -116,11 +116,12 @@ describe('cursors', () => {
     ])
   })
 
-  it('attaches to any tracked structure, not just an array proxy', () => {
-    // `viz.cursor` used to read only `.$id`, which the array proxy exposes but BaseStructure does
-    // not. So attaching to a string type-checked, silently bound to the *first* structure instead,
-    // and rendered as a missing caret with no error — while cursor-in-range passed vacuously
-    // because the cursor was absent from the structure being asserted about.
+  it('attaches to a string as readily as to an array proxy', () => {
+    // `viz.cursor` once read only `.$id`, which the array proxy exposed and `VizString` did not, so
+    // attaching to a string type-checked, silently bound to the *first* structure instead, and
+    // rendered as a missing caret with no error — while cursor-in-range passed vacuously because
+    // the cursor was absent from the structure being asserted about. `VizString` exposing `$id` is
+    // what fixes that without reopening the hole to the eleven kinds that cannot render a caret.
     const { trace: t } = trace((viz) => {
       const a = viz.array([1, 2, 3], { name: 'a' })
       const s = viz.string('xyz', { name: 's' })
@@ -139,6 +140,32 @@ describe('cursors', () => {
     const onArray = reader.structureAt(idOf('a'), last)
     expect(onString?.kind === 'string' && onString.cursors.map((c) => c.name)).toEqual(['i'])
     expect(onArray?.kind === 'array' && onArray.cursors.map((c) => c.name)).toEqual(['j'])
+  })
+
+  it('refuses at compile time to attach to a structure that cannot render a caret', () => {
+    // Only `VizArrayStructure` and `VizString` resolve cursors through `Recorder.cursorsFor`, and
+    // both expose `$id`. Everything else inherits `id` from `BaseStructure`, so an `AttachTarget`
+    // accepting `{ id: string }` accepted all thirteen kinds — and for eleven of them `viz.cursor`
+    // compiled, registered a cursor and rendered nothing, for ever, with no error anywhere.
+    //
+    // `VizMatrix` and `VizList` are the subtle pair: their snapshots *do* carry a `cursors` field,
+    // but they fill it from their own `cursor()` / `setCursors()` methods, so a `viz.cursor` aimed
+    // at them was dropped just the same. Those methods are the right API and the type now says so.
+    trace((viz) => {
+      const heap = viz.heap<number>([1])
+      const grid = viz.matrix([[1]])
+      const list = viz.list([1])
+      const counts = viz.map<number, number>()
+      // @ts-expect-error a heap has no caret to render
+      viz.cursor('i', 0, heap)
+      // @ts-expect-error a matrix takes grid.cursor(name, row, col) instead
+      viz.cursor('j', 0, grid)
+      // @ts-expect-error a list takes list.setCursors({ ... }) instead
+      viz.cursor('k', 0, list)
+      // @ts-expect-error a map has no ordinal position for a caret to sit at
+      viz.cursor('m', 0, counts)
+      return 0
+    })
   })
 
   it('accepts a raw structure id as well as the structure itself', () => {

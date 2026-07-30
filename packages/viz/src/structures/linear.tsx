@@ -33,6 +33,22 @@ function noteAt(
 }
 
 /**
+ * The `title` prop for a cell, present only when a mark at that index carries a note.
+ *
+ * `mark(index, class, note)` has stored notes since the tracer was written and only `ArrayViz` and
+ * `GridViz` ever rendered them, so every note a stack, queue, heap, set, map or intervals solution
+ * attached was dead text — including ones written specifically to explain why a cell was excluded.
+ * Spread rather than passed, so `title` stays absent under `exactOptionalPropertyTypes`.
+ */
+function titleOf(
+  marks: readonly { index: number; note?: string }[],
+  index: number,
+): { title?: string } {
+  const note = noteFor(marks, index)
+  return note === undefined ? {} : { title: note }
+}
+
+/**
  * Assign each cursor a vertical lane so two pointers at the same index stay legible.
  *
  * A two-pointer scan spends its most interesting moment with `left` and `right` adjacent or
@@ -176,7 +192,7 @@ export function StackViz({ snapshot }: { snapshot: Of<'stack'> }): ReactNode {
                 value={value}
                 marks={marksAt(marks, index)}
                 nodeId={String(index)}
-                {...(noteFor(marks, index) !== undefined ? { title: noteFor(marks, index) } : {})}
+                {...titleOf(marks, index)}
               />
               {index === values.length - 1 ? (
                 <text
@@ -214,6 +230,7 @@ export function QueueViz({ snapshot }: { snapshot: Of<'queue'> }): ReactNode {
             value={value}
             marks={marksAt(marks, index)}
             nodeId={String(index)}
+            {...titleOf(marks, index)}
           />
         ))}
         <text x={CELL / 2} y={CELL + 16} textAnchor="middle" fontSize={10} fill="var(--av-accent)" data-testid="queue-front">
@@ -272,6 +289,7 @@ export function HeapViz({ snapshot }: { snapshot: Of<'heap'> }): ReactNode {
             marks={marksAt(marks, index)}
             indexLabel={String(index)}
             nodeId={String(index)}
+            {...titleOf(marks, index)}
           />
         ))}
       </svg>
@@ -303,6 +321,7 @@ export function HeapViz({ snapshot }: { snapshot: Of<'heap'> }): ReactNode {
               value={value}
               marks={marksAt(marks, index)}
               nodeId={`tree-${index}`}
+              {...titleOf(marks, index)}
             />
           )
         })}
@@ -327,6 +346,7 @@ export function SetViz({ snapshot }: { snapshot: Of<'set'> }): ReactNode {
             value={value}
             marks={marksAt(marks, index)}
             nodeId={String(index)}
+            {...titleOf(marks, index)}
           />
         ))}
       </svg>
@@ -359,10 +379,15 @@ export function MapViz({ snapshot }: { snapshot: Of<'map'> }): ReactNode {
             // line-through is the same second signal the grid's excluded cells get, for the same
             // reason: `excluded` and `visited` are 1.57:1 apart, so fill cannot carry it alone.
             const isDim = cls === 'visited' || cls === 'excluded'
+            // Map marks are keyed, not indexed, so `titleOf` does not apply — but the note is just
+            // as dead without this. A row's tooltip is the only place a map entry can explain why
+            // it is marked.
+            const note = entryMarks.find((m) => m.note !== undefined)?.note
             return (
               <tr
                 key={entry.key}
                 data-node-id={entry.key}
+                {...(note !== undefined ? { title: note } : {})}
                 data-highlight={entryMarks.length > 0 ? entryMarks.map((m) => m.class).join(' ') : undefined}
                 style={
                   cls
@@ -392,23 +417,44 @@ function GridViz({
   label,
   rowLabels,
   colIndexLabels,
+  axisLabels,
 }: {
   values: readonly (readonly unknown[])[]
   marks: readonly { row: number; col: number; class: never }[]
   cursors?: readonly { name: string; row: number; col: number }[]
   label: string
   rowLabels?: boolean
-  /** Number each column under the cell. A dp narration says "T(6)"; without this there is no
-   *  way to find cell 6 except counting along the row. */
+  /**
+   * Label each column, in a header row *above* the grid.
+   *
+   * It used to be drawn under the bottom row, which is fine for a one-row 1-D table and wrong for
+   * a tall one: the column numbers sat hundreds of pixels below row 1, labelling columns at the
+   * end of their axis while rows were labelled at the start of theirs.
+   */
   colIndexLabels?: boolean
+  /**
+   * What the axes mean: `[rowsString, colsString]`, one character per cell.
+   *
+   * `viz.dp2d` has accepted `axisLabels` since it was written and **nothing ever read it** — the
+   * snapshot carried both strings and neither the SVG nor the MCP renderer mentioned them. On a
+   * Longest Common Subsequence table that left a separate `viz.string` panel and two carets as the
+   * only thing telling a viewer what row 3 stands for.
+   */
+  axisLabels?: readonly [string, string]
 }): ReactNode {
   const rows = values.length
   const cols = values[0]?.length ?? 0
   if (rows === 0 || cols === 0) return <EmptyState what={label} />
 
-  const offsetX = rowLabels ? 26 : 0
+  const gutter = rowLabels === true || axisLabels !== undefined
+  const header = colIndexLabels === true || axisLabels !== undefined
+  const offsetX = gutter ? 26 : 0
+  const headerH = header ? 16 : 0
   const width = cols * (CELL + GAP) + offsetX
-  const height = rows * (CELL + GAP) + (colIndexLabels ? 30 : 16)
+  const height = headerH + rows * (CELL + GAP) + 16
+  // Row 0 and column 0 of a dp table are the empty-prefix base cases, so character k of an axis
+  // string labels row/column k+1. Undefined for the base row, which leaves it blank — correct.
+  const axisChar = (axis: 0 | 1, i: number): string | undefined => axisLabels?.[axis]?.[i - 1]
 
   return (
     <Scroll>
@@ -418,27 +464,42 @@ function GridViz({
             <Cell
               key={`${r}-${c}`}
               x={offsetX + c * (CELL + GAP)}
-              y={r * (CELL + GAP)}
+              y={headerH + r * (CELL + GAP)}
               value={value as never}
               marks={marksAtCell(marks as never, r, c)}
               nodeId={`${r},${c}`}
               title={noteAt(marks as never, r, c) ?? `(${r}, ${c})`}
-              {...(colIndexLabels && r === rows - 1 ? { indexLabel: String(c) } : {})}
             />
           )),
         )}
-        {rowLabels
+        {header
+          ? (values[0] ?? []).map((_, c) => (
+              <text
+                key={`cl${c}`}
+                x={offsetX + c * (CELL + GAP) + CELL / 2}
+                y={headerH - 5}
+                textAnchor="middle"
+                fontSize={10}
+                fill="var(--av-text-dim)"
+                data-testid={`grid-col-label-${c}`}
+              >
+                {axisChar(1, c) ?? (colIndexLabels === true ? String(c) : '')}
+              </text>
+            ))
+          : null}
+        {gutter
           ? values.map((_, r) => (
               <text
                 key={`rl${r}`}
                 x={offsetX - 8}
-                y={r * (CELL + GAP) + CELL / 2}
+                y={headerH + r * (CELL + GAP) + CELL / 2}
                 textAnchor="end"
                 dominantBaseline="central"
                 fontSize={10}
                 fill="var(--av-text-dim)"
+                data-testid={`grid-row-label-${r}`}
               >
-                {r}
+                {axisChar(0, r) ?? (rowLabels === true ? String(r) : '')}
               </text>
             ))
           : null}
@@ -446,7 +507,7 @@ function GridViz({
           <rect
             key={c.name}
             x={offsetX + c.col * (CELL + GAP) - 2}
-            y={c.row * (CELL + GAP) - 2}
+            y={headerH + c.row * (CELL + GAP) - 2}
             width={CELL + 4}
             height={CELL + 4}
             rx={7}
@@ -482,6 +543,7 @@ export function DpViz({ snapshot }: { snapshot: Of<'dp'> }): ReactNode {
       label="dp table"
       rowLabels={snapshot.dims === 2}
       colIndexLabels
+      {...(snapshot.axisLabels ? { axisLabels: snapshot.axisLabels } : {})}
     />
   )
 }
@@ -522,6 +584,7 @@ export function IntervalsViz({ snapshot }: { snapshot: Of<'intervals'> }): React
               data-node-id={item.id}
               data-highlight={itemMarks.length > 0 ? itemMarks.map((m) => m.class).join(' ') : undefined}
             >
+              {noteFor(marks, index) !== undefined ? <title>{noteFor(marks, index)}</title> : null}
               <rect
                 x={x}
                 y={(lanes[index] ?? 0) * laneHeight}

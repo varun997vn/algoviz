@@ -45,6 +45,8 @@ export class VizGraph extends BaseStructure {
   private readonly marks = new NodeMarkStore()
   private readonly edgeMarks = new Map<string, EdgeMark>()
   private pending: NodeMark[] | undefined
+  /** Edge highlights belonging to the current frame only — see `EdgeMark.transient`. */
+  private pendingEdges: EdgeMark[] | undefined
 
   constructor(rec: Recorder, init: GraphInit = {}) {
     super(rec, 'gph', init.name, 'graph')
@@ -85,7 +87,10 @@ export class VizGraph extends BaseStructure {
       directed: this.directed,
       weighted: this.weighted,
       marks: this.marks.list(this.pending),
-      edgeMarks: [...this.edgeMarks.values()],
+      edgeMarks: [
+        ...this.edgeMarks.values(),
+        ...(this.pendingEdges ?? []).map((e) => ({ ...e, transient: true })),
+      ],
     }
   }
 
@@ -137,8 +142,12 @@ export class VizGraph extends BaseStructure {
   *neighbors(raw: number | string): IterableIterator<NodeId> {
     const from = this.key(raw)
     for (const { to } of this.adj.get(from) ?? []) {
-      this.markEdge(from, to, 'active')
+      // Transient, not persistent. Written into the persistent store this left every edge the
+      // search ever considered permanently `active`; it never showed only because the one graph
+      // problem overwrites each edge with a verdict via `g.edge(...)` immediately afterwards.
+      this.pendingEdges = [{ from, to, class: 'active' }]
       this.emit('visit', [{ id: to, class: 'active' }], `consider ${from} -> ${to}`)
+      this.pendingEdges = undefined
       yield to
     }
   }
@@ -176,9 +185,53 @@ export class VizGraph extends BaseStructure {
     this.rec.record({ op: 'mark', structure: this, label: `unmark ${this.key(raw)}` })
   }
 
+  /** Drop one class of mark from a node, leaving its others intact — see `VizTree.unmarkClass`. */
+  unmarkClass(raw: number | string, cls: MarkClass): void {
+    const id = this.key(raw)
+    this.marks.removeClass(id, cls)
+    this.rec.record({ op: 'mark', structure: this, label: `unmark ${cls} on ${id}` })
+  }
+
   clearMarks(cls?: MarkClass): void {
     this.marks.clear(cls)
     this.rec.record({ op: 'mark', structure: this, label: 'clear marks' })
+  }
+
+  /**
+   * Reset edge traversal state — the twin of `clearMarks` for edges.
+   *
+   * `edgeMarks` was a write-only map: `markEdge` put things in and nothing ever took them out.
+   * That was survivable only while every graph problem decided each edge exactly once. The moment
+   * a graph is traversed more than once — one walk per query, say — every edge the search has ever
+   * considered stays lit for the rest of the trace, and the workaround is to overwrite them all
+   * with some other state, which is itself a claim the algorithm never made.
+   */
+  clearEdges(state?: EdgeState): void {
+    if (state === undefined) this.edgeMarks.clear()
+    else for (const [k, v] of this.edgeMarks) if (v.class === state) this.edgeMarks.delete(k)
+    this.rec.record({
+      op: 'mark',
+      structure: this,
+      label: state ? `clear ${state} edges` : 'clear edge marks',
+    })
+  }
+
+  /**
+   * Neighbours with the weight of the edge you arrive along, lighting each edge as it is yielded.
+   *
+   * `neighbors` destructures `{ to }` from an adjacency entry that already holds `{ to, weight }`,
+   * so every weighted traversal had to call `weightOf(at, next)` on the next line — which returns
+   * `number | undefined` for an edge that provably exists, forcing a `?? 1` into the line that is
+   * the algorithm.
+   */
+  *weightedNeighbors(raw: number | string): IterableIterator<{ to: NodeId; weight: number }> {
+    const from = this.key(raw)
+    for (const { to, weight } of this.adj.get(from) ?? []) {
+      this.pendingEdges = [{ from, to, class: 'active' }]
+      this.emit('visit', [{ id: to, class: 'active' }], `consider ${from} -> ${to}`)
+      this.pendingEdges = undefined
+      yield { to, weight: weight ?? 1 }
+    }
   }
 
   /** Set an edge's traversal state — `tree`, `rejected`, `reversed`, … */

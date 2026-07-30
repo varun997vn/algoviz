@@ -11,8 +11,8 @@ watch your own algorithm execute over a live visualization of the structures it 
 
 | Status | Count |
 | --- | --- |
-| ⬜ todo | 62 |
-| 🟡 in-progress | 2 |
+| ⬜ todo | 57 |
+| 🟡 in-progress | 7 |
 | 🔵 review | 0 |
 | 🔴 blocked | 0 |
 | ✅ done | 11 |
@@ -54,7 +54,7 @@ Run the `solve-problem` skill to take the next one end to end.
 
 | # | Problem | Difficulty | Structures | Status | PR |
 | --- | --- | --- | --- | --- | --- |
-| 643 | [Maximum Average Subarray I](https://leetcode.com/problems/maximum-average-subarray-i/) | easy | `array, cursor` | ✅ done | #1 |
+| 643 | [Maximum Average Subarray I](https://leetcode.com/problems/maximum-average-subarray-i/) | easy | `array, cursor` | ✅ done | #2 |
 | 1456 | [Maximum Number of Vowels in a Substring of Given Length](https://leetcode.com/problems/maximum-number-of-vowels-in-a-substring-of-given-length/) | medium | `string, cursor` | ⬜ todo | — |
 | 1004 | [Max Consecutive Ones III](https://leetcode.com/problems/max-consecutive-ones-iii/) | medium | `array, cursor` | ⬜ todo | — |
 | 1493 | [Longest Subarray of 1's After Deleting One Element](https://leetcode.com/problems/longest-subarray-of-1s-after-deleting-one-element/) | medium | `array, cursor` | ⬜ todo | — |
@@ -71,7 +71,7 @@ Run the `solve-problem` skill to take the next one end to end.
 | # | Problem | Difficulty | Structures | Status | PR |
 | --- | --- | --- | --- | --- | --- |
 | 2215 | [Find the Difference of Two Arrays](https://leetcode.com/problems/find-the-difference-of-two-arrays/) | easy | `set, array` | ⬜ todo | — |
-| 1207 | [Unique Number of Occurrences](https://leetcode.com/problems/unique-number-of-occurrences/) | easy | `map, set` | ✅ done | #1 |
+| 1207 | [Unique Number of Occurrences](https://leetcode.com/problems/unique-number-of-occurrences/) | easy | `array, map, set` | ✅ done | #2 |
 | 1657 | [Determine if Two Strings Are Close](https://leetcode.com/problems/determine-if-two-strings-are-close/) | medium | `map, set` | ⬜ todo | — |
 | 2352 | [Equal Row and Column Pairs](https://leetcode.com/problems/equal-row-and-column-pairs/) | medium | `matrix, map` | ⬜ todo | — |
 
@@ -81,7 +81,7 @@ Run the `solve-problem` skill to take the next one end to end.
 | --- | --- | --- | --- | --- | --- |
 | 2390 | [Removing Stars From a String](https://leetcode.com/problems/removing-stars-from-a-string/) | medium | `stack, string` | ⬜ todo | — |
 | 735 | [Asteroid Collision](https://leetcode.com/problems/asteroid-collision/) | medium | `stack, array` | ⬜ todo | — |
-| 394 | [Decode String](https://leetcode.com/problems/decode-string/) | medium | `stack, string` | ⬜ todo | — |
+| 394 | [Decode String](https://leetcode.com/problems/decode-string/) | medium | `stack, string` | 🟡 in-progress | — |
 
 ### Queue — 0/2
 
@@ -114,7 +114,7 @@ Run the `solve-problem` skill to take the next one end to end.
 
 | # | Problem | Difficulty | Structures | Status | PR |
 | --- | --- | --- | --- | --- | --- |
-| 199 | [Binary Tree Right Side View](https://leetcode.com/problems/binary-tree-right-side-view/) | medium | `tree, queue, array` | ⬜ todo | — |
+| 199 | [Binary Tree Right Side View](https://leetcode.com/problems/binary-tree-right-side-view/) | medium | `tree, queue, array` | 🟡 in-progress | — |
 | 1161 | [Maximum Level Sum of a Binary Tree](https://leetcode.com/problems/maximum-level-sum-of-a-binary-tree/) | medium | `tree, queue` | ⬜ todo | — |
 
 ### Binary Search Tree — 0/2
@@ -131,7 +131,7 @@ Run the `solve-problem` skill to take the next one end to end.
 | 841 | [Keys and Rooms](https://leetcode.com/problems/keys-and-rooms/) | medium | `graph, set` | ⬜ todo | — |
 | 547 | [Number of Provinces](https://leetcode.com/problems/number-of-provinces/) | medium | `graph, matrix, set` | ⬜ todo | — |
 | 1466 | [Reorder Routes to Make All Paths Lead to the City Zero](https://leetcode.com/problems/reorder-routes-to-make-all-paths-lead-to-the-city-zero/) | medium | `graph, set` | ✅ done | — |
-| 399 | [Evaluate Division](https://leetcode.com/problems/evaluate-division/) | medium | `graph, map` | ⬜ todo | — |
+| 399 | [Evaluate Division](https://leetcode.com/problems/evaluate-division/) | medium | `array, graph, map` | 🟡 in-progress | — |
 
 ### Graphs - BFS — 1/2
 
@@ -144,7 +144,7 @@ Run the `solve-problem` skill to take the next one end to end.
 
 | # | Problem | Difficulty | Structures | Status | PR |
 | --- | --- | --- | --- | --- | --- |
-| 215 | [Kth Largest Element in an Array](https://leetcode.com/problems/kth-largest-element-in-an-array/) | medium | `heap, array` | 🟡 in-progress | #1 |
+| 215 | [Kth Largest Element in an Array](https://leetcode.com/problems/kth-largest-element-in-an-array/) | medium | `heap, array` | 🟡 in-progress | #2 |
 | 2336 | [Smallest Number in Infinite Set](https://leetcode.com/problems/smallest-number-in-infinite-set/) | medium | `heap, set` | ⬜ todo | — |
 | 2542 | [Maximum Subsequence Score](https://leetcode.com/problems/maximum-subsequence-score/) | medium | `heap, array` | ⬜ todo | — |
 | 2462 | [Total Cost to Hire K Workers](https://leetcode.com/problems/total-cost-to-hire-k-workers/) | medium | `heap, array, cursor` | ⬜ todo | — |
@@ -162,7 +162,7 @@ Run the `solve-problem` skill to take the next one end to end.
 
 | # | Problem | Difficulty | Structures | Status | PR |
 | --- | --- | --- | --- | --- | --- |
-| 17 | [Letter Combinations of a Phone Number](https://leetcode.com/problems/letter-combinations-of-a-phone-number/) | medium | `tree, array, string` | ⬜ todo | — |
+| 17 | [Letter Combinations of a Phone Number](https://leetcode.com/problems/letter-combinations-of-a-phone-number/) | medium | `trie, array, string` | 🟡 in-progress | — |
 | 216 | [Combination Sum III](https://leetcode.com/problems/combination-sum-iii/) | medium | `tree, array` | ⬜ todo | — |
 
 ### DP - 1D — 1/4
@@ -179,7 +179,7 @@ Run the `solve-problem` skill to take the next one end to end.
 | # | Problem | Difficulty | Structures | Status | PR |
 | --- | --- | --- | --- | --- | --- |
 | 62 | [Unique Paths](https://leetcode.com/problems/unique-paths/) | medium | `dp` | ⬜ todo | — |
-| 1143 | [Longest Common Subsequence](https://leetcode.com/problems/longest-common-subsequence/) | medium | `dp, string` | ⬜ todo | — |
+| 1143 | [Longest Common Subsequence](https://leetcode.com/problems/longest-common-subsequence/) | medium | `dp, string` | 🟡 in-progress | — |
 | 714 | [Best Time to Buy and Sell Stock with Transaction Fee](https://leetcode.com/problems/best-time-to-buy-and-sell-stock-with-transaction-fee/) | medium | `dp, array` | ⬜ todo | — |
 | 72 | [Edit Distance](https://leetcode.com/problems/edit-distance/) | medium | `dp, string` | ⬜ todo | — |
 
@@ -195,14 +195,14 @@ Run the `solve-problem` skill to take the next one end to end.
 
 | # | Problem | Difficulty | Structures | Status | PR |
 | --- | --- | --- | --- | --- | --- |
-| 208 | [Implement Trie (Prefix Tree)](https://leetcode.com/problems/implement-trie-prefix-tree/) | medium | `trie` | 🟡 in-progress | #1 |
+| 208 | [Implement Trie (Prefix Tree)](https://leetcode.com/problems/implement-trie-prefix-tree/) | medium | `trie` | 🟡 in-progress | #2 |
 | 1268 | [Search Suggestions System](https://leetcode.com/problems/search-suggestions-system/) | medium | `trie, array` | ⬜ todo | — |
 
 ### Intervals — 1/2
 
 | # | Problem | Difficulty | Structures | Status | PR |
 | --- | --- | --- | --- | --- | --- |
-| 435 | [Non-overlapping Intervals](https://leetcode.com/problems/non-overlapping-intervals/) | medium | `intervals` | ✅ done | #1 |
+| 435 | [Non-overlapping Intervals](https://leetcode.com/problems/non-overlapping-intervals/) | medium | `intervals` | ✅ done | #2 |
 | 452 | [Minimum Number of Arrows to Burst Balloons](https://leetcode.com/problems/minimum-number-of-arrows-to-burst-balloons/) | medium | `intervals` | ⬜ todo | — |
 
 ### Monotonic Stack — 1/2
@@ -219,11 +219,11 @@ visualizer has no real user yet, however green its unit tests are.
 
 | Structure | Done | Planned |
 | --- | --- | --- |
-| `array` | 3 | 36 |
+| `array` | 4 | 38 |
 | `matrix` | 1 | 4 |
 | `string` | 1 | 13 |
 | `list` | 1 | 4 |
-| `tree` | 1 | 12 |
+| `tree` | 1 | 11 |
 | `graph` | 1 | 4 |
 | `stack` | 1 | 5 |
 | `queue` | 1 | 6 |
@@ -232,5 +232,5 @@ visualizer has no real user yet, however green its unit tests are.
 | `set` | 2 | 7 |
 | `dp` | 1 | 9 |
 | `intervals` | 1 | 2 |
-| `trie` | 0 | 2 |
+| `trie` | 0 | 3 |
 | `cursor` | 4 | 23 |

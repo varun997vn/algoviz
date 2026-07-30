@@ -250,6 +250,65 @@ describe('MatrixViz and DpViz', () => {
   })
 })
 
+describe('mark notes reach the picture', () => {
+  // `mark(index, class, note)` has stored notes since the tracer was written, and only ArrayViz and
+  // GridViz ever rendered them — so every note a stack, queue, heap, set, map or intervals solution
+  // attached was dead text, including ones written specifically to say why a cell was ruled out.
+  const cases: { kind: string; snapshot: StructureSnapshot; nodeId: string }[] = [
+    {
+      kind: 'stack',
+      snapshot: { kind: 'stack', values: [7, 8], marks: [{ index: 1, class: 'pinned', note: 'still waiting' }] },
+      nodeId: '1',
+    },
+    {
+      kind: 'queue',
+      snapshot: { kind: 'queue', values: [1, 2], deque: false, marks: [{ index: 0, class: 'frontier', note: 'rots next' }] },
+      nodeId: '0',
+    },
+    {
+      kind: 'heap',
+      snapshot: { kind: 'heap', values: [3, 9], comparatorLabel: 'min-heap', marks: [{ index: 0, class: 'result', note: 'the 2nd largest' }] },
+      nodeId: '0',
+    },
+    {
+      kind: 'set',
+      snapshot: { kind: 'set', values: [4, 5], marks: [{ index: 1, class: 'excluded', note: 'already claimed' }] },
+      nodeId: '1',
+    },
+  ]
+
+  it.each(cases)('$kind renders its note as a title', ({ snapshot, nodeId }) => {
+    const container = renderSnapshot(snapshot)
+    const node = container.querySelector(`[data-node-id="${nodeId}"] title`)
+    expect(node?.textContent).toBeTruthy()
+  })
+
+  it('a map row carries its note, which is keyed rather than indexed', () => {
+    const container = renderSnapshot({
+      kind: 'map',
+      entries: [{ key: '7', value: 2 }],
+      marks: [{ key: '7', class: 'excluded', note: 'two values want 2' }],
+    })
+    expect(container.querySelector('[data-node-id="7"]')?.getAttribute('title')).toBe(
+      'two values want 2',
+    )
+  })
+
+  it('an interval bar carries its note', () => {
+    const container = renderSnapshot({
+      kind: 'intervals',
+      items: [{ id: 'i0', start: 0, end: 3 }],
+      marks: [{ index: 0, class: 'excluded', note: 'removed' }],
+    })
+    expect(container.querySelector('[data-node-id="i0"] title')?.textContent).toBe('removed')
+  })
+
+  it('leaves title absent when a mark has no note', () => {
+    const container = renderSnapshot({ kind: 'set', values: [1], marks: [{ index: 0, class: 'result' }] })
+    expect(container.querySelector('[data-node-id="0"] title')).toBeNull()
+  })
+})
+
 describe('IntervalsViz', () => {
   it('packs overlapping intervals into separate lanes', () => {
     const container = renderSnapshot({
