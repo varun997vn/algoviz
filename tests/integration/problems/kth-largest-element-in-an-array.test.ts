@@ -267,11 +267,31 @@ describe('Kth Largest Element in an Array — reference trace semantics', () => 
     expect(labels[labels.length - 1]).toMatch(/the heap holds the 4 largest values/)
   })
 
-  it('reports the running answer in the watch panel', () => {
-    const watch = reader.watchAt(last)!
-    expect(watch.kept).toBe(k)
-    expect(watch.kth).toBe(returned)
-    expect(watch.i).toBe(nums.length)
+  it('reports nothing in the watch panel that is false on any frame', () => {
+    // This used to check the last frame only — the one frame where the value it checked could not
+    // be stale — and that is why CI never saw the defect an audit did. The panel reported the k-th
+    // largest as `top.size === k ? top.peek() : null`, guarding on the heap being *full* rather
+    // than *settled*: `peek()` is slot 0, which is the minimum only while the heap property holds,
+    // and the frames where it deliberately does not are the ones this animation exists for. On
+    // `[7,6,5,4]` with k=4 it read 5 for four consecutive frames while the answer was 4 — a number
+    // that is never the 4th largest at any point in that run.
+    //
+    // No ordering fixes that: a sampler fires on every frame whatever the solution does. So the
+    // panel now reports only what is true on every frame, and this checks it on every frame.
+    for (let f = 0; f < reader.frameCount; f += 1) {
+      const watch = reader.watchAt(f)
+      if (!watch) continue
+      expect(Object.keys(watch).sort(), `frame ${f}`).toEqual(['i', 'kept'])
+      const heap = resolve(reader, HEAP, 'heap', f)
+      if (!heap) continue
+      expect(watch.kept, `frame ${f}: watch says ${String(watch.kept)} kept`).toBe(heap.values.length)
+      const cursor = resolve(reader, NUMS, 'array', f)?.cursors.find((c) => c.name === 'i')
+      if (cursor) expect(watch.i, `frame ${f}: caret is at ${cursor.index}`).toBe(cursor.index)
+    }
+    expect(reader.watchAt(last)!.i).toBe(nums.length)
+    // The quantity the panel used to claim is still on screen — in the panel that never lies.
+    const payoff = resolve(reader, PANEL, 'array', last)!
+    expect(payoff.values[payoff.values.length - 1]).toBe(returned)
   })
 })
 
@@ -437,7 +457,7 @@ export default function findKthLargest(nums: number[], k: number, viz: Viz): num
   const top = viz.heap<number>([], { name: 'the k largest so far' })
   const kth = viz.array<number>(nums.length, { name: 'k-th largest so far', fill: null })
   const i = viz.cursor('i', 0, a)
-  viz.watch(() => ({ i: i.value, kept: top.size, kth: top.size === k ? top.peek() : null }))
+  viz.watch(() => ({ i: i.value, kept: top.size }))
 
   for (i.value = 0; i.value < a.length; i.inc()) {
     const x = a[i.value]
@@ -479,8 +499,26 @@ export default function findKthLargest(nums: number[], k: number, viz: Viz): num
       .map((l) => l.trim())
       .filter((l) => l.length > 6 && !l.startsWith('//') && !l.startsWith('*'))
       .filter((l) => !placeholders.includes(l))
-    const missing = scaffolding.filter((l) => !filled.includes(l))
-    expect(missing, 'the filled solution has drifted from the starter it claims to fill in').toEqual(
+
+    // By **order**, not by presence: each scaffolding line must appear after the previous one, so
+    // a rearrangement is drift rather than a match. That is a real gap closed — but not the whole
+    // of the one the paragraph above describes, and the honest statement of the limit is that the
+    // starter's `viz.step` line is itself a placeholder, so it is not an anchor here and a `kth`
+    // write moving across it is invisible to *this* test. What catches that is `keeps the payoff
+    // panel level with the caption describing it`, which runs the filled program and reads the
+    // frames. Both were checked by reverting; neither alone covers the other's case.
+    const lines = filled.split('\n').map((l) => l.trim())
+    const drift: string[] = []
+    let at = -1
+    for (const line of scaffolding) {
+      const found = lines.indexOf(line, at + 1)
+      if (found === -1) {
+        drift.push(lines.includes(line) ? `out of order: ${line}` : `missing: ${line}`)
+      } else {
+        at = found
+      }
+    }
+    expect(drift, 'the filled solution has drifted from the starter it claims to fill in').toEqual(
       [],
     )
   })

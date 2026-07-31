@@ -5,17 +5,17 @@
 Every problem here is solved *inside the app*: you write the instrumented solution and
 watch your own algorithm execute over a live visualization of the structures it touches.
 
-**Progress: 15 / 75 done (20%)**
+**Progress: 16 / 75 done (21%)**
 
 `██████░░░░░░░░░░░░░░░░░░░░░░`
 
 | Status | Count |
 | --- | --- |
 | ⬜ todo | 57 |
-| 🟡 in-progress | 3 |
+| 🟡 in-progress | 2 |
 | 🔵 review | 0 |
 | 🔴 blocked | 0 |
-| ✅ done | 15 |
+| ✅ done | 16 |
 
 ## Next up
 
@@ -140,11 +140,11 @@ Run the `solve-problem` skill to take the next one end to end.
 | 1926 | [Nearest Exit from Entrance in Maze](https://leetcode.com/problems/nearest-exit-from-entrance-in-maze/) | medium | `matrix, queue` | ⬜ todo | — |
 | 994 | [Rotting Oranges](https://leetcode.com/problems/rotting-oranges/) | medium | `matrix, queue` | ✅ done | #1 |
 
-### Heap / Priority Queue — 0/4
+### Heap / Priority Queue — 1/4
 
 | # | Problem | Difficulty | Structures | Status | PR |
 | --- | --- | --- | --- | --- | --- |
-| 215 | [Kth Largest Element in an Array](https://leetcode.com/problems/kth-largest-element-in-an-array/) | medium | `heap, array` | 🟡 in-progress | #2 |
+| 215 | [Kth Largest Element in an Array](https://leetcode.com/problems/kth-largest-element-in-an-array/) | medium | `heap, array` | ✅ done | #2 |
 | 2336 | [Smallest Number in Infinite Set](https://leetcode.com/problems/smallest-number-in-infinite-set/) | medium | `heap, set` | ⬜ todo | — |
 | 2542 | [Maximum Subsequence Score](https://leetcode.com/problems/maximum-subsequence-score/) | medium | `heap, array` | ⬜ todo | — |
 | 2462 | [Total Cost to Hire K Workers](https://leetcode.com/problems/total-cost-to-hire-k-workers/) | medium | `heap, array, cursor` | ⬜ todo | — |
@@ -219,7 +219,7 @@ visualizer has no real user yet, however green its unit tests are.
 
 | Structure | Done | Planned |
 | --- | --- | --- |
-| `array` | 6 | 38 |
+| `array` | 7 | 38 |
 | `matrix` | 1 | 4 |
 | `string` | 3 | 13 |
 | `list` | 1 | 4 |
@@ -227,7 +227,7 @@ visualizer has no real user yet, however green its unit tests are.
 | `graph` | 1 | 4 |
 | `stack` | 1 | 5 |
 | `queue` | 2 | 6 |
-| `heap` | 0 | 4 |
+| `heap` | 1 | 4 |
 | `map` | 1 | 6 |
 | `set` | 2 | 7 |
 | `dp` | 2 | 9 |
