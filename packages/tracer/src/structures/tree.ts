@@ -122,6 +122,20 @@ export class VizTree extends BaseStructure {
     return this.rootNode?.id ?? null
   }
 
+  /**
+   * Replace the root — e.g. deleting it leaves a different node, or none, in charge.
+   *
+   * A getter that reads and a setter that writes and records, mirroring `VizList.head`, so a
+   * solution writes `t.root = newRoot` and has it read as the assignment it is. Before this,
+   * `root` could only be *read*: everything else on `VizTree` is a traversal step or a mark, and
+   * nothing could change what a node points at, which made restructuring — as opposed to walking
+   * — inexpressible. See `setLeft`/`setRight`/`setValue` for the rest of that gap.
+   */
+  set root(id: NodeId | null) {
+    this.rootNode = id === null ? null : this.require(id)
+    this.rec.record({ op: 'write', structure: this, label: `root -> ${id ?? 'null'}` })
+  }
+
   get size(): number {
     return this.nodes.size
   }
@@ -170,6 +184,60 @@ export class VizTree extends BaseStructure {
   childrenOf(id: NodeId): { left: NodeId | null; right: NodeId | null } {
     const node = this.require(id)
     return { left: node.left?.id ?? null, right: node.right?.id ?? null }
+  }
+
+  /**
+   * Rewire a child pointer — splice a node out, or graft a subtree back in.
+   *
+   * `left`/`right` are read-only traversal steps that record a *visit*; nothing before this
+   * could change what a node points at. A BST delete does exactly that in its recursive case
+   * (`node.left = deleteNode(node.left, key)`), and there was no way to record it. `setLeft`
+   * mirrors `VizList.next`'s split between walking (getter, visit) and rewiring (setter,
+   * write): this is the tree's write half.
+   *
+   * The new edge lights transiently, one frame, the same way `left`/`right` light the edge they
+   * walk — a rewire is the frame that makes the edge, not an ongoing claim about it.
+   */
+  setLeft(id: NodeId, child: NodeId | null): void {
+    this.rewire(id, 'left', child)
+  }
+
+  setRight(id: NodeId, child: NodeId | null): void {
+    this.rewire(id, 'right', child)
+  }
+
+  private rewire(id: NodeId, side: 'left' | 'right', child: NodeId | null): void {
+    const node = this.require(id)
+    const childNode = child === null ? null : this.require(child)
+    // Any settled decision about the edge being replaced goes with it. A mark outlives the edge it
+    // is about otherwise, and `TreeViz` draws only edges the structure actually has while the MCP
+    // renderer listed every mark — so `trace_inspect` reported `t1->t2:tree` for an edge the
+    // picture did not contain, which is precisely the renderer disagreement `edgeMarkFor` exists
+    // to prevent. This is the first API in the tracer that can make an edge stop existing, so it
+    // is the first that has to say so.
+    const replaced = side === 'left' ? node.left : node.right
+    if (replaced) this.edgeMarks.delete(`${id}->${replaced.id}`)
+    if (side === 'left') node.left = childNode
+    else node.right = childNode
+    const label = `${formatVal(node.value)}.${side} -> ${childNode ? formatVal(childNode.value) : 'null'}`
+    if (childNode) this.pendingEdges = [{ from: id, to: childNode.id, class: 'active' }]
+    this.emit('write', [{ id, class: 'active' }], label)
+    this.pendingEdges = undefined
+  }
+
+  /**
+   * Overwrite a node's value in place, keeping its id and its children.
+   *
+   * The two-children BST delete never removes the node it found — it copies the in-order
+   * successor's value up and deletes the successor instead, which is a *value* change on a node
+   * that stays exactly where it is. `value`/`peek` had no write half for the same reason
+   * `left`/`right` didn't: nothing had ever needed to mutate a tree before.
+   */
+  setValue(id: NodeId, value: Primitive): void {
+    const node = this.require(id)
+    const label = `write ${formatVal(node.value)} -> ${formatVal(value)}`
+    node.value = value
+    this.emit('write', [{ id, class: 'active' }], label)
   }
 
   /** Mark a node processed. The canonical "I have handled this node" call. */
@@ -259,7 +327,7 @@ export class VizTree extends BaseStructure {
     return out
   }
 
-  private emit(op: 'read' | 'visit', marks: NodeMark[], label: string): void {
+  private emit(op: 'read' | 'write' | 'visit', marks: NodeMark[], label: string): void {
     this.pending = marks
     this.rec.record({ op, structure: this, label })
     this.pending = undefined

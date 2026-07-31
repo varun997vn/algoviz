@@ -675,8 +675,8 @@ problems:
     order: 42
     structures: [ tree ]
     techniques: [ bst ]
-    status: todo
-    branch: null
+    status: in-progress
+    branch: claude/leetcode-visualizer-w01nr6
     pr: null
     notes: null
     dependsOn: []

@@ -11,8 +11,8 @@ watch your own algorithm execute over a live visualization of the structures it 
 
 | Status | Count |
 | --- | --- |
-| ⬜ todo | 53 |
-| 🟡 in-progress | 4 |
+| ⬜ todo | 52 |
+| 🟡 in-progress | 5 |
 | 🔵 review | 0 |
 | 🔴 blocked | 0 |
 | ✅ done | 18 |
@@ -122,7 +122,7 @@ Run the `solve-problem` skill to take the next one end to end.
 | # | Problem | Difficulty | Structures | Status | PR |
 | --- | --- | --- | --- | --- | --- |
 | 700 | [Search in a Binary Search Tree](https://leetcode.com/problems/search-in-a-binary-search-tree/) | easy | `tree` | ⬜ todo | — |
-| 450 | [Delete Node in a BST](https://leetcode.com/problems/delete-node-in-a-bst/) | medium | `tree` | ⬜ todo | — |
+| 450 | [Delete Node in a BST](https://leetcode.com/problems/delete-node-in-a-bst/) | medium | `tree` | 🟡 in-progress | — |
 
 ### Graphs - DFS — 2/4
 

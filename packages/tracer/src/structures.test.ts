@@ -1081,6 +1081,135 @@ describe('VizTree', () => {
       }),
     ).toThrow(/Unknown tree node/)
   })
+
+  describe('structural mutation', () => {
+    it('setLeft/setRight rewire a child pointer, and the edge lights for exactly that frame', () => {
+      const { trace: t } = trace((viz) => {
+        const tr = viz.tree([1, 2, 3])
+        const root = tr.root as string
+        const right = tr.childrenOf(root).right as string
+        // Graft the right child under the left branch, and drop it off the root.
+        tr.setLeft(root, right)
+        tr.setRight(root, null)
+        return 0
+      })
+      const final = finalOf(t, 'tree1', 'tree')
+      const root = final.nodes.find((n) => n.value === 1)!
+      expect(root.left).toBe(final.nodes.find((n) => n.value === 3)!.id)
+      expect(root.right).toBeNull()
+      expect(labels(t)).toContain('1.left -> 3')
+      expect(labels(t)).toContain('1.right -> null')
+
+      // The rewire's edge highlight is transient, like a traversal step's.
+      const rewireFrame = t.frames.find((f) => f.label === '1.left -> 3')!
+      const snap = rewireFrame.snapshots['tree1']
+      expect(snap?.kind === 'tree' && snap.edgeMarks.filter((e) => e.class === 'active')).toHaveLength(1)
+      expect(final.edgeMarks.filter((e) => e.class === 'active')).toEqual([])
+    })
+
+    it('setLeft/setRight mark the parent node written, transiently', () => {
+      const { trace: t } = trace((viz) => {
+        const tr = viz.tree([1, 2])
+        const root = tr.root as string
+        tr.setRight(root, tr.childrenOf(root).left)
+        return 0
+      })
+      const writeFrame = t.frames.find((f) => f.op === 'write' && f.label?.includes('.right'))!
+      const snap = writeFrame.snapshots['tree1']
+      expect(snap?.kind === 'tree' && snap.root).toBeTruthy()
+      const rootId = snap?.kind === 'tree' ? snap.root : null
+      expect(snap?.kind === 'tree' && snap.marks.filter((m) => m.class === 'active').map((m) => m.id))
+        .toEqual([rootId])
+      // The final snapshot carries no leftover 'active' mark from the write.
+      expect(finalOf(t, 'tree1', 'tree').marks.filter((m) => m.class === 'active')).toEqual([])
+    })
+
+    it('setValue overwrites a node in place — same id, new value', () => {
+      const { trace: t } = trace((viz) => {
+        const tr = viz.tree([5, 3, 8])
+        const root = tr.root as string
+        tr.setValue(root, 4)
+        return 0
+      })
+      const final = finalOf(t, 'tree1', 'tree')
+      expect(final.nodes.find((n) => n.id === final.root)?.value).toBe(4)
+      expect(final.nodes).toHaveLength(3)
+      expect(labels(t)).toContain('write 5 -> 4')
+    })
+
+    it('the root setter replaces the root, and null empties the tree', () => {
+      const { value } = trace((viz) => {
+        const tr = viz.tree([5, 3, 8])
+        const root = tr.root as string
+        const left = tr.childrenOf(root).left as string
+        tr.root = left
+        const afterReplace = tr.toLevelOrder()
+        tr.root = null
+        return { afterReplace, afterClear: tr.toLevelOrder(), root: tr.root }
+      })
+      expect(value).toEqual({ afterReplace: [3], afterClear: [], root: null })
+    })
+
+    it('a node detached by rewiring stops being reachable from root, though its id survives', () => {
+      const { trace: t } = trace((viz) => {
+        const tr = viz.tree([1, 2, 3])
+        const root = tr.root as string
+        tr.setLeft(root, null)
+        return 0
+      })
+      const final = finalOf(t, 'tree1', 'tree')
+      // Every node the tree ever made is still in the snapshot...
+      expect(final.nodes).toHaveLength(3)
+      // ...but node 2 is no longer reachable by walking left/right from root.
+      const byId = new Map(final.nodes.map((n) => [n.id, n]))
+      const reachable = new Set<string>()
+      const stack = final.root ? [final.root] : []
+      while (stack.length > 0) {
+        const id = stack.pop()!
+        if (reachable.has(id)) continue
+        reachable.add(id)
+        const n = byId.get(id)!
+        if (n.left) stack.push(n.left)
+        if (n.right) stack.push(n.right)
+      }
+      expect(reachable.size).toBe(2)
+      const detached = final.nodes.find((n) => n.value === 2)!
+      expect(reachable.has(detached.id)).toBe(false)
+    })
+  })
+  it('drops a settled decision about an edge it replaces', () => {
+    // The first API in the tracer that can make an edge stop existing, so the first that has to
+    // say so. A mark outlived the pointer it described: `TreeViz` walks the structure and drew
+    // nothing, while the MCP renderer walked the mark list and reported `t1->t2:tree` for an edge
+    // the picture did not contain — the renderer disagreement `edgeMarkFor` exists to prevent,
+    // reintroduced from the other end.
+    const { trace: t } = trace((viz) => {
+      const tr = viz.tree([2, 1, 3], { name: 'tr' })
+      const root = tr.root as string
+      const left = tr.childrenOf(root).left as string
+      tr.markEdge(root, left, 'tree', 'walked')
+      tr.setLeft(root, null)
+      return 0
+    })
+    const snap = finalOf(t, 'tree1', 'tree')
+    expect(snap.edgeMarks).toEqual([])
+    expect(snap.nodes.find((n) => n.id === 't1')?.left).toBeNull()
+  })
+
+  it('keeps a decision about an edge it does not touch', () => {
+    const { trace: t } = trace((viz) => {
+      const tr = viz.tree([2, 1, 3], { name: 'tr' })
+      const root = tr.root as string
+      const { left } = tr.childrenOf(root)
+      tr.markEdge(root, left as string, 'tree')
+      tr.setRight(root, null)
+      return 0
+    })
+    expect(finalOf(t, 'tree1', 'tree').edgeMarks).toEqual([
+      { from: 't1', to: 't2', class: 'tree' },
+    ])
+  })
+
 })
 
 describe('VizGraph', () => {

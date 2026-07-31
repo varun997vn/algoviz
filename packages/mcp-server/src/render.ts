@@ -128,17 +128,24 @@ export function renderSnapshot(name: string, snapshot: StructureSnapshot): strin
         walk(node.right, depth + 1, 'R ')
       }
       walk(snapshot.root, 0, '')
-      // One line per edge, not per mark. A re-traversed edge carries both its settled state and
-      // the transient highlight of the walk crossing it again, and listing the raw array printed
-      // the same edge twice with two different states — a reader has no way to tell which one the
-      // picture is showing. `edgeMarkFor` decides, once, for every renderer.
-      const seen = new Set<string>()
-      const edges = snapshot.edgeMarks
-        .filter((e) => !seen.has(`${e.from}->${e.to}`) && seen.add(`${e.from}->${e.to}`) !== null)
-        .map((e) => {
-          const mark = edgeMarkFor(snapshot.edgeMarks, e.from, e.to, true)
-          return `${e.from}->${e.to}:${mark?.class ?? e.class}`
-        })
+      // One line per edge the tree actually **has**, not per mark. Two things this guards:
+      //
+      // A re-traversed edge carries both its settled state and the transient highlight of the walk
+      // crossing it again, and listing the raw array printed the same edge twice with two different
+      // states — a reader has no way to tell which one the picture is showing. `edgeMarkFor`
+      // decides, once, for every renderer.
+      //
+      // And a *rewired* edge no longer exists. `TreeViz` walks the structure, so it draws only real
+      // edges; this walked the mark list, so it reported `t1->t2:tree` for a pointer that had since
+      // been set elsewhere. Driving both from the structure is what keeps them from disagreeing.
+      const edges = snapshot.nodes
+        .flatMap((n) =>
+          ([n.left, n.right].filter((c): c is string => c !== null)).map((child) => {
+            const mark = edgeMarkFor(snapshot.edgeMarks, n.id, child, true)
+            return mark ? `${n.id}->${child}:${mark.class}` : ''
+          }),
+        )
+        .filter((line) => line !== '')
         .join(' ')
       return `${name} (tree):\n${lines.join('\n')}${edges ? `\n  edges: ${edges}` : ''}`
     }
