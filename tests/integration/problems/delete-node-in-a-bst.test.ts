@@ -50,6 +50,12 @@ function finalTree(trace: Trace): TreeSnapshot {
   return found[0]!
 }
 
+function treeAt(reader: TraceReader, frame: number): TreeSnapshot {
+  const found = [...reader.at(frame).values()].filter((s): s is TreeSnapshot => s.kind === 'tree')
+  expect(found, `exactly one tree snapshot at frame ${frame}`).toHaveLength(1)
+  return found[0]!
+}
+
 function nonTransient(tree: TreeSnapshot, cls: string): string[] {
   return tree.marks.filter((m) => m.class === cls && !m.transient).map((m) => m.id)
 }
@@ -140,11 +146,35 @@ describe('the picture proves a search happened, not just a correct answer', () =
     expect(reads.length).toBeGreaterThan(0)
   })
 
-  it.each(KEY_PRESENT)('%s — the key is marked "match" exactly once as the search target', (name) => {
-    // Note: on a two-children delete the *successor* is also found via the same code path and
-    // also gets marked 'match' — so this only pins the original target, not the total count.
+  it.each(KEY_PRESENT)('%s — the key is marked "match" on the frame the search finds it', (name) => {
+    // This used to read the *final* tree and assert `>= 1`, with a note explaining that the count
+    // could not be pinned. Both halves were wrong, and the weakening was the defect being
+    // documented rather than caught: the target of a delete is usually *gone* by the end, so its
+    // mark should not be in the final snapshot at all — and it no longer is, now that a snapshot
+    // lists only the nodes still hanging off the root. What is worth asserting is that the search
+    // marked its target when it found it, on a node that existed then.
+    const trace = caseByName(name).trace
+    const found = trace.frames.filter((f) => /^mark .* as match$/.test(f.label ?? ''))
+    expect(found.length, `frames marking a match: ${found.map((f) => f.label).join(' | ')}`)
+      .toBeGreaterThan(0)
+    for (const frame of found) {
+      const tree = treeAt(new TraceReader(trace), frame.index)
+      const matched = nonTransient(tree, 'match')
+      // The mark is on a node the tree actually has, on the frame it goes on.
+      expect(matched.length).toBeGreaterThan(0)
+      for (const id of matched) expect(tree.nodes.some((n) => n.id === id)).toBe(true)
+    }
+  })
+
+  it.each(KEY_PRESENT)('%s — the deleted node takes its marks with it', (name) => {
+    // The counterpart, and the reason the assertion above moved off the final frame. A spliced-out
+    // node is drawn by nothing — `layoutTree` positions only what it can reach — so a mark left on
+    // it described a tree no viewer could see, and every count-based assertion over a mutating
+    // tree was unreliable while that was true.
     const tree = finalTree(caseByName(name).trace)
-    expect(nonTransient(tree, 'match').length).toBeGreaterThanOrEqual(1)
+    const ids = new Set(tree.nodes.map((n) => n.id))
+    const orphaned = tree.marks.filter((m) => !ids.has(m.id))
+    expect(orphaned, 'marks survived on nodes the picture does not contain').toEqual([])
   })
 
   it("the key-not-present case never marks anything 'match'", () => {
@@ -205,25 +235,32 @@ describe('the ending is consistent with the answer', () => {
 
 describe('the two-children case borrows before it deletes', () => {
   it.each(TWO_CHILDREN_CASES)('%s — the value copy lands before the successor is spliced out', (name) => {
-    // The order-sensitive step: `t.setValue` must be recorded before the `t.setRight` that
-    // deletes the successor, or the picture would show the right subtree changing shape before
-    // the value that explains why. Both calls happen at the same recursion depth (the setValue
-    // is the last thing before the nested delete call, the setRight is the first thing after it
-    // returns), so the matching pair is "the next 'write' frame with the identical group nesting".
-    const frames = caseByName(name).trace.frames
+    // The order-sensitive step: the borrowed value must be on screen before the successor leaves
+    // the picture, or there is a frame where the subtree has changed shape and nothing has
+    // received the value that explains why.
+    //
+    // Asserted against the picture rather than against op positions. This first looked for "the
+    // next `write` frame at the same group depth", on the assumption that the copy-up is always
+    // followed by a rewire one line later — which stopped being true once a rewire that changes
+    // nothing stopped emitting a frame: when the successor is deeper than the immediate right
+    // child, the pointer at *this* level never moves. The splice happens wherever it happens; what
+    // matters is that it happens after the copy.
+    const trace = caseByName(name).trace
+    const reader = new TraceReader(trace)
+    const frames = trace.frames
     const setValueIdx = frames.findIndex((f) => f.op === 'write' && /^write -?\d+ -> -?\d+$/.test(f.label ?? ''))
     expect(setValueIdx, `${name}: no bare value-write frame found`).toBeGreaterThanOrEqual(0)
-    const setValueGroups = frames[setValueIdx]!.groups
-    const setRightIdx = frames.findIndex(
-      (f, i) =>
-        i > setValueIdx &&
-        f.op === 'write' &&
-        f.groups.length === setValueGroups.length &&
-        f.groups.every((g, gi) => g === setValueGroups[gi]),
+
+    // The node that leaves: present before the copy, absent at the end.
+    const before = new Set(treeAt(reader, setValueIdx - 1).nodes.map((n) => n.id))
+    const after = new Set(finalTree(trace).nodes.map((n) => n.id))
+    const spliced = [...before].filter((id) => !after.has(id))
+    expect(spliced, `${name}: nothing was spliced out`).toHaveLength(1)
+
+    const leftAt = frames.findIndex(
+      (f, i) => i >= setValueIdx && !treeAt(reader, i).nodes.some((n) => n.id === spliced[0]),
     )
-    expect(setRightIdx, `${name}: no matching rewire frame at the same depth after the value write`).toBeGreaterThan(
-      setValueIdx,
-    )
+    expect(leftAt, `${name}: the successor never left the picture`).toBeGreaterThan(setValueIdx)
   })
 
   it('the successor is found by walking left, not by assuming the right child', () => {

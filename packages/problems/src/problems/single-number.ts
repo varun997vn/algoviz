@@ -26,9 +26,18 @@ import type { ProblemDefinition, Viz } from '../types.js'
  *    different orderings of the same multiset would draw two different pairings, which
  *    misrepresents an algorithm whose defining property is that order is irrelevant.
  *  - **A per-bit tally: for each of the 32 bit positions, how many values seen so far have it
- *    set.** This is what is chosen below. `acc`'s bit `b`, at every point in the scan, is
- *    exactly `tally[b] % 2` — not "coincidentally equal to", *equal by definition*, because XOR
- *    of a column is the parity of how many 1s have gone into it. "Every bit appears an even
+ *    set.** This is what is chosen below. `acc`'s bit `b` is exactly `tally[b] % 2` — not
+ *    "coincidentally equal to", *equal by definition*, because XOR of a column is the parity of
+ *    how many 1s have gone into it.
+ *
+ *    That identity holds on every **narrated** frame, and the qualifier is load-bearing rather
+ *    than an escape hatch. Absorbing one value touches up to 32 columns and one frame per op means
+ *    the tally cannot arrive all at once, so mid-update the two genuinely disagree. What can be
+ *    chosen is the direction: `acc ^= num` runs *after* the columns it accounts for, so the
+ *    picture is ahead of the number rather than the number claiming a result the picture has not
+ *    shown. Written the other way round the identity was false on 90% of the frames of a
+ *    three-element case — `acc = 7` beside an all-zero tally — which is the model's whole
+ *    justification contradicted on screen. "Every bit appears an even
  *    number of times except the lone value's" stops being a claim about the algorithm and
  *    becomes a number on screen a viewer can literally count. And because addition does not care
  *    what order it happens in, the final tally — and therefore the answer — is manifestly the
@@ -64,11 +73,21 @@ export function reference(nums: number[], viz: Viz): number {
 
   for (i.value = 0; i.value < a.length; i.inc()) {
     const num = a[i.value]
-    acc ^= num
     const bits = setBitsOf(num)
     tally.clearMarks('active')
     tally.mark(bits, 'active', `bit(s) set in nums[${i.value}] = ${num}`)
-    for (const bit of bits) tally[bit] = tally[bit] + 1
+    // `tally.at` is the non-recording read. Written `tally[bit] = tally[bit] + 1` the proxy
+    // recorded a `read` frame per increment as well as the write, so 44% of the trace was the
+    // solution reading a counter it had just written — 95 of the 214 frames on a three-element
+    // case, and the increment is not a step of the algorithm, it *is* the algorithm's bookkeeping.
+    for (const bit of bits) tally[bit] = (tally.at(bit) ?? 0) + 1
+    // `acc` last, so the number never announces a column the picture has not counted yet. Written
+    // first it landed whole and instantly while the tally caught up one bit at a time over up to
+    // 32 frames, and the identity below — the entire justification for this model — was visibly
+    // false for most of the run: `acc = 7` beside a tally reading all zeros with 7's three columns
+    // lit and holding nothing. The lag is unavoidable (a 32-bit update cannot be one frame) but
+    // its direction is not: the picture may lead the number, never the reverse.
+    acc ^= num
     viz.step(`xor in nums[${i.value}] = ${num} -> running xor = ${acc}`)
   }
 
@@ -108,11 +127,21 @@ export default function singleNumber(nums: number[], viz: Viz): number {
   viz.watch(() => ({ acc, i: i.value }))
 
   for (i.value = 0; i.value < a.length; i.inc()) {
-    // TODO: xor a[i.value] into acc. Then, for each of the 32 bit positions (MSB at index 0,
-    // LSB at index 31 — use (num >>> (31 - bit)) & 1 to read one), if that bit is set in
-    // this number, add 1 to tally[bit]. Mark the bit positions you touched 'active' on tally
-    // first (tally.clearMarks('active') then tally.mark([...], 'active')) so the picture
-    // shows which columns this number is about to move.
+    // TODO: work out which of the 32 bit positions are set in a[i.value] (MSB at index 0,
+    // LSB at index 31 — use (num >>> (31 - bit)) & 1 to read one). Mark those positions
+    // 'active' on tally first (tally.clearMarks('active') then tally.mark([...], 'active')),
+    // so the picture says which columns this number is about to move. Then add 1 to each of
+    // them. Then, LAST, xor the number into acc.
+    //
+    // That order is the point, not a detail. acc changes in one step and the tally cannot —
+    // 32 columns is up to 32 frames — so the two disagree while the tally catches up. With
+    // acc first, the watch panel announces a running xor whose columns the picture has not
+    // counted yet, and "acc's bit b is tally[b] % 2", the reason this panel exists at all,
+    // is visibly false for most of the run. With acc last, the picture only ever leads.
+    //
+    // Increment with tally[bit] = (tally.at(bit) ?? 0) + 1, not tally[bit] + 1. The proxy
+    // records a frame for every read, and reading back a counter you are about to write is
+    // not a step of the algorithm — written the other way it is 44% of the whole trace.
     viz.step('xor in nums[' + i.value + ']')
   }
 

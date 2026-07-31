@@ -53,13 +53,18 @@ import type { ProblemDefinition, Viz } from '../types.js'
  */
 export function reference(pings: number[], viz: Viz): number[] {
   const recent = viz.queue<number>([], { name: 'recent' })
-  const out: number[] = []
-  viz.watch(() => ({ pings: recent.size }))
+  // The answers, as a panel. Kept as a plain local it was the one thing a viewer parked at the end
+  // could not see: the queue shows the last window and the watch shows its size, and the sequence
+  // of counts the problem actually returns appeared nowhere. Every other problem in the set that
+  // accumulates an answer draws it.
+  const out = viz.array<number>(pings.length, { name: 'calls in the last 3000ms', fill: null })
+  let cutoff = 0
+  viz.watch(() => ({ pings: recent.size, oldest_kept: cutoff }))
 
-  for (const t of pings) {
+  pings.forEach((t, call) => {
     viz.group(`ping(${t})`, () => {
       recent.push(t)
-      const cutoff = t - 3000
+      cutoff = t - 3000
 
       // The window is inclusive of `t - 3000`, so only strictly older pings leave.
       while (!recent.isEmpty && (recent.front() as number) < cutoff) {
@@ -69,12 +74,22 @@ export function reference(pings: number[], viz: Viz): number[] {
         recent.shift()
       }
 
-      out.push(recent.size)
-      viz.step(`ping(${t}) -> ${recent.size}`)
+      // Written before the narration that announces it, so the frame carrying the caption also
+      // carries the number. The caption names the cutoff every time, not only when something is
+      // evicted: `front()` is the silent read, so an eviction test that comes back *false* has no
+      // frame of its own — and on the case that exists to prove the boundary is inclusive, that
+      // was every test in the run. Its animation was shape-identical to a case with no boundary
+      // in it at all, and the one thing it was written to show never reached the screen.
+      out[call] = recent.size
+      const kept = recent.front() as number
+      viz.step(
+        `ping(${t}) -> ${recent.size} — the window is [${cutoff}, ${t}], and the oldest ping still ` +
+          `in it is ${kept}${kept === cutoff ? ', exactly on the boundary, which counts' : ''}`,
+      )
     })
-  }
+  })
 
-  return out
+  return out.toArray()
 }
 
 const starter = `// A queue is a sliding window over time: every ping enters at the back, and
@@ -82,21 +97,32 @@ const starter = `// A queue is a sliding window over time: every ping enters at 
 // what's left.
 export default function recentCounter(pings: number[], viz: Viz): number[] {
   const recent = viz.queue<number>([], { name: 'recent' })
-  const out: number[] = []
-  viz.watch(() => ({ pings: recent.size }))
+  // The answers, as a panel rather than a plain array -- it is what the problem returns, and a
+  // viewer parked at the end should be able to see it.
+  const out = viz.array<number>(pings.length, { name: 'calls in the last 3000ms', fill: null })
+  let cutoff = 0
+  viz.watch(() => ({ pings: recent.size, oldest_kept: cutoff }))
 
-  for (const t of pings) {
+  pings.forEach((t, call) => {
     viz.group(\`ping(\${t})\`, () => {
-      // TODO: push t onto the back of recent. Then, while the front of the queue is older
-      // than t - 3000 (strictly less than -- a ping exactly at t - 3000 stays, the window is
-      // inclusive), mark it 'excluded' and shift() it off before checking the new front.
+      // TODO: push t onto the back of recent, and set cutoff = t - 3000. Then, while the front
+      // of the queue is older than the cutoff (strictly less than -- a ping exactly at the
+      // cutoff stays, the window is inclusive), mark it 'excluded' and shift() it off before
+      // checking the new front.
       //
-      // TODO: push recent.size onto out -- that count is the answer to this call.
+      // TODO: write recent.size into out[call] -- that count is the answer to this call --
+      // and write it BEFORE the narration below, so the frame carrying the caption also
+      // carries the number it is about.
+      //
+      // Name the cutoff in that caption every time, not only when something is evicted.
+      // recent.front() is the silent read, so an eviction test that comes back false has no
+      // frame at all -- and on an input where nothing is ever evicted that is every test in
+      // the run, leaving an animation identical to one with no window in it.
       viz.step(\`ping(\${t})\`)
     })
-  }
+  })
 
-  return out
+  return out.toArray()
 }
 `
 

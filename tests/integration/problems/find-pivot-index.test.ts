@@ -48,10 +48,33 @@ function expectRegionsMatchSums(trace: Trace, nums: number[], label: string): vo
   const total = nums.reduce((s, v) => s + v, 0)
   let checked = 0
 
+  // Every frame that carries a `nums` snapshot, not just the `read` frames. Checking only reads
+  // checked exactly the frames that were right and skipped exactly the ones that were wrong: the
+  // sums used to be recomputed in the watch closure from a `leftSum` that had already advanced,
+  // so the two `mark`/`window` frames per index reported a number matching neither region.
   for (const frame of trace.frames) {
-    if (frame.op !== 'read' || frame.structureId !== id) continue
     const snap = frame.snapshots[id]
     if (snap?.kind !== 'array') continue
+    const watchNow = reader.watchAt(frame.index)
+    if (watchNow) {
+      const visitedNow = snap.marks
+        .filter((m) => m.class === 'visited' && !m.transient)
+        .map((m) => nums[m.index] ?? 0)
+        .reduce((a, b) => a + b, 0)
+      expect(
+        watchNow.leftSum,
+        `${label} frame ${frame.index} (${frame.op}): leftSum is not the sum of the visited cells`,
+      ).toBe(visitedNow)
+      const band = snap.window
+      const bandSum = band
+        ? nums.slice(band[0], band[1] + 1).reduce((a, b) => a + b, 0)
+        : 0
+      expect(
+        watchNow.rightSum,
+        `${label} frame ${frame.index} (${frame.op}): rightSum is not the sum of the banded cells`,
+      ).toBe(bandSum)
+    }
+    if (frame.op !== 'read' || frame.structureId !== id) continue
 
     const readMark = snap.marks.find((m) => m.transient === true)
     expect(readMark, `${label} frame ${frame.index}: read frame with no transient mark`).toBeDefined()
@@ -143,9 +166,16 @@ describe('Find Pivot Index — reference trace semantics', () => {
     expect(visited).toEqual([0, 1, 2])
   })
 
-  it('clears the window once the pivot is found', () => {
+  it('shows both regions on the frame that says they are equal', () => {
+    // This used to assert the opposite — that the window was *cleared* when the pivot was found —
+    // which is the defect written down as an expectation. The answer frame announces "left 11
+    // meets right 11"; the left 11 is three `visited` cells and the right 11 was nothing at all,
+    // so the one frame that has to show both regions was the only frame that showed one.
     const last = resolve(reader, NUMS, reader.frameCount - 1)!
-    expect(last.window).toBe(undefined)
+    const answer = caseResult.returned as number
+    expect(answer).toBeGreaterThanOrEqual(0)
+    expect(last.window, 'the band was cleared on the payoff frame').toEqual([answer + 1, nums.length - 1])
+    expect(last.marks.filter((m) => m.class === 'result').map((m) => m.index)).toEqual([answer])
   })
 
   it('narrates every index it checks, up to and including the pivot', () => {
@@ -337,12 +367,9 @@ export default function pivotIndex(nums: number[], viz: Viz): number {
   const a = viz.array(nums, { name: 'nums' })
   const total = nums.reduce((sum, v) => sum + v, 0)
   let leftSum = 0
+  let rightSum = total - (nums[0] ?? 0)
   const i = viz.cursor('i', 0, a)
-  viz.watch(() => ({
-    leftSum,
-    rightSum: i.value < a.length ? total - leftSum - (a.at(i.value) ?? 0) : undefined,
-    total,
-  }))
+  viz.watch(() => ({ leftSum, rightSum, total }))
 
   const windowRightOf = (idx: number): void => {
     if (idx + 1 <= a.length - 1) a.setWindow(idx + 1, a.length - 1)
@@ -352,17 +379,18 @@ export default function pivotIndex(nums: number[], viz: Viz): number {
 
   for (i.value = 0; i.value < a.length; i.inc()) {
     const v = a[i.value]
-    const rightSum = total - leftSum - v
+    rightSum = total - leftSum - v
     if (rightSum === leftSum) {
       a.mark(i.value, 'result', 'left ' + leftSum + ' = right ' + rightSum)
-      a.clearWindow()
       viz.step('index ' + i.value)
       return i.value
     }
-    leftSum += v
-    a.mark(i.value, 'visited', 'counted into leftSum')
-    windowRightOf(i.value + 1)
     viz.step('index ' + i.value)
+    leftSum += v
+    rightSum = total - leftSum
+    a.mark(i.value, 'visited', 'counted into leftSum')
+    rightSum = total - leftSum - (a.at(i.value + 1) ?? 0)
+    windowRightOf(i.value + 1)
   }
 
   return -1

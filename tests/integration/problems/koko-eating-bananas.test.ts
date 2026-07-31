@@ -191,6 +191,39 @@ describe('a probe shows its own work', () => {
     }
   })
 
+  it.each(CASES)('%s — no frame reports a speed or an hour count the piles contradict', (name) => {
+    // The general form, over every frame of every case rather than the probe frames of one. Two
+    // defects hid in the gaps this did not cover. `testing` and the `mid` caret used to move
+    // *before* the previous probe's marks and hour count were retired, so 115 frames across the
+    // set named one speed beside another's work — the worst of them reporting 360 hours on the
+    // frame that first names the winning speed, whose true cost is exactly the 300-hour deadline.
+    // And the closing frames reset `hours` to 0, putting "finishes in 0 hours" beside three piles
+    // drawn as eaten, on the one frame a viewer parks on.
+    const result = byName.get(name)!
+    const reader = new TraceReader(result.trace)
+    const piles = requireProblem(PROBLEM).cases.find((c) => c.name === name)!.args[0] as number[]
+    const wrong: string[] = []
+
+    for (let f = 0; f < reader.frameCount; f += 1) {
+      const watch = reader.watchAt(f)
+      const speed = watch?.testing as number | undefined
+      if (!watch || !speed) continue
+      const marked = (arrayAt(reader, PILES, f)?.marks ?? [])
+        .filter((m) => m.transient !== true)
+        .map((m) => m.index)
+      const accounted = marked.reduce((sum, i) => sum + Math.ceil(piles[i]! / speed), 0)
+      if (watch.hours !== accounted) {
+        wrong.push(`frame ${f}: watch says ${String(watch.hours)}h at speed ${speed}, ${marked.length} pile(s) drawn eaten cost ${accounted}h`)
+      }
+      // And the caret naming the speed under test is on the cell that *is* that speed.
+      const mid = arrayAt(reader, SPEEDS, f)?.cursors.find((c) => c.name === 'mid')
+      if (mid && mid.index !== speed) {
+        wrong.push(`frame ${f}: watch says speed ${speed}, the mid caret is on ${mid.index}`)
+      }
+    }
+    expect(wrong.slice(0, 5)).toEqual([])
+  })
+
   it('never reports an hour count the piles panel has not accounted for', () => {
     // The watch panel's `hours` is the running total, and the piles panel shows which piles it is
     // the total *of*. If `hours` were updated after the mark rather than before, every frame would
@@ -326,8 +359,10 @@ describe('the starter teaches the same picture, not just the same answer', () =>
   viz.step('any speed from 1 to ' + fastest + ' would do; which is the smallest?')
 
   const hoursAt = (speed: number): number => {
-    p.clearMarks()
     hours = 0
+    p.clearMarks()
+    testing = speed
+    midAt.value = speed
     return viz.group('speed ' + speed + ': does it finish within ' + h + ' hours?', () => {
       let total = 0
       for (let i = 0; i < p.length; i += 1) {
@@ -344,8 +379,6 @@ describe('the starter teaches the same picture, not just the same answer', () =>
 
   while (lo < hi) {
     const mid = Math.floor((lo + hi) / 2)
-    testing = mid
-    midAt.value = mid
     const spent = hoursAt(mid)
 
     if (spent <= h) {

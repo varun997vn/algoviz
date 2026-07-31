@@ -1150,33 +1150,27 @@ describe('VizTree', () => {
       expect(value).toEqual({ afterReplace: [3], afterClear: [], root: null })
     })
 
-    it('a node detached by rewiring stops being reachable from root, though its id survives', () => {
+    it('drops a node the rewiring detached, because nothing draws it', () => {
+      // A snapshot is what the picture is. `layoutTree` positions only nodes reachable from the
+      // root and `TreeViz` skips anything without a position, so an orphan has never been drawn —
+      // but it stayed in `nodes`, and its marks and edge marks stayed with it, describing a tree
+      // nobody could see. `trace_assert` counted those marks and the MCP renderer printed those
+      // edges, and this problem's own integration test had already weakened an assertion to `>= 1`
+      // to accommodate it.
       const { trace: t } = trace((viz) => {
-        const tr = viz.tree([1, 2, 3])
+        const tr = viz.tree([2, 1, 3], { name: 'tr' })
         const root = tr.root as string
+        const gone = tr.childrenOf(root).left as string
+        tr.mark(gone, 'match', 'the node about to be spliced out')
         tr.setLeft(root, null)
         return 0
       })
-      const final = finalOf(t, 'tree1', 'tree')
-      // Every node the tree ever made is still in the snapshot...
-      expect(final.nodes).toHaveLength(3)
-      // ...but node 2 is no longer reachable by walking left/right from root.
-      const byId = new Map(final.nodes.map((n) => [n.id, n]))
-      const reachable = new Set<string>()
-      const stack = final.root ? [final.root] : []
-      while (stack.length > 0) {
-        const id = stack.pop()!
-        if (reachable.has(id)) continue
-        reachable.add(id)
-        const n = byId.get(id)!
-        if (n.left) stack.push(n.left)
-        if (n.right) stack.push(n.right)
-      }
-      expect(reachable.size).toBe(2)
-      const detached = final.nodes.find((n) => n.value === 2)!
-      expect(reachable.has(detached.id)).toBe(false)
+      const snap = finalOf(t, 'tree1', 'tree')
+      expect(snap.nodes.map((n) => n.id)).toEqual(['t1', 't3'])
+      expect(snap.marks).toEqual([])
     })
   })
+
   it('drops a settled decision about an edge it replaces', () => {
     // The first API in the tracer that can make an edge stop existing, so the first that has to
     // say so. A mark outlived the pointer it described: `TreeViz` walks the structure and drew
@@ -1196,6 +1190,25 @@ describe('VizTree', () => {
     expect(snap.nodes.find((n) => n.id === 't1')?.left).toBeNull()
   })
 
+  it('keeps a decision when the rewire re-attaches the same child', () => {
+    // `node.left = deleteNode(node.left, key)` re-attaches the same child on every ancestor of the
+    // deleted node — the common case in the algorithm this API was added for. Deleting the mark
+    // whenever there *was* a pointer, rather than when it actually changed, destroyed the settled
+    // state of edges the write never touched: a `tree` edge rendering idle beside its still-marked
+    // siblings, on a rewire that changed nothing.
+    const { trace: t } = trace((viz) => {
+      const tr = viz.tree([5, 3, 7], { name: 'tr' })
+      const root = tr.root as string
+      const left = tr.childrenOf(root).left as string
+      tr.markEdge(root, left, 'tree', 'walked')
+      tr.setLeft(root, left)
+      return 0
+    })
+    expect(finalOf(t, 'tree1', 'tree').edgeMarks).toEqual([
+      { from: 't1', to: 't2', class: 'tree', note: 'walked' },
+    ])
+  })
+
   it('keeps a decision about an edge it does not touch', () => {
     const { trace: t } = trace((viz) => {
       const tr = viz.tree([2, 1, 3], { name: 'tr' })
@@ -1209,7 +1222,6 @@ describe('VizTree', () => {
       { from: 't1', to: 't2', class: 'tree' },
     ])
   })
-
 })
 
 describe('VizGraph', () => {

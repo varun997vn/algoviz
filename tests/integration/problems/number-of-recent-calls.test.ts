@@ -154,10 +154,61 @@ describe('the reference solution', () => {
     ).toEqual([])
   })
 
-  it('drives a queue, and only a queue', () => {
+  it('drives a queue, plus a panel for the answers it returns', () => {
+    // The queue is the algorithm; the array is what it produces. Kept as a plain local the answer
+    // sequence was the one thing a viewer parked at the end could not see — the queue shows the
+    // last window and the watch shows its size, and the counts the problem actually returns
+    // appeared nowhere.
     for (const result of byName.values()) {
-      expect(result.trace.structures.map((s) => s.kind), result.name).toEqual(['queue'])
+      expect(result.trace.structures.map((s) => s.kind), result.name).toEqual(['queue', 'array'])
     }
+  })
+
+  it('fills the answer panel one call at a time, ahead of the caption that reads it out', () => {
+    for (const [name, result] of byName.entries()) {
+      const reader = new TraceReader(result.trace)
+      const answers = result.returned as number[]
+      const id = result.trace.structures.find((s) => s.kind === 'array')!.id
+      const last = reader.structureAt(id, reader.frameCount - 1)
+      expect(last?.kind === 'array' && last.values, name).toEqual(answers)
+
+      // Every `ping(t) -> n` caption has its own cell already written on the frame that says it.
+      for (const f of reader.stepFrames()) {
+        const label = result.trace.frames[f]?.label ?? ''
+        const said = /^ping\((-?\d+)\) -> (\d+)/.exec(label)
+        if (!said) continue
+        const snap = reader.structureAt(id, f)
+        const filled = snap?.kind === 'array' ? snap.values.filter((v) => v !== null) : []
+        expect(filled[filled.length - 1], `${name} frame ${f}: ${label}`).toBe(Number(said[2]))
+      }
+    }
+  })
+
+  it('names the window on every call, not only when something is evicted', () => {
+    // `recent.front()` is the silent read, so an eviction test that comes back *false* has no
+    // frame of its own. On the case that exists to prove the boundary is inclusive, that was
+    // every test in the run: its animation was shape-identical to one with no boundary in it,
+    // and the single thing it was written to show never reached the screen.
+    for (const [name, result] of byName.entries()) {
+      const reader = new TraceReader(result.trace)
+      const answers = reader
+        .stepFrames()
+        .map((f) => result.trace.frames[f]?.label ?? '')
+        .filter((l) => /^ping\(/.test(l) && / -> /.test(l))
+      expect(answers.length, name).toBe((result.returned as number[]).length)
+      for (const label of answers) {
+        expect(label, `${name}: a call that does not say what its window is`).toMatch(
+          /the window is \[-?\d+, -?\d+\]/,
+        )
+      }
+    }
+  })
+
+  it('says so on the frame where a ping sits exactly on the boundary', () => {
+    const result = byName.get('a ping exactly 3000ms old stays — the window is inclusive')!
+    const reader = new TraceReader(result.trace)
+    const labels = reader.stepFrames().map((f) => result.trace.frames[f]?.label ?? '')
+    expect(labels.some((l) => /exactly on the boundary, which counts/.test(l))).toBe(true)
   })
 
   it('covers at least one case where a single ping evicts several at once, and one where nothing is ever evicted', () => {
@@ -308,22 +359,24 @@ describe('the starter, filled in from its own TODO comments, produces the promis
   const source = `
 export default function recentCounter(pings: number[], viz: Viz): number[] {
   const recent = viz.queue<number>([], { name: 'recent' })
-  const out: number[] = []
-  viz.watch(() => ({ pings: recent.size }))
+  const out = viz.array<number>(pings.length, { name: 'calls in the last 3000ms', fill: null })
+  let cutoff = 0
+  viz.watch(() => ({ pings: recent.size, oldest_kept: cutoff }))
 
-  for (const t of pings) {
+  pings.forEach((t, call) => {
     viz.group(\`ping(\${t})\`, () => {
       recent.push(t)
-      while (!recent.isEmpty && (recent.front() as number) < t - 3000) {
+      cutoff = t - 3000
+      while (!recent.isEmpty && (recent.front() as number) < cutoff) {
         recent.mark(0, 'excluded', \`evicted before ping(\${t})\`)
         recent.shift()
       }
-      out.push(recent.size)
-      viz.step(\`ping(\${t})\`)
+      out[call] = recent.size
+      viz.step(\`ping(\${t}) -> \${recent.size} — the window is [\${cutoff}, \${t}]\`)
     })
-  }
+  })
 
-  return out
+  return out.toArray()
 }
 `
   let transcribed: Map<string, CaseResult>

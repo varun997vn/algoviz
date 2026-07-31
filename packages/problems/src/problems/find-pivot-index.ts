@@ -42,14 +42,18 @@ export function reference(nums: number[], viz: Viz): number {
   const a = viz.array(nums, { name: 'nums' })
   const total = nums.reduce((sum, v) => sum + v, 0)
   let leftSum = 0
+  // Held, not recomputed. The panel used to derive `rightSum` from `leftSum` and the cursor on
+  // every frame, which sounds like it can never be stale and is exactly why it was: `leftSum += v`
+  // runs before the mark that shows the cell joining the region, so on those frames the closure
+  // subtracted `v` twice and reported a number matching neither the band nor anything else. Two
+  // of every five frames disagreed with the picture beside them.
+  //
+  // Both numbers are now assigned in the same beat as the frame that changes the region they
+  // describe, and the invariant is exact and checkable: `leftSum` is the sum of the `visited`
+  // cells and `rightSum` is the sum of the windowed cells, on every frame.
+  let rightSum = total - (nums[0] ?? 0)
   const i = viz.cursor('i', 0, a)
-  // `a.at` costs no frame, so the panel can recompute rightSum on every frame without a read of
-  // its own — the number on screen always matches whatever the array is showing that frame.
-  viz.watch(() => ({
-    leftSum,
-    rightSum: i.value < a.length ? total - leftSum - (a.at(i.value) ?? 0) : undefined,
-    total,
-  }))
+  viz.watch(() => ({ leftSum, rightSum, total }))
 
   // The region strictly right of idx — the span whose sum *is* rightSum, shown as cells instead
   // of a number nobody can see being added up.
@@ -61,16 +65,25 @@ export function reference(nums: number[], viz: Viz): number {
 
   for (i.value = 0; i.value < a.length; i.inc()) {
     const v = a[i.value]
-    const rightSum = total - leftSum - v
+    rightSum = total - leftSum - v
     if (leftSum === rightSum) {
+      // The band stays. It used to be cleared here, on the one frame that has to show both
+      // regions: the answer frame announced "left 11 meets right 11" with the left 11 drawn as
+      // three `visited` cells and the right 11 drawn as nothing at all. The band is the only place
+      // the right-hand number is a picture rather than a claim, and this is the frame it is for.
       a.mark(i.value, 'result', `left ${leftSum} = right ${rightSum}`)
-      a.clearWindow()
       viz.step(`index ${i.value}: left ${leftSum} meets right ${rightSum} — pivot`)
       return i.value
     }
     viz.step(`index ${i.value}: left ${leftSum}, right ${rightSum} — keep scanning`)
+    // Each number moves immediately before the frame that moves the region it describes: the sums
+    // update, then the mark that grows the visited region; then the sum updates again, then the
+    // window that shrinks the band. No frame in between shows a number describing a region the
+    // picture has already left.
     leftSum += v
+    rightSum = total - leftSum
     a.mark(i.value, 'visited', `counted into leftSum (now ${leftSum})`)
+    rightSum = total - leftSum - (a.at(i.value + 1) ?? 0)
     windowRightOf(i.value + 1)
   }
 
@@ -95,12 +108,13 @@ export default function pivotIndex(nums: number[], viz: Viz): number {
   const a = viz.array(nums, { name: 'nums' })
   const total = nums.reduce((sum, v) => sum + v, 0)
   let leftSum = 0
+  // Held, not recomputed. A closure deriving rightSum from leftSum and the cursor sounds like it
+  // can never be stale, and is exactly why it was: leftSum advances before the mark that shows
+  // the cell joining the region, so on those frames it subtracts that value twice and reports a
+  // number matching neither the band nor anything else.
+  let rightSum = total - (nums[0] ?? 0)
   const i = viz.cursor('i', 0, a)
-  viz.watch(() => ({
-    leftSum,
-    rightSum: i.value < a.length ? total - leftSum - (a.at(i.value) ?? 0) : undefined,
-    total,
-  }))
+  viz.watch(() => ({ leftSum, rightSum, total }))
 
   // The window is the region strictly right of i -- the span whose sum is rightSum, shown as
   // cells instead of a number nobody can see being added up. It shrinks by one cell every time
@@ -112,15 +126,20 @@ export default function pivotIndex(nums: number[], viz: Viz): number {
   windowRightOf(0)
 
   for (i.value = 0; i.value < a.length; i.inc()) {
-    // TODO: read nums[i] once into a local v, then compute rightSum = total - leftSum - v.
-    // If rightSum === leftSum, this is the pivot: mark i 'result', a.clearWindow(), and
-    // return i.
+    // TODO: read nums[i] once into a local v, then set rightSum = total - leftSum - v.
+    // If rightSum === leftSum, this is the pivot: mark i 'result' and step. Leave the band
+    // alone — this is the one frame that has to show *both* regions, and clearing it here
+    // means the frame announcing "left 11 meets right 11" draws the left 11 as cells and the
+    // right 11 as nothing at all.
     //
-    // TODO: otherwise, add v to leftSum, mark i 'visited' (it is now counted on the left),
-    // and call windowRightOf(i.value + 1) so the band always shows exactly the region right
-    // of i -- one cell narrower than the step before.
-    viz.step('index ' + i.value)
-    break
+    // Otherwise step, then move the two numbers in lockstep with the two frames that move the
+    // regions they describe:
+    //   leftSum += v; rightSum = total - leftSum   -> then a.mark(i, 'visited')
+    //   rightSum = total - leftSum - a.at(i + 1)   -> then windowRightOf(i + 1)
+    // Each assignment costs no frame and each call costs one, so written this way every frame
+    // has leftSum equal to the sum of the visited cells and rightSum equal to the sum of the
+    // banded ones. Updating either number after its frame leaves it describing a region the
+    // picture has already left.
   }
 
   return -1

@@ -83,12 +83,20 @@ export function reference(piles: number[], h: number, viz: Viz): number {
 
   /** Hours needed to clear every pile at `speed`. The probe, and it is a whole loop. */
   const hoursAt = (speed: number): number => {
-    // Cleared *before* the scope opens, not inside it. Inside, the frame that entered
-    // `speed 3: …` still carried the previous probe's eaten piles and its hour count — one frame
-    // of a caption naming one speed over a picture of another. Outside, the probe opens on an
-    // empty panel, which is the truth: nothing has been eaten at this speed yet.
-    p.clearMarks()
+    // Everything belonging to the previous probe is retired *before* anything names the new one.
+    // Moving this out of the `viz.group` body fixed the frame that entered `speed 3: …`, and left
+    // the two frames before it: `testing = mid` and the `mid` caret moved first, so the watch
+    // panel reported speed 3 beside speed 6's eaten piles and speed 6's hour count — 115 such
+    // frames across the case set, the worst reading `hours=360` on the frame that first names the
+    // winning speed, whose true cost is 300 against a 300-hour deadline.
+    // Order matters down to the assignment. `hours = 0` costs no frame but `clearMarks` does, so
+    // zeroing after it left the clear frame showing an empty piles panel beside the *previous*
+    // probe's hour count; and `testing`/the caret move only after the clear, so no frame ever
+    // names the new speed while the old speed's work is still drawn.
     hours = 0
+    p.clearMarks()
+    testing = speed
+    midAt.value = speed
     return viz.group(`speed ${speed}: does it finish within ${h} hours?`, () => {
       let total = 0
       for (let i = 0; i < p.length; i += 1) {
@@ -117,8 +125,7 @@ export function reference(piles: number[], h: number, viz: Viz): number {
 
   while (lo < hi) {
     const mid = Math.floor((lo + hi) / 2)
-    testing = mid
-    midAt.value = mid
+    // `hoursAt` moves the caret and the readout itself, after retiring the last probe — see there.
     const spent = hoursAt(mid)
 
     if (spent <= h) {
@@ -144,8 +151,13 @@ export function reference(piles: number[], h: number, viz: Viz): number {
     )
   }
 
-  hours = 0
-  testing = lo
+  // Nothing is reset here. `hours = 0; testing = lo` used to run first, and put three
+  // contradictions on the one frame a viewer parks on: `hours=0` beside piles drawn as eaten,
+  // `testing` naming a speed the `mid` caret was not on, and on `[5,5,5] h=3` a winning speed of 5
+  // reported as finishing in zero hours. The last probe's readout is the winning speed's readout —
+  // the loop ends with `lo === hi === mid`, so it is already exactly right. (The starter never had
+  // this: its TODOs say nothing about resetting, so a learner following them got the honest frame
+  // and the reference did not.)
   speeds.mark(lo, 'result', `the slowest speed that finishes in ${h} hours`)
   viz.step(
     `${lo} is the answer: everything below it is too slow, everything above it is faster than it ` +
@@ -198,11 +210,18 @@ export default function minEatingSpeed(piles: number[], h: number, viz: Viz): nu
   viz.step('any speed from 1 to ' + fastest + ' would do; which is the smallest?')
 
   const hoursAt = (speed: number): number => {
-    // Cleared BEFORE the scope opens. Inside it, the frame that enters "speed 3" still shows
-    // the previous probe's eaten piles and its hour count — a caption naming one speed over a
-    // picture of another.
-    p.clearMarks()
+    // Everything belonging to the previous probe is retired BEFORE anything names the new one —
+    // the marks, the hour count, the readout and the caret, all before the scope opens. Move any
+    // of them after and there is a frame whose caption names one speed while the panels beside it
+    // still show another's work.
+    // Order matters down to the assignment: hours = 0 costs no frame and clearMarks does, so
+    // zeroing after it leaves the clear frame showing an empty panel beside the previous probe's
+    // hour count. And testing/the caret move only after the clear, so no frame names the new
+    // speed while the old speed's work is still on screen.
     hours = 0
+    p.clearMarks()
+    testing = speed
+    midAt.value = speed
     return viz.group('speed ' + speed + ': does it finish within ' + h + ' hours?', () => {
       let total = 0
       // TODO: for each pile, the hours it costs at this speed is Math.ceil(pile / speed) —
@@ -221,8 +240,7 @@ export default function minEatingSpeed(piles: number[], h: number, viz: Viz): nu
 
   while (lo < hi) {
     const mid = Math.floor((lo + hi) / 2)
-    testing = mid
-    midAt.value = mid
+    // hoursAt moves the caret and the readout itself, after retiring the last probe.
     const spent = hoursAt(mid)
 
     // TODO: two verdicts, and they rule out different things — so they get different marks.
@@ -244,6 +262,10 @@ export default function minEatingSpeed(piles: number[], h: number, viz: Viz): nu
   // TODO: lo === hi now, and that is the answer. Mark it 'result' and return it. The two
   // blocks either side of it are the picture the problem exists for: too-slow on the left,
   // faster-than-necessary on the right, and the boundary between them is the answer.
+  //
+  // Do not reset 'hours' or 'testing' here. The loop ends with lo === hi === the last speed
+  // probed, so the readout already describes the winner exactly; zeroing it puts 'finishes in
+  // 0 hours' beside a panel of piles drawn as eaten, on the one frame a viewer parks on.
   return 0
 }
 `

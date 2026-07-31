@@ -99,22 +99,51 @@ export class VizTree extends BaseStructure {
     return node
   }
 
+  /**
+   * The nodes still hanging off the root, in declaration order.
+   *
+   * A tree that can be *restructured* can orphan a subtree, and every renderer already agrees an
+   * orphan is not drawn — `layoutTree` positions only what it can reach and `TreeViz` skips
+   * anything without a position. The snapshot did not agree: it listed every node ever created,
+   * so marks and edge marks on a spliced-out subtree stayed in it for the rest of the run,
+   * describing a tree nobody could see. `trace_assert` counted them, the MCP renderer printed
+   * their edges, and this problem's own integration test had already surrendered — asserting
+   * `>= 1` match marks with a comment explaining why the count could not be pinned. That is a
+   * defect being documented rather than caught.
+   *
+   * A visualizer is a pure function of a snapshot, so the snapshot has to be the picture.
+   */
+  private reachable(): Set<NodeId> {
+    const seen = new Set<NodeId>()
+    const walk = (node: InternalNode | null): void => {
+      if (!node || seen.has(node.id)) return
+      seen.add(node.id)
+      walk(node.left)
+      walk(node.right)
+    }
+    walk(this.rootNode)
+    return seen
+  }
+
   override snapshot(_transient?: readonly Mark[]): StructureSnapshot {
-    const nodes: TreeNodeSnapshot[] = [...this.nodes.values()].map((n) => ({
-      id: n.id,
-      value: n.value,
-      left: n.left?.id ?? null,
-      right: n.right?.id ?? null,
-    }))
+    const live = this.reachable()
+    const nodes: TreeNodeSnapshot[] = [...this.nodes.values()]
+      .filter((n) => live.has(n.id))
+      .map((n) => ({
+        id: n.id,
+        value: n.value,
+        left: n.left?.id ?? null,
+        right: n.right?.id ?? null,
+      }))
     return {
       kind: 'tree',
       nodes,
       root: this.rootNode?.id ?? null,
-      marks: this.marks.list(this.pending),
+      marks: this.marks.list(this.pending).filter((m) => live.has(m.id)),
       edgeMarks: [
         ...this.edgeMarks.values(),
         ...(this.pendingEdges ?? []).map((e) => ({ ...e, transient: true })),
-      ],
+      ].filter((e) => live.has(e.from) && live.has(e.to)),
     }
   }
 
@@ -133,7 +162,11 @@ export class VizTree extends BaseStructure {
    */
   set root(id: NodeId | null) {
     this.rootNode = id === null ? null : this.require(id)
-    this.rec.record({ op: 'write', structure: this, label: `root -> ${id ?? 'null'}` })
+    // The value, not the internal id — `unmark`'s comment states the rule for the whole class and
+    // this was the one method breaking it: `root -> t2` names something no viewer has ever seen,
+    // on a frame where the new root displays `1`.
+    const shown = this.rootNode === null ? 'empty' : formatVal(this.rootNode.value)
+    this.rec.record({ op: 'write', structure: this, label: `root -> ${shown}` })
   }
 
   get size(): number {
@@ -215,8 +248,12 @@ export class VizTree extends BaseStructure {
     // picture did not contain, which is precisely the renderer disagreement `edgeMarkFor` exists
     // to prevent. This is the first API in the tracer that can make an edge stop existing, so it
     // is the first that has to say so.
+    // Only when the pointer actually *changes*. `node.left = deleteNode(node.left, key)` re-attaches
+    // the same child on every ancestor of the deleted node, so an unconditional delete destroyed
+    // the settled state of edges the write did not touch: a `tree` edge would render idle beside
+    // its still-marked siblings, on a rewire that changed nothing.
     const replaced = side === 'left' ? node.left : node.right
-    if (replaced) this.edgeMarks.delete(`${id}->${replaced.id}`)
+    if (replaced && replaced.id !== child) this.edgeMarks.delete(`${id}->${replaced.id}`)
     if (side === 'left') node.left = childNode
     else node.right = childNode
     const label = `${formatVal(node.value)}.${side} -> ${childNode ? formatVal(childNode.value) : 'null'}`

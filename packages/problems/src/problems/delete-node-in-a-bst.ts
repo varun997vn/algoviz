@@ -39,35 +39,52 @@ import type { ProblemDefinition, Viz } from '../types.js'
 export function reference(root: (number | null)[], key: number, viz: Viz): (number | null)[] {
   const t = viz.tree(root, { name: 'tree' })
 
+  // Whether the key was ever actually found. Without it the closing narration said `deleted 0`
+  // over a picture of an untouched tree containing no 0 — the last frame of the run asserting a
+  // deletion that never happened, with nothing anywhere narrating the miss.
+  let found = false
+
+  const rewired = (id: string, side: 'left' | 'right', child: string | null): string =>
+    rewireIfChanged(t, id, side, child)
+
   const remove = (id: string | null, target: number): string | null => {
-    if (id === null) return null
+    if (id === null) {
+      // Falling off the bottom is the *answer* on a miss, so it gets a frame. It used to return
+      // silently, leaving one `visit` op labelled `2.left -> none` as the only evidence.
+      viz.step(`${target} is not here — there is no subtree left to search`)
+      return null
+    }
     return viz.group(`node ${t.peek(id)}`, () =>
       t.onPath(id, () => {
         const val = t.value(id) as number
 
         if (target < val) {
           viz.step(`${target} < ${val} — go left`)
-          const newLeft = remove(t.left(id), target)
-          t.setLeft(id, newLeft)
-          return id
+          return rewired(id, 'left', remove(t.left(id), target))
         }
         if (target > val) {
           viz.step(`${target} > ${val} — go right`)
-          const newRight = remove(t.right(id), target)
-          t.setRight(id, newRight)
-          return id
+          return rewired(id, 'right', remove(t.right(id), target))
         }
 
         // Found it — one of three cases, decided by which children it has.
+        found = true
         t.mark(id, 'match', `found ${val}`)
         const { left, right } = t.childrenOf(id)
 
+        // Three branches, because there are three cases. A leaf used to fall into the one-child
+        // branch and be narrated `has no left child — its right child takes its place`, on a node
+        // with no right child either: the same sentence as the genuine one-child case, and false.
+        if (left === null && right === null) {
+          viz.step(`${val} is a leaf — nothing hangs off it, so it just goes`)
+          return null
+        }
         if (left === null) {
-          viz.step(`${val} has no left child — its right child takes its place`)
+          viz.step(`${val} has no left child — its right child ${t.peek(right as string)} takes its place`)
           return right
         }
         if (right === null) {
-          viz.step(`${val} has no right child — its left child takes its place`)
+          viz.step(`${val} has no right child — its left child ${t.peek(left)} takes its place`)
           return left
         }
 
@@ -76,23 +93,69 @@ export function reference(root: (number | null)[], key: number, viz: Viz): (numb
         // its value, THEN delete it from the right subtree: the copy-up has to land before the
         // delete below, or the picture shows the subtree changing before the value that
         // explains why does.
-        let succ = right
-        while (t.childrenOf(succ).left !== null) succ = t.left(succ) as string
+        //
+        // `t.right(id)` rather than the `right` already in hand, because this is a *walk* and the
+        // recording twin is what lights the edge. Taken from `childrenOf` the search began with
+        // its most important move — "into the right subtree" — having no frame at all, so the
+        // highlight teleported two levels down.
+        let succ = t.right(id) as string
+        viz.step(
+          `${val} has two children, so nothing can simply take its place — the value that can is ` +
+            `the smallest one bigger than it, which is as far left as the right subtree goes`,
+        )
+        while (t.childrenOf(succ).left !== null) {
+          succ = t.left(succ) as string
+          viz.step(`${t.peek(succ)} is smaller — keep going left`)
+        }
         const succVal = t.value(succ) as number
+        t.mark(succ, 'pinned', 'the successor, about to be moved up and spliced out')
+        // The target stops being the node holding the value we searched for the moment it holds a
+        // different one, so its `match` comes off before the copy rather than sitting alongside
+        // the successor's — two nodes showing the same number with the same marks and nothing on
+        // screen telling them apart.
+        t.unmarkClass(id, 'match')
         viz.step(`successor of ${val} is ${succVal} — copy it up, then delete it from the right subtree`)
         t.setValue(id, succVal)
-        t.setRight(id, remove(right, succVal))
-        return id
+        return rewired(id, 'right', remove(right, succVal))
       }),
     )
   }
 
   const newRoot = remove(t.root, key)
-  t.root = newRoot
+  if (t.root !== newRoot) t.root = newRoot
   if (newRoot !== null) t.mark(newRoot, 'result', 'root after deletion')
-  viz.step(newRoot === null ? 'the tree is empty' : `deleted ${key} — ${t.peek(newRoot)} is the new root`)
+  viz.step(
+    newRoot === null
+      ? 'the tree is empty'
+      : found
+        ? `deleted ${key} — ${t.peek(newRoot)} is the new root`
+        : `${key} was never in the tree, so nothing changed — ${t.peek(newRoot)} is still the root`,
+  )
 
   return serialize(t, newRoot)
+}
+
+/**
+ * Rewire a child pointer, but only when it actually changed.
+ *
+ * `node.left = remove(node.left, key)` re-attaches the same child on every ancestor of the target
+ * — and on *every* node visited when the key is absent. Written unconditionally that emitted a
+ * `write` frame per ancestor announcing a rewire that changed nothing, and on a miss the run ended
+ * with three of them: a node lit `active`, a caption saying its pointer moved, and a tree in
+ * exactly the shape it was already in. The one on the node the search fell off had no possible
+ * referent at all — the pointer it "rewired" was already null.
+ */
+function rewireIfChanged(
+  t: VizTree,
+  id: string,
+  side: 'left' | 'right',
+  child: string | null,
+): string {
+  const current = side === 'left' ? t.childrenOf(id).left : t.childrenOf(id).right
+  if (current === child) return id
+  if (side === 'left') t.setLeft(id, child)
+  else t.setRight(id, child)
+  return id
 }
 
 /**

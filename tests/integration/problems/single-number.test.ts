@@ -85,6 +85,41 @@ function fromParity(tally: readonly number[]): number {
 }
 
 /**
+ * The identity the whole model rests on, checked on **every** frame rather than on the `n` frames
+ * where it is easiest to satisfy.
+ *
+ * `expectTallyIsATruePrefixBitCount` below samples the step frame for each `k` — exactly the
+ * frames where the tally has finished catching up — and that is why the reference shipped with
+ * `acc` announcing a running xor whose columns the picture had not yet counted, false on 193 of
+ * the 214 frames of a three-element case.
+ *
+ * The lag itself cannot be removed: absorbing a value touches up to 32 columns and one frame per
+ * op means the tally arrives over 32 frames. Its *direction* can be, and that is what this pins —
+ * the tally may be ahead of `acc`, never behind it. Concretely: every column's parity is either
+ * `acc`'s bit or one step past it, never one step short.
+ */
+function expectAccNeverLeadsTheTally(trace: Trace, label: string): void {
+  const reader = new TraceReader(trace)
+  const id = idOf(trace, 'bit tally (count of 1s, MSB->LSB)')
+  const problems: string[] = []
+  for (let f = 0; f < reader.frameCount; f += 1) {
+    const snap = reader.structureAt(id, f)
+    const acc = reader.watchAt(f)?.acc
+    if (!snap || snap.kind !== 'array' || typeof acc !== 'number') continue
+    for (let bit = 0; bit < 32; bit += 1) {
+      const count = (snap.values[bit] as number | null) ?? 0
+      const accBit = (acc >>> (31 - bit)) & 1
+      // The tally may have counted this column's newest 1 before `acc` absorbed it, so parity may
+      // run one ahead. It may never run behind — that is `acc` claiming an unshown result.
+      if (count % 2 !== accBit && (count - 1) % 2 !== accBit) {
+        problems.push(`frame ${f}: bit ${bit} count ${count} vs acc bit ${accBit}`)
+      }
+    }
+  }
+  expect(problems.slice(0, 5), `${label}: acc ran ahead of the picture`).toEqual([])
+}
+
+/**
  * `tally` is a true prefix bit-count at every checkpoint — the frame right after the step that
  * narrates processing `nums[k]`, for every k. A solution that folds `nums` with a bare `^=` and
  * leaves `tally` untouched (or wrong) fails this at k = 0, the first checkpoint there is.
@@ -172,6 +207,7 @@ describe('Single Number — reference trace semantics', () => {
       const r = run.results[0]!
       expect(r.passed, testCase.name).toBe(true)
       expectTallyIsATruePrefixBitCount(r.trace, testCase.args[0] as number[], testCase.name)
+      expectAccNeverLeadsTheTally(r.trace, testCase.name)
       expectFinalTallyReconstructsAnswer(r.trace, r.returned as number, testCase.name)
       expectNumsResultMarksTheAnswer(r.trace, testCase.args[0] as number[], r.returned as number, testCase.name)
     })
@@ -267,14 +303,14 @@ export default function singleNumber(nums, viz) {
 
   for (i.value = 0; i.value < a.length; i.inc()) {
     const num = a[i.value]
-    acc ^= num
     const bits = []
     for (let bit = 0; bit < 32; bit++) {
       if ((num >>> (31 - bit)) & 1) bits.push(bit)
     }
     tally.clearMarks('active')
     tally.mark(bits, 'active')
-    for (const bit of bits) tally[bit] = tally[bit] + 1
+    for (const bit of bits) tally[bit] = (tally.at(bit) ?? 0) + 1
+    acc ^= num
     viz.step('xor in nums[' + i.value + '] = ' + num)
   }
 
@@ -310,6 +346,7 @@ export default function singleNumber(nums, viz) {
       const r = run.results[index]!
       const input = testCase.args[0] as number[]
       expectTallyIsATruePrefixBitCount(r.trace, input, `starter: ${testCase.name}`)
+      expectAccNeverLeadsTheTally(r.trace, `starter: ${testCase.name}`)
       expectFinalTallyReconstructsAnswer(r.trace, r.returned as number, `starter: ${testCase.name}`)
       expectNumsResultMarksTheAnswer(r.trace, input, r.returned as number, `starter: ${testCase.name}`)
     }
