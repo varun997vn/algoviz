@@ -9,3 +9,8 @@ test-results/
 blob-report/
 .DS_Store
 *.log
+
+# Isolated checkouts for authoring subagents. Whole copies of this repo living inside it, so
+# without this a `git add -A` in the main tree commits them as embedded repositories — and
+# `eslint.config.js` ignores them for the same reason.
+.claude/worktrees/

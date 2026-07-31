@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { executeRun } from '@algoviz/runner'
 import { requireProblem } from '@algoviz/problems'
 import { TraceReader, type StructureSnapshot } from '@algoviz/tracer'
+import { eachFrame, expectHolds, structureId } from '../invariants.js'
 
 type StringSnapshot = Extract<StructureSnapshot, { kind: 'string' }>
 
@@ -10,9 +11,7 @@ type StringSnapshot = Extract<StructureSnapshot, { kind: 'string' }>
  * resolve to nothing. `maybeStringNamed` returns undefined there; `stringNamed` insists.
  */
 function maybeStringNamed(reader: TraceReader, frame: number, name: string): StringSnapshot | undefined {
-  const meta = reader.trace.structures.find((s) => s.name === name)
-  if (!meta) throw new Error(`trace has no structure named "${name}"`)
-  const snapshot = reader.at(frame).get(meta.id)
+  const snapshot = reader.at(frame).get(structureId(reader.trace, name))
   if (!snapshot) return undefined
   if (snapshot.kind !== 'string') {
     throw new Error(`"${name}" is a ${snapshot.kind}, not a string, at frame ${frame}`)
@@ -73,6 +72,8 @@ describe('Merge Strings Alternately trace semantics', () => {
   })
 
   it('grows merged monotonically — a character is never un-appended', () => {
+    // Stateful across frames (each check needs the previous frame's value), so it does not fit
+    // `eachFrame`'s pure-per-frame shape — but it still walks every frame, not a subset.
     let previous = ''
     let seen = 0
     for (let i = 0; i < reader.frameCount; i += 1) {
@@ -135,29 +136,32 @@ describe('Merge Strings Alternately — every case', () => {
 
   it.each(cases)('$testCase.name — each caret stays inside the string it indexes', ({ word1, word2, reader }) => {
     let checked = 0
-    for (let frame = 0; frame < reader.frameCount; frame += 1) {
-      const a = maybeStringNamed(reader, frame, 'word1')
-      const b = maybeStringNamed(reader, frame, 'word2')
+    expectHolds(
+      eachFrame(reader.trace, (frame) => {
+        const a = frame.get('word1', 'string')
+        const b = frame.get('word2', 'string')
+        const said: string[] = []
 
-      // A caret may rest one past the last character it consumed, but never further, and
-      // never past the end of a *different* string than the one it belongs to.
-      const i = a && cursorIndex(a, 'i')
-      if (a && i !== undefined) {
-        expect(i, `frame ${frame}: i`).toBeGreaterThanOrEqual(0)
-        expect(i, `frame ${frame}: i beyond word1`).toBeLessThanOrEqual(word1.length)
-        checked += 1
-      }
-      const j = b && cursorIndex(b, 'j')
-      if (b && j !== undefined) {
-        expect(j, `frame ${frame}: j`).toBeGreaterThanOrEqual(0)
-        expect(j, `frame ${frame}: j beyond word2`).toBeLessThanOrEqual(word2.length)
-        checked += 1
-      }
+        // A caret may rest one past the last character it consumed, but never further, and
+        // never past the end of a *different* string than the one it belongs to.
+        const i = a && cursorIndex(a, 'i')
+        if (a && i !== undefined) {
+          if (i < 0 || i > word1.length) said.push(`i=${i} out of bounds for word1 (len ${word1.length})`)
+          checked += 1
+        }
+        const j = b && cursorIndex(b, 'j')
+        if (b && j !== undefined) {
+          if (j < 0 || j > word2.length) said.push(`j=${j} out of bounds for word2 (len ${word2.length})`)
+          checked += 1
+        }
 
-      // Attachment must be right too: j on word1 would render a caret over the wrong letters.
-      if (a) expect(cursorIndex(a, 'j'), `frame ${frame}: j attached to word1`).toBeUndefined()
-      if (b) expect(cursorIndex(b, 'i'), `frame ${frame}: i attached to word2`).toBeUndefined()
-    }
+        // Attachment must be right too: j on word1 would render a caret over the wrong letters.
+        if (a && cursorIndex(a, 'j') !== undefined) said.push('j attached to word1')
+        if (b && cursorIndex(b, 'i') !== undefined) said.push('i attached to word2')
+        return said
+      }),
+      'each caret stays inside, and attached to, the string it indexes',
+    )
     expect(checked).toBeGreaterThan(0)
   })
 

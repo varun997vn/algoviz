@@ -451,6 +451,33 @@ describe('Cell rendering of awkward values', () => {
   })
 })
 
+describe('TreeViz survives a snapshot no tree should produce', () => {
+  it('renders a cyclic tree instead of hanging on it', () => {
+    // `VizTree` refuses to build a cycle, which is the real fix — but a visualizer is a pure
+    // function of a snapshot and a snapshot can arrive from anywhere, and this failure mode is not
+    // a wrong picture: `layoutTree` recursed until the stack gave out, which in a browser is a
+    // locked tab. Before the write half existed no `VizTree` could be cyclic, so nothing here had
+    // ever had to defend against one.
+    //
+    // If this regresses, the test does not fail — it hangs, and vitest kills it on the suite
+    // timeout. That is the honest shape of the assertion: the thing being checked is termination.
+    const container = renderSnapshot({
+      kind: 'tree',
+      nodes: [
+        { id: 'a', value: 1, left: 'b', right: null },
+        { id: 'b', value: 2, left: 'a', right: null },
+      ],
+      root: 'a',
+      marks: [],
+      edgeMarks: [],
+    } as never)
+    // Each node is drawn once; the edge back to the root is simply not claimed a second time.
+    expect(container.querySelectorAll('[data-node-id]')).toHaveLength(2)
+    expect(container.querySelector('[data-node-id="a"]')).not.toBeNull()
+    expect(container.querySelector('[data-node-id="b"]')).not.toBeNull()
+  })
+})
+
 describe('GridViz labelling', () => {
   it('puts the column labels above the grid, beside the row they label', () => {
     // They used to be drawn under the bottom row, which is fine for a one-row 1-D table and wrong

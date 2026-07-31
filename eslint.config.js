@@ -4,7 +4,21 @@ import reactHooks from 'eslint-plugin-react-hooks'
 import globals from 'globals'
 
 export default tseslint.config(
-  { ignores: ['**/dist/**', '**/dist-types/**', '**/coverage/**', '**/playwright-report/**', '**/test-results/**'] },
+  {
+    // `.claude/worktrees/**` holds the isolated checkouts subagents author in. They are whole
+    // copies of this repo living *inside* it, so without this every lint run in the main tree also
+    // lints someone else's half-finished work — and fails on it, which is exactly backwards from
+    // what the isolation is for. They also each carry their own `apps/web`, which trips the
+    // react-hooks plugin four times over for no reason.
+    ignores: [
+      '**/dist/**',
+      '**/dist-types/**',
+      '**/coverage/**',
+      '**/playwright-report/**',
+      '**/test-results/**',
+      '.claude/worktrees/**',
+    ],
+  },
 
   js.configs.recommended,
   ...tseslint.configs.recommended,

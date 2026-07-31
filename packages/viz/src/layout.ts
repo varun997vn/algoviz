@@ -56,12 +56,22 @@ function layoutHierarchy(roots: TreeLike[], byId: Map<NodeId, TreeLike>, pad = 3
 
 export function layoutTree(nodes: readonly TreeNodeSnapshot[], root: NodeId | null): LaidOut {
   if (nodes.length === 0 || root === null) return { positions: new Map(), width: 0, height: 0 }
-  const byId = new Map<NodeId, TreeLike>(
-    nodes.map((n) => [
-      n.id,
-      { id: n.id, children: [n.left, n.right].filter((c): c is NodeId => c !== null) },
-    ]),
-  )
+  // Belt and braces against a cycle. `VizTree` refuses to build one, which is the real fix — but a
+  // visualizer is a pure function of a snapshot and a snapshot can arrive from anywhere, and the
+  // failure mode here is not a wrong picture: it is a recursion that never returns, which in the
+  // browser is a locked tab. A node already claimed by an earlier parent is simply not claimed
+  // twice, so the worst case becomes a subtree drawn once instead of an app that stops responding.
+  const claimed = new Set<NodeId>([root])
+  const childrenOf = (n: TreeNodeSnapshot): NodeId[] => {
+    const kids: NodeId[] = []
+    for (const c of [n.left, n.right]) {
+      if (c === null || claimed.has(c)) continue
+      claimed.add(c)
+      kids.push(c)
+    }
+    return kids
+  }
+  const byId = new Map<NodeId, TreeLike>(nodes.map((n) => [n.id, { id: n.id, children: childrenOf(n) }]))
   const rootLike = byId.get(root)
   return rootLike ? layoutHierarchy([rootLike], byId) : { positions: new Map(), width: 0, height: 0 }
 }

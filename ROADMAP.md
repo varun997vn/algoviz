@@ -5,17 +5,17 @@
 Every problem here is solved *inside the app*: you write the instrumented solution and
 watch your own algorithm execute over a live visualization of the structures it touches.
 
-**Progress: 18 / 75 done (24%)**
+**Progress: 20 / 75 done (27%)**
 
 `███████░░░░░░░░░░░░░░░░░░░░░`
 
 | Status | Count |
 | --- | --- |
-| ⬜ todo | 57 |
-| 🟡 in-progress | 0 |
+| ⬜ todo | 52 |
+| 🟡 in-progress | 3 |
 | 🔵 review | 0 |
 | 🔴 blocked | 0 |
-| ✅ done | 18 |
+| ✅ done | 20 |
 
 ## Next up
 
@@ -59,12 +59,12 @@ Run the `solve-problem` skill to take the next one end to end.
 | 1004 | [Max Consecutive Ones III](https://leetcode.com/problems/max-consecutive-ones-iii/) | medium | `array, cursor` | ⬜ todo | — |
 | 1493 | [Longest Subarray of 1's After Deleting One Element](https://leetcode.com/problems/longest-subarray-of-1s-after-deleting-one-element/) | medium | `array, cursor` | ⬜ todo | — |
 
-### Prefix Sum — 0/2
+### Prefix Sum — 1/2
 
 | # | Problem | Difficulty | Structures | Status | PR |
 | --- | --- | --- | --- | --- | --- |
 | 1732 | [Find the Highest Altitude](https://leetcode.com/problems/find-the-highest-altitude/) | easy | `array` | ⬜ todo | — |
-| 724 | [Find Pivot Index](https://leetcode.com/problems/find-pivot-index/) | easy | `array, cursor` | ⬜ todo | — |
+| 724 | [Find Pivot Index](https://leetcode.com/problems/find-pivot-index/) | easy | `array, cursor` | ✅ done | — |
 
 ### HashMap / Set — 1/4
 
@@ -87,7 +87,7 @@ Run the `solve-problem` skill to take the next one end to end.
 
 | # | Problem | Difficulty | Structures | Status | PR |
 | --- | --- | --- | --- | --- | --- |
-| 933 | [Number of Recent Calls](https://leetcode.com/problems/number-of-recent-calls/) | easy | `queue` | ⬜ todo | — |
+| 933 | [Number of Recent Calls](https://leetcode.com/problems/number-of-recent-calls/) | easy | `queue` | 🟡 in-progress | — |
 | 649 | [Dota2 Senate](https://leetcode.com/problems/dota2-senate/) | medium | `queue, string` | ⬜ todo | — |
 
 ### Linked List — 1/4
@@ -122,7 +122,7 @@ Run the `solve-problem` skill to take the next one end to end.
 | # | Problem | Difficulty | Structures | Status | PR |
 | --- | --- | --- | --- | --- | --- |
 | 700 | [Search in a Binary Search Tree](https://leetcode.com/problems/search-in-a-binary-search-tree/) | easy | `tree` | ⬜ todo | — |
-| 450 | [Delete Node in a BST](https://leetcode.com/problems/delete-node-in-a-bst/) | medium | `tree` | ⬜ todo | — |
+| 450 | [Delete Node in a BST](https://leetcode.com/problems/delete-node-in-a-bst/) | medium | `tree` | 🟡 in-progress | — |
 
 ### Graphs - DFS — 2/4
 
@@ -156,7 +156,7 @@ Run the `solve-problem` skill to take the next one end to end.
 | 374 | [Guess Number Higher or Lower](https://leetcode.com/problems/guess-number-higher-or-lower/) | easy | `array, cursor` | ⬜ todo | — |
 | 2300 | [Successful Pairs of Spells and Potions](https://leetcode.com/problems/successful-pairs-of-spells-and-potions/) | medium | `array, cursor` | ⬜ todo | — |
 | 162 | [Find Peak Element](https://leetcode.com/problems/find-peak-element/) | medium | `array, cursor` | ⬜ todo | — |
-| 875 | [Koko Eating Bananas](https://leetcode.com/problems/koko-eating-bananas/) | medium | `array, cursor` | ⬜ todo | — |
+| 875 | [Koko Eating Bananas](https://leetcode.com/problems/koko-eating-bananas/) | medium | `array, cursor` | 🟡 in-progress | — |
 
 ### Backtracking — 1/2
 
@@ -183,12 +183,12 @@ Run the `solve-problem` skill to take the next one end to end.
 | 714 | [Best Time to Buy and Sell Stock with Transaction Fee](https://leetcode.com/problems/best-time-to-buy-and-sell-stock-with-transaction-fee/) | medium | `dp, array` | ⬜ todo | — |
 | 72 | [Edit Distance](https://leetcode.com/problems/edit-distance/) | medium | `dp, string` | ⬜ todo | — |
 
-### Bit Manipulation — 0/3
+### Bit Manipulation — 1/3
 
 | # | Problem | Difficulty | Structures | Status | PR |
 | --- | --- | --- | --- | --- | --- |
 | 338 | [Counting Bits](https://leetcode.com/problems/counting-bits/) | easy | `array, dp` | ⬜ todo | — |
-| 136 | [Single Number](https://leetcode.com/problems/single-number/) | easy | `array` | ⬜ todo | — |
+| 136 | [Single Number](https://leetcode.com/problems/single-number/) | easy | `array` | ✅ done | — |
 | 1318 | [Minimum Flips to Make a OR b Equal to c](https://leetcode.com/problems/minimum-flips-to-make-a-or-b-equal-to-c/) | medium | `array` | ⬜ todo | — |
 
 ### Trie — 1/2
@@ -219,7 +219,7 @@ visualizer has no real user yet, however green its unit tests are.
 
 | Structure | Done | Planned |
 | --- | --- | --- |
-| `array` | 8 | 38 |
+| `array` | 10 | 38 |
 | `matrix` | 1 | 4 |
 | `string` | 4 | 13 |
 | `list` | 1 | 4 |
@@ -233,4 +233,4 @@ visualizer has no real user yet, however green its unit tests are.
 | `dp` | 2 | 9 |
 | `intervals` | 1 | 2 |
 | `trie` | 2 | 3 |
-| `cursor` | 4 | 23 |
+| `cursor` | 5 | 23 |

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { executeRun } from '@algoviz/runner'
 import { requireProblem } from '@algoviz/problems'
 import { TraceReader, type StructureSnapshot, type Trace } from '@algoviz/tracer'
+import { eachFrame, eachStepFrame, expectHolds, structureId, type FrameView } from '../invariants.js'
 
 /**
  * LeetCode 394 — Decode String.
@@ -30,23 +31,13 @@ const COUNTS = 'repeat counts'
 const SAVED = 'text before the ['
 const OUT = 'the piece being built'
 
-function idOf(trace: Trace, name: string): string {
-  const meta = trace.structures.find((s) => s.name === name)
-  if (!meta) {
-    throw new Error(
-      `no structure named "${name}" — got ${trace.structures.map((s) => s.name).join(', ')}`,
-    )
-  }
-  return meta.id
-}
-
 function resolve<K extends StructureSnapshot['kind']>(
   reader: TraceReader,
   name: string,
   kind: K,
   frame: number,
 ): Extract<StructureSnapshot, { kind: K }> | undefined {
-  const snap = reader.structureAt(idOf(reader.trace, name), frame)
+  const snap = reader.structureAt(structureId(reader.trace, name), frame)
   return snap?.kind === kind ? (snap as Extract<StructureSnapshot, { kind: K }>) : undefined
 }
 
@@ -79,6 +70,10 @@ function caretAt(reader: TraceReader, frame: number): number {
   return input?.cursors.find((c) => c.name === 'i')?.index ?? 0
 }
 
+function caretOf(frame: FrameView): number {
+  return frame.get(INPUT, 'string')?.cursors.find((c) => c.name === 'i')?.index ?? 0
+}
+
 /**
  * The claim the whole visualization rests on, checked frame by frame.
  *
@@ -86,40 +81,43 @@ function caretAt(reader: TraceReader, frame: number): number {
  * the reference honest is literally the same code that rejects the impostor.
  */
 function expectDepthEveryFrame(trace: Trace, s: string, label: string): void {
-  const reader = new TraceReader(trace)
   const depthAfter = depthTable(s)
   let checked = 0
   let deepest = 0
 
-  for (let f = 0; f < reader.frameCount; f += 1) {
-    const counts = resolve(reader, COUNTS, 'stack', f)
-    const saved = resolve(reader, SAVED, 'stack', f)
-    if (!counts || !saved) continue
-    checked += 1
-    deepest = Math.max(deepest, counts.values.length)
+  expectHolds(
+    eachFrame(trace, (frame) => {
+      const counts = frame.get(COUNTS, 'stack')
+      const saved = frame.get(SAVED, 'stack')
+      if (!counts || !saved) return
+      checked += 1
+      deepest = Math.max(deepest, counts.values.length)
 
-    const i = caretAt(reader, f)
-    const lo = Math.min(depthAfter(i - 1), depthAfter(i))
-    const hi = Math.max(depthAfter(i - 1), depthAfter(i))
+      const i = caretOf(frame)
+      const lo = Math.min(depthAfter(i - 1), depthAfter(i))
+      const hi = Math.max(depthAfter(i - 1), depthAfter(i))
 
-    for (const [name, stack] of [
-      [COUNTS, counts],
-      [SAVED, saved],
-    ] as const) {
-      expect(
-        stack.values.length >= lo && stack.values.length <= hi,
-        `${label} frame ${f}: caret on s[${i}] = ${JSON.stringify(s[i])}, so the nesting depth is ${lo === hi ? lo : `${lo} or ${hi}`}, but "${name}" is ${stack.values.length} deep`,
-      ).toBe(true)
-    }
+      const said: string[] = []
+      for (const [name, stack] of [
+        [COUNTS, counts],
+        [SAVED, saved],
+      ] as const) {
+        if (!(stack.values.length >= lo && stack.values.length <= hi)) {
+          said.push(
+            `caret on s[${i}] = ${JSON.stringify(s[i])}, so the nesting depth is ${lo === hi ? lo : `${lo} or ${hi}`}, but "${name}" is ${stack.values.length} deep`,
+          )
+        }
+      }
 
-    // `counts` is pushed first and popped last, so it is never the shorter of the two. That is
-    // what makes it the panel a viewer can read the depth off without a caveat.
-    expect(
-      saved.values.length,
-      `${label} frame ${f}: stacks are ${counts.values.length} and ${saved.values.length} deep`,
-    ).toBeGreaterThanOrEqual(counts.values.length - 1)
-    expect(saved.values.length).toBeLessThanOrEqual(counts.values.length)
-  }
+      // `counts` is pushed first and popped last, so it is never the shorter of the two. That is
+      // what makes it the panel a viewer can read the depth off without a caveat.
+      if (saved.values.length < counts.values.length - 1 || saved.values.length > counts.values.length) {
+        said.push(`stacks are ${counts.values.length} and ${saved.values.length} deep`)
+      }
+      return said
+    }),
+    `${label}: the stack height is the nesting depth`,
+  )
 
   expect(checked, `${label}: no frame carried both stacks`).toBeGreaterThan(0)
 
@@ -130,21 +128,24 @@ function expectDepthEveryFrame(trace: Trace, s: string, label: string): void {
   expect(deepest, `${label}: the stack panel never gets deeper than ${deepest}`).toBe(maxDepth)
 
   // Exactly the depth on every narrated frame — the frames the player stops on.
-  for (const f of reader.stepFrames()) {
-    const counts = resolve(reader, COUNTS, 'stack', f)
-    const saved = resolve(reader, SAVED, 'stack', f)
-    if (!counts || !saved) continue
-    const i = caretAt(reader, f)
-    expect(
-      [counts.values.length, saved.values.length],
-      `${label} step frame ${f}: s[${i}] leaves depth ${depthAfter(i)}`,
-    ).toEqual([depthAfter(i), depthAfter(i)])
-  }
+  expectHolds(
+    eachStepFrame(trace, (frame) => {
+      const counts = frame.get(COUNTS, 'stack')
+      const saved = frame.get(SAVED, 'stack')
+      if (!counts || !saved) return
+      const i = caretOf(frame)
+      const want = depthAfter(i)
+      if (counts.values.length !== want || saved.values.length !== want) {
+        return `s[${i}] leaves depth ${want}, but heights are [${counts.values.length}, ${saved.values.length}]`
+      }
+    }),
+    `${label}: both stacks are exactly the depth on every narrated frame`,
+  )
 }
 
 /** Push/pop history reconstructed from each stack's own snapshots, not from frame labels. */
 function stackTraffic(trace: Trace, name: string): { pushes: number; pops: number } {
-  const id = idOf(trace, name)
+  const id = structureId(trace, name)
   let pushes = 0
   let pops = 0
   let prev = 0
@@ -331,7 +332,7 @@ describe('Decode String — reference trace semantics', () => {
     // `inner` is therefore the panel's value as of the last frame on which it *differed*, not the
     // value one frame back — the rewrite is now its own frame, so "one frame back" is already the
     // reassembled piece and comparing against it would be circular.
-    const savedId = idOf(trace, SAVED)
+    const savedId = structureId(trace, SAVED)
     let held: string[] = []
     let inner = ''
     let pops = 0

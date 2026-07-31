@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { executeRun } from '@algoviz/runner'
 import { requireProblem } from '@algoviz/problems'
 import { TraceReader, type Primitive, type StructureSnapshot, type Trace } from '@algoviz/tracer'
+import { eachFrame, expectHolds, expectRejects, structureId } from '../invariants.js'
 
 /**
  * LeetCode 739 — Daily Temperatures.
@@ -22,29 +23,19 @@ const TEMPS = 'temperatures'
 const ANSWER = 'answer'
 const STACK = 'waiting (day #)'
 
-function idOf(trace: Trace, name: string): string {
-  const meta = trace.structures.find((s) => s.name === name)
-  if (!meta) {
-    throw new Error(
-      `no structure named "${name}" — got ${trace.structures.map((s) => s.name).join(', ')}`,
-    )
-  }
-  return meta.id
-}
-
 function resolve<K extends StructureSnapshot['kind']>(
   reader: TraceReader,
   name: string,
   kind: K,
   frame: number,
 ): Extract<StructureSnapshot, { kind: K }> | undefined {
-  const snap = reader.structureAt(idOf(reader.trace, name), frame)
+  const snap = reader.structureAt(structureId(reader.trace, name), frame)
   return snap?.kind === kind ? (snap as Extract<StructureSnapshot, { kind: K }>) : undefined
 }
 
 /** Push/pop history reconstructed from the stack's own snapshots, not from frame labels. */
 function stackHistory(trace: Trace): { pushed: number[]; popped: number[] } {
-  const stackId = idOf(trace, STACK)
+  const stackId = structureId(trace, STACK)
   const pushed: number[] = []
   const popped: number[] = []
   let prev: Primitive[] = []
@@ -69,35 +60,38 @@ function stackHistory(trace: Trace): { pushed: number[]; popped: number[] } {
  *  - the temperatures at those days never increase from the bottom of the stack to the top.
  */
 function expectMonotonicEveryFrame(trace: Trace, label: string): void {
-  const reader = new TraceReader(trace)
   let checked = 0
 
-  for (let i = 0; i < reader.frameCount; i += 1) {
-    const stack = resolve(reader, STACK, 'stack', i)
-    const temps = resolve(reader, TEMPS, 'array', i)
-    if (!stack || !temps) continue
-    const days = stack.values as number[]
+  expectHolds(
+    eachFrame(trace, (frame) => {
+      const stack = frame.get(STACK, 'stack')
+      const temps = frame.get(TEMPS, 'array')
+      if (!stack || !temps) return
+      const days = stack.values as number[]
+      const said: string[] = []
 
-    for (const day of days) {
-      expect(
-        Number.isInteger(day) && day >= 0 && day < temps.values.length,
-        `${label} frame ${i}: stack holds ${day}, which is not a day index`,
-      ).toBe(true)
-    }
+      for (const day of days) {
+        if (!(Number.isInteger(day) && day >= 0 && day < temps.values.length)) {
+          said.push(`stack holds ${day}, which is not a day index`)
+        }
+      }
 
-    const onStack = days.map((day) => temps.values[day] as number)
-    for (let k = 1; k < days.length; k += 1) {
-      expect(
-        days[k]!,
-        `${label} frame ${i}: stack days ${days.join(',')} are not in scan order`,
-      ).toBeGreaterThan(days[k - 1]!)
-      expect(
-        onStack[k]!,
-        `${label} frame ${i}: stack temps bottom->top are ${onStack.join(',')} — slot ${k} is warmer than the one below it, so this is not a monotonic stack`,
-      ).toBeLessThanOrEqual(onStack[k - 1]!)
-    }
-    checked += 1
-  }
+      const onStack = days.map((day) => temps.values[day] as number)
+      for (let k = 1; k < days.length; k += 1) {
+        if (!(days[k]! > days[k - 1]!)) {
+          said.push(`stack days ${days.join(',')} are not in scan order`)
+        }
+        if (!(onStack[k]! <= onStack[k - 1]!)) {
+          said.push(
+            `stack temps bottom->top are ${onStack.join(',')} — slot ${k} is warmer than the one below it, so this is not a monotonic stack`,
+          )
+        }
+      }
+      checked += 1
+      return said
+    }),
+    `${label}: the stack is monotonic on every frame`,
+  )
 
   // Guard against the invariant "holding" because nothing was ever resolved.
   expect(checked, `${label}: no frame carried both structures`).toBeGreaterThan(0)
@@ -221,7 +215,7 @@ describe('Daily Temperatures — reference trace semantics', () => {
     // pinned cell is the top of the stack. A day that has left the stack while still marked
     // `pinned` inverts exactly that, and it did so for two frames per pop — on the pop frames,
     // which are the ones worth stopping on. Marking before the pop removes it entirely.
-    const stackId = idOf(trace, STACK)
+    const stackId = structureId(trace, STACK)
     let onStack: number[] = []
     for (let i = 0; i < reader.frameCount; i += 1) {
       const temps = resolve(reader, TEMPS, 'array', i)
@@ -289,7 +283,7 @@ describe('Daily Temperatures — reference trace semantics', () => {
     const compareFrames = trace.frames.filter((f) => f.op === 'compare')
     expect(compareFrames.length).toBeGreaterThan(0)
     for (const frame of compareFrames) {
-      const snap = frame.snapshots[idOf(trace, TEMPS)]
+      const snap = frame.snapshots[structureId(trace, TEMPS)]
       expect(snap?.kind).toBe('array')
       const lit = snap?.kind === 'array' ? snap.marks.filter((m) => m.class === 'compare') : []
       expect(lit, `frame ${frame.index} lights ${lit.length} cells`).toHaveLength(2)
@@ -334,7 +328,8 @@ export default function dailyTemperatures(temperatures, viz) {
   it('accepts the brute-force answer but rejects its stack', () => {
     expect(result.diagnostics).toEqual([])
     expect(result.results[0]?.passed).toBe(true)
-    expect(() => expectMonotonicEveryFrame(result.results[0]!.trace, 'brute force')).toThrow(
+    expectRejects(
+      () => expectMonotonicEveryFrame(result.results[0]!.trace, 'brute force'),
       /not a monotonic stack/,
     )
   })
@@ -405,7 +400,7 @@ describe('Daily Temperatures — the invariant holds on every case', () => {
     const index = problem.cases.findIndex((c) => c.tags?.includes('large'))
     const caseResult = result.results[index]!
     const reader = new TraceReader(caseResult.trace)
-    const stackId = idOf(caseResult.trace, STACK)
+    const stackId = structureId(caseResult.trace, STACK)
 
     let deepest = 0
     for (let i = 0; i < reader.frameCount; i += 1) {

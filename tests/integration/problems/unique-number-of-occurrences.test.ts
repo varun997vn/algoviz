@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { executeRun } from '@algoviz/runner'
 import { requireProblem } from '@algoviz/problems'
 import { TraceReader, type StructureSnapshot, type Trace } from '@algoviz/tracer'
+import { eachFrame, expectHolds, structureId } from '../invariants.js'
 
 /**
  * LeetCode 1207 — Unique Number of Occurrences.
@@ -33,23 +34,13 @@ const SET = 'counts claimed'
 /** The narration that must exist on exactly the frame the answer becomes false. */
 const COLLISION = /^(-?\d+) and (-?\d+) both occur exactly (\d+) time\(s\)/
 
-function idOf(trace: Trace, name: string): string {
-  const meta = trace.structures.find((s) => s.name === name)
-  if (!meta) {
-    throw new Error(
-      `no structure named "${name}" — got ${trace.structures.map((s) => s.name).join(', ')}`,
-    )
-  }
-  return meta.id
-}
-
 function resolve<K extends StructureSnapshot['kind']>(
   reader: TraceReader,
   name: string,
   kind: K,
   frame: number,
 ): Extract<StructureSnapshot, { kind: K }> | undefined {
-  const snap = reader.structureAt(idOf(reader.trace, name), frame)
+  const snap = reader.structureAt(structureId(reader.trace, name), frame)
   return snap?.kind === kind ? (snap as Extract<StructureSnapshot, { kind: K }>) : undefined
 }
 
@@ -84,24 +75,28 @@ function sameTally(a: Map<string, number>, b: Map<string, number>): boolean {
  * double-counts, or is written from the final answer in one go fails somewhere in the middle.
  */
 function expectMapIsATruePrefixTally(trace: Trace, input: readonly number[], label: string): void {
-  const reader = new TraceReader(trace)
   const wanted = prefixTallies(input)
   let reached = 0
   let checked = 0
 
-  for (let i = 0; i < reader.frameCount; i += 1) {
-    const snap = resolve(reader, MAP, 'map', i)
-    if (!snap) continue
-    const shown = tallyOf(snap)
-    const at = wanted.findIndex((t) => sameTally(t, shown))
-    expect(
-      at,
-      `${label} frame ${i}: map shows ${JSON.stringify([...shown])}, which is not the tally of any prefix of the input`,
-    ).toBeGreaterThanOrEqual(0)
-    expect(at, `${label} frame ${i}: the tally went backwards`).toBeGreaterThanOrEqual(reached)
-    reached = at
-    checked += 1
-  }
+  expectHolds(
+    eachFrame(trace, (frame) => {
+      const snap = frame.get(MAP, 'map')
+      if (!snap) return
+      const shown = tallyOf(snap)
+      const at = wanted.findIndex((t) => sameTally(t, shown))
+      const said: string[] = []
+      if (at < 0) {
+        said.push(`map shows ${JSON.stringify([...shown])}, which is not the tally of any prefix of the input`)
+        return said
+      }
+      if (at < reached) said.push('the tally went backwards')
+      reached = at
+      checked += 1
+      return said
+    }),
+    `${label}: the map is a true prefix tally on every frame`,
+  )
 
   expect(checked, `${label}: no frame carried the map at all`).toBeGreaterThan(0)
   expect(
@@ -116,42 +111,40 @@ function expectMapIsATruePrefixTally(trace: Trace, input: readonly number[], lab
  * beside a real answer computed elsewhere.
  */
 function expectSetGrowsOnlyOnDistinctCounts(trace: Trace, label: string): void {
-  const reader = new TraceReader(trace)
   let previous: number[] = []
   let checked = 0
 
-  for (let i = 0; i < reader.frameCount; i += 1) {
-    const set = resolve(reader, SET, 'set', i)
-    if (!set) continue
-    const values = set.values as number[]
+  expectHolds(
+    eachFrame(trace, (frame) => {
+      const set = frame.get(SET, 'set')
+      if (!set) return
+      const values = set.values as number[]
+      const said: string[] = []
 
-    expect(
-      new Set(values).size,
-      `${label} frame ${i}: set shows ${values.join(',')} — a set cannot hold a duplicate`,
-    ).toBe(values.length)
-    expect(
-      values.slice(0, previous.length),
-      `${label} frame ${i}: the set lost or reordered a count it already held`,
-    ).toEqual(previous)
-    expect(
-      values.length - previous.length,
-      `${label} frame ${i}: the set jumped from ${previous.length} to ${values.length} counts in one frame`,
-    ).toBeLessThanOrEqual(1)
-
-    const map = resolve(reader, MAP, 'map', i)
-    if (map) {
-      const counts = new Set(map.entries.map((e) => e.value as number))
-      for (const claimed of values) {
-        expect(
-          counts.has(claimed),
-          `${label} frame ${i}: the set claims count ${claimed}, which no row of the map has`,
-        ).toBe(true)
+      if (new Set(values).size !== values.length) {
+        said.push(`set shows ${values.join(',')} — a set cannot hold a duplicate`)
       }
-    }
+      if (JSON.stringify(values.slice(0, previous.length)) !== JSON.stringify(previous)) {
+        said.push('the set lost or reordered a count it already held')
+      }
+      if (values.length - previous.length > 1) {
+        said.push(`the set jumped from ${previous.length} to ${values.length} counts in one frame`)
+      }
 
-    previous = values
-    checked += 1
-  }
+      const map = frame.get(MAP, 'map')
+      if (map) {
+        const counts = new Set(map.entries.map((e) => e.value as number))
+        for (const claimed of values) {
+          if (!counts.has(claimed)) said.push(`the set claims count ${claimed}, which no row of the map has`)
+        }
+      }
+
+      previous = values
+      checked += 1
+      return said
+    }),
+    `${label}: the set only ever grows by a count no row had yet`,
+  )
   expect(checked, `${label}: no frame carried the set at all`).toBeGreaterThan(0)
 }
 
@@ -295,7 +288,7 @@ describe('Unique Number of Occurrences — reference trace semantics', () => {
   })
 
   it('interrogates the set once per row, before growing it', () => {
-    const setId = idOf(trace, SET)
+    const setId = structureId(trace, SET)
     const ops = trace.frames
       .filter((f) => f.structureId === setId && (f.op === 'read' || f.op === 'insert'))
       .map((f) => f.op)
@@ -363,7 +356,7 @@ describe('Unique Number of Occurrences — the collision on a false case', () =>
   it('stops at the collision instead of finishing the sweep', () => {
     // The set is interrogated twice and grown once: the second `has` is the answer, and nothing
     // after it happens. A solution that keeps walking is animating work it did not need to do.
-    const setId = idOf(trace, SET)
+    const setId = structureId(trace, SET)
     const ops = trace.frames
       .filter((f) => f.structureId === setId && (f.op === 'read' || f.op === 'insert'))
       .map((f) => `${f.op}:${f.label ?? ''}`)
@@ -375,13 +368,19 @@ describe('Unique Number of Occurrences — the collision on a false case', () =>
       (f) => f.op === 'step' && COLLISION.test(f.label ?? ''),
     )
     expect(collision).toBeGreaterThan(0)
-    for (let i = 0; i < reader.frameCount; i += 1) {
+    // Narrated (`step`) frames only. Five plain `mark` frames land *before* the collision's own
+    // step frame — `claimed`, both map rows, and both array positions each cost their own op-frame
+    // ahead of the `viz.step` that narrates the tie (CLAUDE.md's "one frame per op" gap) — so the
+    // raw op log briefly shows the exclusion before the caption exists to explain it. That is
+    // invisible to a viewer, who only ever stops on narrated frames, so this is a claim about the
+    // narrated sequence, not the full per-op walk.
+    for (const i of reader.stepFrames()) {
       const excluded = [
         ...(resolve(reader, MAP, 'map', i)?.marks ?? []),
         ...(resolve(reader, SET, 'set', i)?.marks ?? []),
         ...(resolve(reader, ARR, 'array', i)?.marks ?? []),
       ].filter((m) => m.class === 'excluded')
-      if (i < collision - 5) {
+      if (i < collision) {
         expect(excluded, `frame ${i} crosses something out before the tie is found`).toEqual([])
       }
     }

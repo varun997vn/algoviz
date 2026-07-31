@@ -2,6 +2,13 @@ import { describe, expect, it } from 'vitest'
 import { executeRun } from '@algoviz/runner'
 import { requireProblem } from '@algoviz/problems'
 import { TraceReader, type StructureSnapshot, type Trace } from '@algoviz/tracer'
+import {
+  eachFrame,
+  eachStepFrame,
+  expectHolds,
+  expectStarterTranscription,
+  structureId,
+} from '../invariants.js'
 
 /**
  * LeetCode 215 — Kth Largest Element in an Array.
@@ -29,23 +36,13 @@ const NUMS = 'nums'
 const HEAP = 'the k largest so far'
 const PANEL = 'k-th largest so far'
 
-function idOf(trace: Trace, name: string): string {
-  const meta = trace.structures.find((s) => s.name === name)
-  if (!meta) {
-    throw new Error(
-      `no structure named "${name}" — got ${trace.structures.map((s) => s.name).join(', ') || '(none)'}`,
-    )
-  }
-  return meta.id
-}
-
 function resolve<K extends StructureSnapshot['kind']>(
   reader: TraceReader,
   name: string,
   kind: K,
   frame: number,
 ): Extract<StructureSnapshot, { kind: K }> | undefined {
-  const snap = reader.structureAt(idOf(reader.trace, name), frame)
+  const snap = reader.structureAt(structureId(reader.trace, name), frame)
   return snap?.kind === kind ? (snap as Extract<StructureSnapshot, { kind: K }>) : undefined
 }
 
@@ -75,42 +72,51 @@ function expectCappedKLargestEveryStep(
   k: number,
   label: string,
 ): void {
-  const reader = new TraceReader(trace)
+  // The cap holds on *every* frame, mid-sift included: the algorithm pops before it pushes, so the
+  // heap dips to k-1 and comes back, and never once overshoots.
+  expectHolds(
+    eachFrame(trace, (frame) => {
+      const heap = frame.get(HEAP, 'heap')
+      if (!heap) return
+      if (heap.values.length > k) return `heap holds ${heap.values.length} values, more than k=${k}`
+    }),
+    `${label}: the heap never holds more than k=${k} values`,
+  )
+
+  // The stronger claim — "exactly the k largest of the prefix, arranged as a valid min-heap" — is
+  // only true at settled points: a sift leaves the heap momentarily not a heap on purpose (that is
+  // what `expectSiftIsAnimated` requires exist), so this is a claim about narrated frames, not
+  // every frame.
   let checked = 0
+  expectHolds(
+    eachStepFrame(trace, (frame) => {
+      const heap = frame.get(HEAP, 'heap')
+      const nums$ = frame.get(NUMS, 'array')
+      if (!heap || !nums$) return
+      const values = heap.values as number[]
+      const cursor = nums$.cursors.find((c) => c.name === 'i')
+      if (!cursor) return 'no "i" caret on nums'
 
-  for (let i = 0; i < reader.frameCount; i += 1) {
-    const heap = resolve(reader, HEAP, 'heap', i)
-    if (!heap) continue
-    const values = heap.values as number[]
+      const scanned = nums.slice(0, Math.min(cursor.index + 1, nums.length))
+      const wanted = [...scanned].sort((a, b) => b - a).slice(0, k)
 
-    // The cap holds on *every* frame, mid-sift included: the algorithm pops before it pushes, so
-    // the heap dips to k-1 and comes back, and never once overshoots.
-    expect(
-      values.length,
-      `${label} frame ${i}: heap holds ${values.length} values, more than k=${k}`,
-    ).toBeLessThanOrEqual(k)
-
-    const frame = trace.frames[i]
-    if (frame?.op !== 'step') continue
-
-    const nums$ = resolve(reader, NUMS, 'array', i)
-    if (!nums$) continue
-    const cursor = nums$.cursors.find((c) => c.name === 'i')
-    expect(cursor, `${label} frame ${i}: no "i" caret on nums`).toBeDefined()
-
-    const scanned = nums.slice(0, Math.min((cursor as { index: number }).index + 1, nums.length))
-    const wanted = [...scanned].sort((a, b) => b - a).slice(0, k)
-
-    expect(
-      isMinHeap(values),
-      `${label} frame ${i}: heap is [${values.join(', ')}], which is not a min-heap — the root is not the smallest kept value`,
-    ).toBe(true)
-    expect(
-      [...values].sort((a, b) => b - a),
-      `${label} frame ${i}: heap holds [${values.join(', ')}] but the ${k} largest of nums[0..${scanned.length - 1}] are [${wanted.join(', ')}]`,
-    ).toEqual(wanted)
-    checked += 1
-  }
+      const said: string[] = []
+      if (!isMinHeap(values)) {
+        said.push(
+          `heap is [${values.join(', ')}], which is not a min-heap — the root is not the smallest kept value`,
+        )
+      }
+      const sorted = [...values].sort((a, b) => b - a)
+      if (JSON.stringify(sorted) !== JSON.stringify(wanted)) {
+        said.push(
+          `heap holds [${values.join(', ')}] but the ${k} largest of nums[0..${scanned.length - 1}] are [${wanted.join(', ')}]`,
+        )
+      }
+      checked += 1
+      return said
+    }),
+    `${label}: the heap is exactly the k largest of the scanned prefix on every narrated frame`,
+  )
 
   // An invariant that was never evaluated is not evidence.
   expect(checked, `${label}: no narrated frame carried both the heap and nums`).toBeGreaterThan(0)
@@ -126,7 +132,7 @@ function expectCappedKLargestEveryStep(
  * are precisely the frames in which the invariant is being restored.
  */
 function expectSiftIsAnimated(trace: Trace, label: string): void {
-  const heapId = idOf(trace, HEAP)
+  const heapId = structureId(trace, HEAP)
   const ops = trace.frames.filter((f) => f.structureId === heapId).map((f) => f.op)
   expect(ops.filter((o) => o === 'compare').length, `${label}: heap never compares`).toBeGreaterThan(0)
   expect(ops.filter((o) => o === 'swap').length, `${label}: heap never swaps`).toBeGreaterThan(0)
@@ -179,7 +185,7 @@ describe('Kth Largest Element in an Array — reference trace semantics', () => 
     // The eviction is the moment the whole animation exists for, and it is visible as the heap
     // momentarily standing at k-1: the root has left and its replacement has not arrived yet.
     // Every such dip must be immediately preceded by a full heap and followed by a full one.
-    const heapId = idOf(trace, HEAP)
+    const heapId = structureId(trace, HEAP)
     const sizes: { frame: number; size: number }[] = []
     for (const frame of trace.frames) {
       const snap = frame.snapshots[heapId]
@@ -214,16 +220,20 @@ describe('Kth Largest Element in an Array — reference trace semantics', () => 
     // before the k-th would assert "0" — a plausible-looking answer for an input containing
     // zeros. Seeded blank, every non-blank cell is a decided value, and this checks that each one
     // is the k-th largest of the prefix ending at that cell, on every frame it is visible.
-    for (let i = 0; i < reader.frameCount; i += 1) {
-      const panel = resolve(reader, PANEL, 'array', i)
-      if (!panel) continue
-      for (const [j, shown] of panel.values.entries()) {
-        if (shown === null) continue
-        expect(shown, `frame ${i}: panel[${j}] shows ${String(shown)}`).toBe(
-          kthLargestOf(nums.slice(0, j + 1), k),
-        )
-      }
-    }
+    expectHolds(
+      eachFrame(trace, (frame) => {
+        const panel = frame.get(PANEL, 'array')
+        if (!panel) return
+        const said: string[] = []
+        for (const [j, shown] of panel.values.entries()) {
+          if (shown === null) continue
+          const want = kthLargestOf(nums.slice(0, j + 1), k)
+          if (shown !== want) said.push(`panel[${j}] shows ${String(shown)}, wanted ${want}`)
+        }
+        return said
+      }),
+      'the payoff panel never shows a k-th largest the algorithm has not settled on',
+    )
     const final = resolve(reader, PANEL, 'array', last)!
     // Blank exactly where there is no k-th largest yet — the first k-1 elements — and nowhere else.
     expect(final.values.flatMap((v, j) => (v === null ? [j] : []))).toEqual([0, 1, 2])
@@ -241,7 +251,9 @@ describe('Kth Largest Element in an Array — reference trace semantics', () => 
         returned,
       )
     }
-    // And the mark, once set, is never taken back or moved.
+    // And the mark, once set, is never taken back or moved. Stateful across frames (this frame's
+    // verdict depends on the last), so it does not fit the pure-per-frame shape of `eachFrame` —
+    // kept as a hand-rolled walk, but still over *every* frame, not a chosen subset.
     let seen = new Set<number>()
     for (let i = 0; i < reader.frameCount; i += 1) {
       const snap = resolve(reader, NUMS, 'array', i)
@@ -278,16 +290,26 @@ describe('Kth Largest Element in an Array — reference trace semantics', () => 
     //
     // No ordering fixes that: a sampler fires on every frame whatever the solution does. So the
     // panel now reports only what is true on every frame, and this checks it on every frame.
-    for (let f = 0; f < reader.frameCount; f += 1) {
-      const watch = reader.watchAt(f)
-      if (!watch) continue
-      expect(Object.keys(watch).sort(), `frame ${f}`).toEqual(['i', 'kept'])
-      const heap = resolve(reader, HEAP, 'heap', f)
-      if (!heap) continue
-      expect(watch.kept, `frame ${f}: watch says ${String(watch.kept)} kept`).toBe(heap.values.length)
-      const cursor = resolve(reader, NUMS, 'array', f)?.cursors.find((c) => c.name === 'i')
-      if (cursor) expect(watch.i, `frame ${f}: caret is at ${cursor.index}`).toBe(cursor.index)
-    }
+    expectHolds(
+      eachFrame(trace, (frame) => {
+        const watch = frame.watch
+        if (!watch) return
+        const said: string[] = []
+        if (JSON.stringify(Object.keys(watch).sort()) !== JSON.stringify(['i', 'kept'])) {
+          said.push(`watch panel has keys [${Object.keys(watch).sort().join(', ')}], expected [i, kept]`)
+        }
+        const heap = frame.get(HEAP, 'heap')
+        if (heap && watch.kept !== heap.values.length) {
+          said.push(`watch says ${String(watch.kept)} kept, heap holds ${heap.values.length}`)
+        }
+        const cursor = frame.get(NUMS, 'array')?.cursors.find((c) => c.name === 'i')
+        if (cursor && watch.i !== cursor.index) {
+          said.push(`watch says caret ${String(watch.i)}, the caret is at ${cursor.index}`)
+        }
+        return said
+      }),
+      'watch panel agrees with the picture on every frame',
+    )
     expect(reader.watchAt(last)!.i).toBe(nums.length)
     // The quantity the panel used to claim is still on screen — in the panel that never lies.
     const payoff = resolve(reader, PANEL, 'array', last)!
@@ -424,7 +446,7 @@ describe('Kth Largest Element in an Array — the invariant holds on every case'
     // Everything is in the top k, so the heap only ever grows and the answer is the minimum.
     const index = problem.cases.findIndex((c) => c.name.startsWith('k = n'))
     const caseResult = result.results[index]!
-    const heapId = idOf(caseResult.trace, HEAP)
+    const heapId = structureId(caseResult.trace, HEAP)
     expect(
       caseResult.trace.frames.filter((f) => f.op === 'pop' && f.structureId === heapId),
     ).toEqual([])
@@ -490,37 +512,13 @@ export default function findKthLargest(nums: number[], k: number, viz: Viz): num
     // shipped starter had it below, so "keeps the payoff panel level with the caption" passed
     // against a program no learner would ever have — and the starter reproduced, verbatim, the
     // 140-frame lag the reference had just been fixed for. An audit found it; CI could not.
-    // The starter's own placeholders, which its TODOs explicitly say to replace. Everything else
-    // is scaffolding the learner is told to leave alone, so a difference there is drift.
-    const placeholders = ["viz.step('at ' + x)", 'return 0']
-    const starter = requireProblem(PROBLEM).starter
-    const scaffolding = starter
-      .split('\n')
-      .map((l) => l.trim())
-      .filter((l) => l.length > 6 && !l.startsWith('//') && !l.startsWith('*'))
-      .filter((l) => !placeholders.includes(l))
-
-    // By **order**, not by presence: each scaffolding line must appear after the previous one, so
-    // a rearrangement is drift rather than a match. That is a real gap closed — but not the whole
-    // of the one the paragraph above describes, and the honest statement of the limit is that the
-    // starter's `viz.step` line is itself a placeholder, so it is not an anchor here and a `kth`
-    // write moving across it is invisible to *this* test. What catches that is `keeps the payoff
-    // panel level with the caption describing it`, which runs the filled program and reads the
-    // frames. Both were checked by reverting; neither alone covers the other's case.
-    const lines = filled.split('\n').map((l) => l.trim())
-    const drift: string[] = []
-    let at = -1
-    for (const line of scaffolding) {
-      const found = lines.indexOf(line, at + 1)
-      if (found === -1) {
-        drift.push(lines.includes(line) ? `out of order: ${line}` : `missing: ${line}`)
-      } else {
-        at = found
-      }
-    }
-    expect(drift, 'the filled solution has drifted from the starter it claims to fill in').toEqual(
-      [],
-    )
+    //
+    // `expectStarterTranscription` states its own limit: the starter's `viz.step` line is itself a
+    // placeholder, so it is not an anchor here and a `kth` write moving across it is invisible to
+    // *this* check. What catches that is `keeps the payoff panel level with the caption describing
+    // it`, which runs the filled program and reads the frames. Both were checked by reverting;
+    // neither alone covers the other's case.
+    expectStarterTranscription(PROBLEM, filled, ["viz.step('at ' + x)", 'return 0'])
   })
 
   it('produces a passing, invariant-holding trace when followed literally', () => {
@@ -545,7 +543,7 @@ export default function findKthLargest(nums: number[], k: number, viz: Viz): num
           : { problem: PROBLEM, source, caseIndex: 1 },
       )
       const trace = run.results[0]!.trace
-      const heapId = idOf(trace, HEAP)
+      const heapId = structureId(trace, HEAP)
       const lit = trace.frames.filter((f) => {
         const snap = f.snapshots[heapId]
         return snap?.kind === 'heap' && snap.marks.some((m) => m.class === 'compare' && m.transient)
