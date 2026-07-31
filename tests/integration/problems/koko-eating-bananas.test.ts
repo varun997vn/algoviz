@@ -2,6 +2,12 @@ import { beforeAll, describe, expect, it } from 'vitest'
 import { executeRun, type CaseResult } from '@algoviz/runner'
 import { requireProblem } from '@algoviz/problems'
 import { TraceReader, type StructureSnapshot, type Trace } from '@algoviz/tracer'
+import {
+  eachFrame,
+  expectHolds,
+  expectMarksPartition,
+  expectStarterTranscription,
+} from '../invariants.js'
 
 /**
  * Koko Eating Bananas — frame-sequence assertions.
@@ -73,22 +79,16 @@ describe('the answer space is partitioned, and the boundary is the answer', () =
     // Index is the speed, which is the only reason a caret named `mid` means anything.
     expect(speeds.values).toEqual(Array.from({ length: fastest + 1 }, (_, k) => k))
 
-    // Exactly one mark per cell — no cell ruled out twice, no cell left unaccounted for. A
-    // solution that returns as soon as it finds a feasible speed leaves the upper half bare.
-    const byIndex = new Map<number, string[]>()
-    for (const m of speeds.marks) byIndex.set(m.index, [...(byIndex.get(m.index) ?? []), m.class])
-    expect([...byIndex.keys()].sort((a, b) => a - b)).toEqual(
-      Array.from({ length: fastest + 1 }, (_, k) => k),
+    // Exactly one mark per cell, and the classes read left to right as: too slow, the answer,
+    // faster than necessary. Both halves catch something — a cell marked twice is a candidate
+    // ruled out for two different reasons, a cell unmarked is a solution that stopped as soon as
+    // it found the answer and left the upper half unaccounted for. Both return the right number.
+    expectMarksPartition(
+      speeds.marks,
+      fastest + 1,
+      (k) => (k < answer ? 'excluded' : k === answer ? 'result' : 'match'),
+      `${name}: the answer space is partitioned, boundary at ${answer}`,
     )
-    const doubled = [...byIndex].filter(([, classes]) => classes.length > 1)
-    expect(doubled, 'a speed was ruled out twice').toEqual([])
-
-    // And the classes read left to right as: too slow, the answer, faster than necessary.
-    const classAt = (i: number): string => byIndex.get(i)![0]!
-    for (let k = 0; k <= fastest; k += 1) {
-      const want = k < answer ? 'excluded' : k === answer ? 'result' : 'match'
-      expect(classAt(k), `speed ${k} (answer is ${answer})`).toBe(want)
-    }
   })
 })
 
@@ -199,29 +199,32 @@ describe('a probe shows its own work', () => {
     // frame that first names the winning speed, whose true cost is exactly the 300-hour deadline.
     // And the closing frames reset `hours` to 0, putting "finishes in 0 hours" beside three piles
     // drawn as eaten, on the one frame a viewer parks on.
+    // `eachFrame` has no filter, which is the point: a check that only applies to probe frames
+    // still has to look at the others to know they are not probe frames.
     const result = byName.get(name)!
-    const reader = new TraceReader(result.trace)
     const piles = requireProblem(PROBLEM).cases.find((c) => c.name === name)!.args[0] as number[]
-    const wrong: string[] = []
 
-    for (let f = 0; f < reader.frameCount; f += 1) {
-      const watch = reader.watchAt(f)
-      const speed = watch?.testing as number | undefined
-      if (!watch || !speed) continue
-      const marked = (arrayAt(reader, PILES, f)?.marks ?? [])
-        .filter((m) => m.transient !== true)
-        .map((m) => m.index)
-      const accounted = marked.reduce((sum, i) => sum + Math.ceil(piles[i]! / speed), 0)
-      if (watch.hours !== accounted) {
-        wrong.push(`frame ${f}: watch says ${String(watch.hours)}h at speed ${speed}, ${marked.length} pile(s) drawn eaten cost ${accounted}h`)
-      }
-      // And the caret naming the speed under test is on the cell that *is* that speed.
-      const mid = arrayAt(reader, SPEEDS, f)?.cursors.find((c) => c.name === 'mid')
-      if (mid && mid.index !== speed) {
-        wrong.push(`frame ${f}: watch says speed ${speed}, the mid caret is on ${mid.index}`)
-      }
-    }
-    expect(wrong.slice(0, 5)).toEqual([])
+    expectHolds(
+      eachFrame(result.trace, (frame) => {
+        const speed = frame.watch?.testing as number | undefined
+        if (!speed) return
+        const said: string[] = []
+        const eaten = (frame.get(PILES, 'array')?.marks ?? [])
+          .filter((m) => m.transient !== true)
+          .map((m) => m.index)
+        const accounted = eaten.reduce((sum, i) => sum + Math.ceil(piles[i]! / speed), 0)
+        if (frame.watch?.hours !== accounted) {
+          said.push(
+            `watch says ${String(frame.watch?.hours)}h at speed ${speed}, ` +
+              `${eaten.length} pile(s) drawn eaten cost ${accounted}h`,
+          )
+        }
+        const mid = frame.get(SPEEDS, 'array')?.cursors.find((c) => c.name === 'mid')
+        if (mid && mid.index !== speed) said.push(`watch says speed ${speed}, the mid caret is on ${mid.index}`)
+        return said
+      }),
+      `${name}: the watch panel agrees with the picture beside it`,
+    )
   })
 
   it('never reports an hour count the piles panel has not accounted for', () => {
@@ -411,30 +414,15 @@ describe('the starter teaches the same picture, not just the same answer', () =>
 `
 
   it('is a transcription of the shipped starter, not a different program', () => {
-    // By **order**, not presence: a rearrangement is drift, and every ordering decision in this
-    // solution is load-bearing (`hours` before the mark, `clearMarks` before the walk, the window
-    // set after `lo`/`hi` move). Presence alone would pass a program with all of them inverted.
-    const placeholders = [
+    // By order, not presence — see `expectStarterTranscription`, which states the limit this
+    // check has and which sibling test covers it. Every ordering decision in this solution is
+    // load-bearing: `hours` before the mark, the clear before the caret, the window after the
+    // bounds move.
+    expectStarterTranscription(PROBLEM, filled, [
       "viz.step(total + ' hours at ' + speed + '/h')",
       "viz.step(lo + '..' + hi + ' still in the running')",
       'return 0',
-    ]
-    const starter = requireProblem(PROBLEM).starter
-    const scaffolding = starter
-      .split('\n')
-      .map((l) => l.trim())
-      .filter((l) => l.length > 6 && !l.startsWith('//') && !l.startsWith('*'))
-      .filter((l) => !placeholders.includes(l))
-
-    const lines = filled.split('\n').map((l) => l.trim())
-    const drift: string[] = []
-    let at = -1
-    for (const line of scaffolding) {
-      const found = lines.indexOf(line, at + 1)
-      if (found === -1) drift.push(lines.includes(line) ? `out of order: ${line}` : `missing: ${line}`)
-      else at = found
-    }
-    expect(drift, 'the filled solution has drifted from the starter it claims to fill in').toEqual([])
+    ])
   })
 
   it('produces the picture its comments promise when followed literally', () => {
