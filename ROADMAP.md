@@ -5,17 +5,17 @@
 Every problem here is solved *inside the app*: you write the instrumented solution and
 watch your own algorithm execute over a live visualization of the structures it touches.
 
-**Progress: 11 / 75 done (15%)**
+**Progress: 18 / 75 done (24%)**
 
-`████░░░░░░░░░░░░░░░░░░░░░░░░`
+`███████░░░░░░░░░░░░░░░░░░░░░`
 
 | Status | Count |
 | --- | --- |
 | ⬜ todo | 57 |
-| 🟡 in-progress | 7 |
+| 🟡 in-progress | 0 |
 | 🔵 review | 0 |
 | 🔴 blocked | 0 |
-| ✅ done | 11 |
+| ✅ done | 18 |
 
 ## Next up
 
@@ -75,13 +75,13 @@ Run the `solve-problem` skill to take the next one end to end.
 | 1657 | [Determine if Two Strings Are Close](https://leetcode.com/problems/determine-if-two-strings-are-close/) | medium | `map, set` | ⬜ todo | — |
 | 2352 | [Equal Row and Column Pairs](https://leetcode.com/problems/equal-row-and-column-pairs/) | medium | `matrix, map` | ⬜ todo | — |
 
-### Stack — 0/3
+### Stack — 1/3
 
 | # | Problem | Difficulty | Structures | Status | PR |
 | --- | --- | --- | --- | --- | --- |
 | 2390 | [Removing Stars From a String](https://leetcode.com/problems/removing-stars-from-a-string/) | medium | `stack, string` | ⬜ todo | — |
 | 735 | [Asteroid Collision](https://leetcode.com/problems/asteroid-collision/) | medium | `stack, array` | ⬜ todo | — |
-| 394 | [Decode String](https://leetcode.com/problems/decode-string/) | medium | `stack, string` | 🟡 in-progress | — |
+| 394 | [Decode String](https://leetcode.com/problems/decode-string/) | medium | `stack, string` | ✅ done | — |
 
 ### Queue — 0/2
 
@@ -110,11 +110,11 @@ Run the `solve-problem` skill to take the next one end to end.
 | 1372 | [Longest ZigZag Path in a Binary Tree](https://leetcode.com/problems/longest-zigzag-path-in-a-binary-tree/) | medium | `tree` | ⬜ todo | — |
 | 236 | [Lowest Common Ancestor of a Binary Tree](https://leetcode.com/problems/lowest-common-ancestor-of-a-binary-tree/) | medium | `tree` | ⬜ todo | — |
 
-### Binary Tree - BFS — 0/2
+### Binary Tree - BFS — 1/2
 
 | # | Problem | Difficulty | Structures | Status | PR |
 | --- | --- | --- | --- | --- | --- |
-| 199 | [Binary Tree Right Side View](https://leetcode.com/problems/binary-tree-right-side-view/) | medium | `tree, queue, array` | 🟡 in-progress | — |
+| 199 | [Binary Tree Right Side View](https://leetcode.com/problems/binary-tree-right-side-view/) | medium | `tree, queue, array` | ✅ done | — |
 | 1161 | [Maximum Level Sum of a Binary Tree](https://leetcode.com/problems/maximum-level-sum-of-a-binary-tree/) | medium | `tree, queue` | ⬜ todo | — |
 
 ### Binary Search Tree — 0/2
@@ -124,14 +124,14 @@ Run the `solve-problem` skill to take the next one end to end.
 | 700 | [Search in a Binary Search Tree](https://leetcode.com/problems/search-in-a-binary-search-tree/) | easy | `tree` | ⬜ todo | — |
 | 450 | [Delete Node in a BST](https://leetcode.com/problems/delete-node-in-a-bst/) | medium | `tree` | ⬜ todo | — |
 
-### Graphs - DFS — 1/4
+### Graphs - DFS — 2/4
 
 | # | Problem | Difficulty | Structures | Status | PR |
 | --- | --- | --- | --- | --- | --- |
 | 841 | [Keys and Rooms](https://leetcode.com/problems/keys-and-rooms/) | medium | `graph, set` | ⬜ todo | — |
 | 547 | [Number of Provinces](https://leetcode.com/problems/number-of-provinces/) | medium | `graph, matrix, set` | ⬜ todo | — |
 | 1466 | [Reorder Routes to Make All Paths Lead to the City Zero](https://leetcode.com/problems/reorder-routes-to-make-all-paths-lead-to-the-city-zero/) | medium | `graph, set` | ✅ done | — |
-| 399 | [Evaluate Division](https://leetcode.com/problems/evaluate-division/) | medium | `array, graph, map` | 🟡 in-progress | — |
+| 399 | [Evaluate Division](https://leetcode.com/problems/evaluate-division/) | medium | `array, graph, map` | ✅ done | — |
 
 ### Graphs - BFS — 1/2
 
@@ -140,11 +140,11 @@ Run the `solve-problem` skill to take the next one end to end.
 | 1926 | [Nearest Exit from Entrance in Maze](https://leetcode.com/problems/nearest-exit-from-entrance-in-maze/) | medium | `matrix, queue` | ⬜ todo | — |
 | 994 | [Rotting Oranges](https://leetcode.com/problems/rotting-oranges/) | medium | `matrix, queue` | ✅ done | #1 |
 
-### Heap / Priority Queue — 0/4
+### Heap / Priority Queue — 1/4
 
 | # | Problem | Difficulty | Structures | Status | PR |
 | --- | --- | --- | --- | --- | --- |
-| 215 | [Kth Largest Element in an Array](https://leetcode.com/problems/kth-largest-element-in-an-array/) | medium | `heap, array` | 🟡 in-progress | #2 |
+| 215 | [Kth Largest Element in an Array](https://leetcode.com/problems/kth-largest-element-in-an-array/) | medium | `heap, array` | ✅ done | #2 |
 | 2336 | [Smallest Number in Infinite Set](https://leetcode.com/problems/smallest-number-in-infinite-set/) | medium | `heap, set` | ⬜ todo | — |
 | 2542 | [Maximum Subsequence Score](https://leetcode.com/problems/maximum-subsequence-score/) | medium | `heap, array` | ⬜ todo | — |
 | 2462 | [Total Cost to Hire K Workers](https://leetcode.com/problems/total-cost-to-hire-k-workers/) | medium | `heap, array, cursor` | ⬜ todo | — |
@@ -158,11 +158,11 @@ Run the `solve-problem` skill to take the next one end to end.
 | 162 | [Find Peak Element](https://leetcode.com/problems/find-peak-element/) | medium | `array, cursor` | ⬜ todo | — |
 | 875 | [Koko Eating Bananas](https://leetcode.com/problems/koko-eating-bananas/) | medium | `array, cursor` | ⬜ todo | — |
 
-### Backtracking — 0/2
+### Backtracking — 1/2
 
 | # | Problem | Difficulty | Structures | Status | PR |
 | --- | --- | --- | --- | --- | --- |
-| 17 | [Letter Combinations of a Phone Number](https://leetcode.com/problems/letter-combinations-of-a-phone-number/) | medium | `trie, array, string` | 🟡 in-progress | — |
+| 17 | [Letter Combinations of a Phone Number](https://leetcode.com/problems/letter-combinations-of-a-phone-number/) | medium | `trie, array, string` | ✅ done | — |
 | 216 | [Combination Sum III](https://leetcode.com/problems/combination-sum-iii/) | medium | `tree, array` | ⬜ todo | — |
 
 ### DP - 1D — 1/4
@@ -174,12 +174,12 @@ Run the `solve-problem` skill to take the next one end to end.
 | 198 | [House Robber](https://leetcode.com/problems/house-robber/) | medium | `dp, array` | ⬜ todo | — |
 | 790 | [Domino and Tromino Tiling](https://leetcode.com/problems/domino-and-tromino-tiling/) | medium | `dp` | ⬜ todo | — |
 
-### DP - Multidimensional — 0/4
+### DP - Multidimensional — 1/4
 
 | # | Problem | Difficulty | Structures | Status | PR |
 | --- | --- | --- | --- | --- | --- |
 | 62 | [Unique Paths](https://leetcode.com/problems/unique-paths/) | medium | `dp` | ⬜ todo | — |
-| 1143 | [Longest Common Subsequence](https://leetcode.com/problems/longest-common-subsequence/) | medium | `dp, string` | 🟡 in-progress | — |
+| 1143 | [Longest Common Subsequence](https://leetcode.com/problems/longest-common-subsequence/) | medium | `dp, string` | ✅ done | — |
 | 714 | [Best Time to Buy and Sell Stock with Transaction Fee](https://leetcode.com/problems/best-time-to-buy-and-sell-stock-with-transaction-fee/) | medium | `dp, array` | ⬜ todo | — |
 | 72 | [Edit Distance](https://leetcode.com/problems/edit-distance/) | medium | `dp, string` | ⬜ todo | — |
 
@@ -191,11 +191,11 @@ Run the `solve-problem` skill to take the next one end to end.
 | 136 | [Single Number](https://leetcode.com/problems/single-number/) | easy | `array` | ⬜ todo | — |
 | 1318 | [Minimum Flips to Make a OR b Equal to c](https://leetcode.com/problems/minimum-flips-to-make-a-or-b-equal-to-c/) | medium | `array` | ⬜ todo | — |
 
-### Trie — 0/2
+### Trie — 1/2
 
 | # | Problem | Difficulty | Structures | Status | PR |
 | --- | --- | --- | --- | --- | --- |
-| 208 | [Implement Trie (Prefix Tree)](https://leetcode.com/problems/implement-trie-prefix-tree/) | medium | `trie` | 🟡 in-progress | #2 |
+| 208 | [Implement Trie (Prefix Tree)](https://leetcode.com/problems/implement-trie-prefix-tree/) | medium | `trie` | ✅ done | #2 |
 | 1268 | [Search Suggestions System](https://leetcode.com/problems/search-suggestions-system/) | medium | `trie, array` | ⬜ todo | — |
 
 ### Intervals — 1/2
@@ -219,18 +219,18 @@ visualizer has no real user yet, however green its unit tests are.
 
 | Structure | Done | Planned |
 | --- | --- | --- |
-| `array` | 4 | 38 |
+| `array` | 8 | 38 |
 | `matrix` | 1 | 4 |
-| `string` | 1 | 13 |
+| `string` | 4 | 13 |
 | `list` | 1 | 4 |
-| `tree` | 1 | 11 |
-| `graph` | 1 | 4 |
-| `stack` | 1 | 5 |
-| `queue` | 1 | 6 |
-| `heap` | 0 | 4 |
-| `map` | 1 | 6 |
+| `tree` | 2 | 11 |
+| `graph` | 2 | 4 |
+| `stack` | 2 | 5 |
+| `queue` | 2 | 6 |
+| `heap` | 1 | 4 |
+| `map` | 2 | 6 |
 | `set` | 2 | 7 |
-| `dp` | 1 | 9 |
+| `dp` | 2 | 9 |
 | `intervals` | 1 | 2 |
-| `trie` | 0 | 3 |
+| `trie` | 2 | 3 |
 | `cursor` | 4 | 23 |

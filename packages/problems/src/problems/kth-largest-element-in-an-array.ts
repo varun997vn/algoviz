@@ -29,11 +29,16 @@ import type { ProblemDefinition, Viz } from '../types.js'
  *    quantity the algorithm is tracking climbing to the returned value, and it is the panel that
  *    makes the invariant checkable frame by frame instead of only at the end.
  *
- * `peek()` is the silent twin, used inside `viz.watch` — a watch sampler that recorded frames
- * would recurse. The *guard* uses `compareRoot`, which is the recording one: "is x bigger than the
- * smallest I am keeping?" is the only decision this algorithm makes, and with a silent read it was
- * narrated on every element and lit on none — the heap panel went grey while the caption asserted a
- * comparison the picture never showed.
+ * `peek()` is the silent twin, used to write the payoff panel — a recording read there would
+ * double every frame. The *guard* uses `compareRoot`, which is the recording one: "is x bigger
+ * than the smallest I am keeping?" is the only decision this algorithm makes, and with a silent
+ * read it was narrated on every element and lit on none — the heap panel went grey while the
+ * caption asserted a comparison the picture never showed.
+ *
+ * The watch panel reports only `i` and `kept`, both of which are true on every frame. It used to
+ * report the k-th largest too, guarded on the heap being *full* — which is not the same as the
+ * heap being *settled*, and mid-sift the root is not the minimum. That is the one kind of lag
+ * ordering cannot fix, because a sampler fires on every frame whatever the solution does.
  */
 export function reference(nums: number[], k: number, viz: Viz): number {
   const a = viz.array(nums, { name: 'nums' })
@@ -42,7 +47,15 @@ export function reference(nums: number[], k: number, viz: Viz): number {
   const top = viz.heap<number>([], { name: 'the k largest so far' })
   const kth = viz.array<number>(nums.length, { name: 'k-th largest so far', fill: null })
   const i = viz.cursor('i', 0, a)
-  viz.watch(() => ({ i: i.value, kept: top.size, kth: top.peek() ?? null }))
+  // No `kth` here, deliberately. `top.peek()` is slot 0, which is the minimum only while the heap
+  // property holds — and the frames where it deliberately does not are the ones this animation
+  // exists for. A watch sampler fires on *every* frame, so mid-sift it reported a number that was
+  // not the k-th largest at any point in the run: on `[7,6,5,4]` with k=4 it read 5 for four
+  // consecutive frames while the answer was 4. That is not the documented one-frame-per-op lag,
+  // which ordering fixes; nothing about ordering helps a sampler that runs unconditionally. The
+  // payoff panel below carries the same quantity, is written only from a settled heap, and never
+  // lies — so the watch panel keeps what it can state truthfully on every frame and nothing else.
+  viz.watch(() => ({ i: i.value, kept: top.size }))
 
   for (i.value = 0; i.value < a.length; i.inc()) {
     const x = a[i.value]
@@ -118,7 +131,10 @@ export default function findKthLargest(nums: number[], k: number, viz: Viz): num
   // largest yet, and a blank cell says that where a 0 would look like a real answer.
   const kth = viz.array<number>(nums.length, { name: 'k-th largest so far', fill: null })
   const i = viz.cursor('i', 0, a)
-  viz.watch(() => ({ i: i.value, kept: top.size, kth: top.peek() ?? null }))
+  // No kth here: top.peek() is slot 0, which is the smallest value only while the heap property
+  // holds, and a watch sampler runs on every frame — including the mid-sift ones where it does
+  // not. The panel above reports the same quantity, written only from a settled heap.
+  viz.watch(() => ({ i: i.value, kept: top.size }))
 
   for (i.value = 0; i.value < a.length; i.inc()) {
     const x = a[i.value]
@@ -134,12 +150,12 @@ export default function findKthLargest(nums: number[], k: number, viz: Viz): num
     // decision this algorithm makes — with a silent read it is narrated on every element
     // and shown on none, and the heap panel just goes grey while the caption claims a
     // comparison happened.
-    viz.step('at ' + x)
 
-    // Once the heap is full the root is the answer so far; record it so the panel shows the
-    // k-th largest climbing towards the final one. Record it BEFORE the viz.step above, or
-    // the frame carrying the caption is one element behind the panel it is describing.
+    // Once the heap is full the root is the answer so far, so record it here — *before* the
+    // narration below. Written after the viz.step it lands in its own uncaptioned frame, and
+    // every narrated frame then shows this panel one element short of what its caption claims.
     if (top.size === k) kth[i.value] = top.peek() as number
+    viz.step('at ' + x)
   }
 
   // TODO: return the root — the smallest of the k largest values, and mark it 'result' so

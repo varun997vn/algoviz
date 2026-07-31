@@ -16,6 +16,33 @@ import {
 } from './types.js'
 
 /**
+ * Ops that can change what a structure's snapshot looks like, and therefore the only ones that owe
+ * a catch-up snapshot after a quiet block.
+ *
+ * `read` and `compare` are the exceptions: their whole contribution to a frame is the *transient*
+ * highlight, which a catch-up snapshot does not carry anyway. Treating them as mutations made
+ * `viz.quiet(() => { a[0]; a[1] })` force a snapshot that was deep-equal to the one already on
+ * screen but a **distinct object**, breaking the identity contract `TraceReader` maintains for
+ * `React.memo` — a redraw of an unchanged panel, caused by reads that changed nothing.
+ */
+const MUTATING_OPS: ReadonlySet<OpKind> = new Set<OpKind>([
+  'init',
+  'write',
+  'push',
+  'pop',
+  'shift',
+  'unshift',
+  'enqueue',
+  'dequeue',
+  'swap',
+  'visit',
+  'insert',
+  'delete',
+  'mark',
+  'cursor',
+])
+
+/**
  * Minimal shape the recorder needs from a cursor. Declared here rather than importing
  * `VizCursor` so the cursor module can depend on the recorder without a cycle.
  */
@@ -183,7 +210,7 @@ export class Recorder {
     this.checkBudget()
 
     if (this.quietDepth > 0) {
-      if (structure) this.mutedSinceLastFrame.add(structure)
+      if (structure && MUTATING_OPS.has(op)) this.mutedSinceLastFrame.add(structure)
       return
     }
     if (this.frames.length >= this.opts.maxFrames) {

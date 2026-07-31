@@ -422,10 +422,20 @@ problems:
     order: 26
     structures: [ stack, string ]
     techniques: [ stack, parsing ]
-    status: in-progress
+    status: done
     branch: claude/leetcode-visualizer-w01nr6
     pr: null
-    notes: null
+    notes: "trace-verifier: faithful. Re-audited after the answer was promoted from a
+      watch value to a viz.string panel, which adds frames per iteration. All 11
+      cases, ~772 frames, reconstructed independently: counts.size - saved.size is
+      in {0,1} on every frame and both equal the bracket depth on all 126 step
+      frames; an independent replay of (piece, counts, saved) matches exactly. Every
+      frame carrying a caret shows a state the algorithm actually occupies — 367
+      settled, 289 pre-apply, 105 hybrid, 0 impossible — and every hybrid runs in the
+      direction the docstring commits to. The panel never changes on a pop frame, so
+      the reassembly always lands strictly earlier; all 22 opening brackets narrate
+      over a cleared panel. No cell is drawn truncated without its full value in the
+      tooltip."
     dependsOn: []
   - id: p933
     leetcode: 933
@@ -616,10 +626,17 @@ problems:
     order: 39
     structures: [ tree, queue, array ]
     techniques: [ bfs ]
-    status: in-progress
+    status: done
     branch: claude/leetcode-visualizer-w01nr6
     pr: null
-    notes: null
+    notes: "trace-verifier: faithful. A level is one loop iteration rather than one
+      dequeue, so the wave structure is real and not a DFS in disguise; the
+      frontier marks match the queue contents on every frame and only ever trail
+      it. Shared changes from the same batch were audited alongside and three
+      were incomplete — see the tracer commits. The one live consequence here was
+      that this dropped the frontier highlight with t.unmark (every class at
+      once), safe only by the accident that a queued node carries no other mark;
+      it uses unmarkClass now, in the starter as well."
     dependsOn: []
   - id: p1161
     leetcode: 1161
@@ -715,10 +732,22 @@ problems:
     order: 46
     structures: [ array, graph, map ]
     techniques: [ dfs, weighted-graph ]
-    status: in-progress
+    status: done
     branch: claude/leetcode-visualizer-w01nr6
     pr: null
-    notes: null
+    notes: "trace-verifier: faithful on re-audit, after a first verdict of misleading.
+      Both findings confirmed fixed by measurement rather than by reading: all six
+      give-up captions across nine cases were reconstructed from the edge notes
+      visible on the same frame, with zero mismatches; and the antiparallel pairs are
+      drawn apart — 40 pairs across the final frames of all nine cases, none closer
+      than 10px in either segment or weight label, so the four path edges of the
+      four-link chain really do read 2x2x2x2 = 16. SVG and trace_inspect were
+      compared on 595 frames x every edge with an independently written resolution
+      rule: zero disagreements. One new finding, since fixed and not in this
+      solution: VizMap.has records a mark on the key it looked for whether or not the
+      map holds it, and both MapViz and the MCP renderer filtered marks by entry, so
+      all eight failed lookups in the case set rendered byte-identically to the frame
+      before them — the miss this problem consults the symbol table to show."
     dependsOn: []
   - id: p1926
     leetcode: 1926
@@ -771,28 +800,24 @@ problems:
     order: 49
     structures: [ heap, array ]
     techniques: [ heap, quickselect ]
-    status: in-progress
+    status: done
     branch: claude/leetcode-visualizer-w01nr6
     pr: 2
-    notes: "trace-verifier: misleading on first audit; all findings fixed, re-audit
-      pending. The heap mechanics were confirmed sound — heap size never exceeds
-      k on any frame including mid-sift, contents are exactly the k largest of
-      the scanned prefix at every step, and the `IndexMarkStore.swap`/`move` fix
-      was verified to keep a mark on its value through both a push-sift and a
-      pop. Three defects: (1) the guard used the silent `top.peek()`, so the
-      only decision the algorithm makes was narrated on every element and lit on
-      none — 0 lit guard frames across all 12 cases — now `top.compareRoot(x) <
-      0`; my sequencing error, since `compareRoot` landed in the commit
-      immediately before this problem and its docstring still said the API was
-      missing. (2) `kth[i]` was written after `viz.step`, so it landed in an
-      unnarrated frame and the payoff panel was one element short on 140 of 140
-      narrated frames; the loop now picks a label, writes, then narrates. (3) A
-      comment justified deferring the `result` mark by claiming heap marks drift
-      on swap — false since that fix landed, and load-bearing enough that the
-      next editor would have reinstated a workaround for a bug that no longer
-      exists. The starter also taught the silent guard and left the final frame
-      unmarked; it now names `compareRoot`, the write-before-narrate ordering,
-      and the closing `result` mark, and its own test block executes it."
+    notes: "trace-verifier: faithful on re-audit. All five fixes from the first audit
+      verified independently — the guard now lights on every element (compare-frame
+      count equals n-k exactly on all 12 cases), the payoff panel is written before
+      the narration on every narrated frame, and IndexMarkStore.swap/move carries a
+      mark through a sift-up, a promotion and a sift-down while dropping the mark on
+      a value that is popped out. The starter was filled in from its own comments
+      alone and produced an op sequence identical to the reference's. Every excluded
+      verdict was checked to be genuinely unreachable — for each, at least k other
+      elements are >= it — not merely <= the answer. One further defect the re-audit
+      found and this closes: viz.watch reported the k-th largest guarded on the heap
+      being full rather than settled, so mid-sift it read a number that was never the
+      answer at any point in the run (5 for four frames on [7,6,5,4], k=4). A sampler
+      fires on every frame, so no ordering fixes that; the value is gone from the
+      watch panel, which now reports only what is true on every frame, and the payoff
+      panel carries the quantity as it always did."
     dependsOn: []
   - id: p2336
     leetcode: 2336
@@ -901,10 +926,20 @@ problems:
     order: 57
     structures: [ trie, array, string ]
     techniques: [ backtracking ]
-    status: in-progress
+    status: done
     branch: claude/leetcode-visualizer-w01nr6
     pr: null
-    notes: null
+    notes: "trace-verifier: faithful. The load-bearing claim holds frame by frame — the
+      path-marked nodes form exactly one chain from the root on every frame of
+      every case, and the word never runs behind the tree by more than one
+      character, only ever in the tree-behind direction. Terminal-node count
+      equals answer count on all nine cases (144 == 144 on 2379); the trie ends
+      with no marks of any class. Empty input returns [] with a narrated frame,
+      not [\"\"] and not an empty trace. The starter, filled in from its own TODOs
+      only, passes 9/9. One cosmetic finding, since fixed: this is the first
+      problem whose string panel is empty at rest, and StringViz renders through
+      ArrayViz, so the pen read `array is empty` on frame 0 and on the final
+      frame."
     dependsOn: []
   - id: p216
     leetcode: 216
@@ -1003,10 +1038,18 @@ problems:
     order: 64
     structures: [ dp, string ]
     techniques: [ dp ]
-    status: in-progress
+    status: done
     branch: claude/leetcode-visualizer-w01nr6
     pr: null
-    notes: null
+    notes: "trace-verifier: faithful. The dp table, the two string panels and their
+      carets agree on every frame, and the dependency highlight lasts exactly the
+      one frame it is emitted on. Two shared defects came out of the same audit
+      and are fixed: VizDpTable.set was guarded on the 2-D arm only, so a 1-D
+      table silently wrote the column index when given three arguments and had no
+      index bound at all; and Recorder.quiet owed a catch-up snapshot on reads,
+      which broke the object-identity contract TraceReader keeps for React.memo.
+      This problem reported that axisLabels was stored and read by nothing —
+      GridViz reads it now."
     dependsOn: []
   - id: p714
     leetcode: 714
@@ -1087,22 +1130,23 @@ problems:
     order: 70
     structures: [ trie ]
     techniques: [ trie, design ]
-    status: in-progress
+    status: done
     branch: claude/leetcode-visualizer-w01nr6
     pr: 2
-    notes: "trace-verifier: reference faithful, problem misleading — the starter
-      made `search` and `startsWith` frame-identical, which is the single claim
-      this problem exists to make. Its TODOs never mentioned marking the node
-      the walk lands on, so a learner's two lookups drew identical frames and
-      disagreed only in the caption. Fixed, along with three shared defects the
-      audit found: `VizTrie.retireWalk` cleared `path`/`excluded` but not
-      `match` — the mark every lookup actually ends on — so successive lookups
-      accumulated answers; `TrieViz` bailed to a placeholder for a single-node
-      trie, blanking the whole panel on the case that is nothing but misses
-      against an empty trie; and `renderGroups` merged disjoint scopes sharing a
-      label, reporting `search(\"app\")` as frames 19..46 when it was 19..25 and
-      40..46, which is the tool an auditor navigates by. Awaiting re-audit
-      before this is marked done."
+    notes: "trace-verifier: faithful (re-audit). All four fixes verified. The
+      starter, filled literally from its TODOs, now produces byte-for-byte the
+      reference's op sequence on the disagreement case — `search(\"app\")`
+      frames 10-16 against `startsWith(\"app\")` 17-23, with exactly one
+      non-caption frame differing: `mark p4 as excluded` vs `mark p4 as match`.
+      `retireWalk` retires `match` too, so a solution relying on it alone shows
+      no accumulation (max 1 match mark and 1 excluded mark on any frame, all 8
+      cases). `TrieViz` draws a marked one-node trie and still shows the
+      placeholder for a bare one. `renderGroups` reports the two
+      `search(\"app\")` scopes as separate ranges. Node count equals distinct
+      prefixes on all 8 cases; `insert(\"app\")` after `insert(\"apple\")` emits
+      three reuse visits and zero inserts. `VizTrie.exitPath`, added later for
+      017, does not touch this problem. Note the test file has no starter block,
+      so nothing keeps finding 1 fixed — worth adding."
     dependsOn: []
   - id: p1268
     leetcode: 1268

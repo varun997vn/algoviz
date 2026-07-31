@@ -1,4 +1,4 @@
-import type { EdgeMark, MarkClass, NodeId, StructureSnapshot } from '@algoviz/tracer'
+import { edgeMarkFor, type EdgeMark, type MarkClass, type NodeId, type StructureSnapshot } from '@algoviz/tracer'
 import type { ReactNode } from 'react'
 import { CELL, Cell, EmptyState, Scroll, display, edgeStroke, marksOnNode, markAttr, winningClass } from '../primitives.js'
 import { layoutGraph, layoutTree, layoutTrie, NODE_R, type LaidOut, type Point } from '../layout.js'
@@ -21,19 +21,33 @@ interface EdgeProps {
   weight?: number
   note?: string
   testId: string
+  /**
+   * Sideways displacement, in pixels, applied along the segment's own left-hand normal.
+   *
+   * `layoutGraph` gives one position per node and this draws centre to centre, so two edges
+   * between the same pair are the same line. Evaluate Division models *every* equation as an
+   * antiparallel pair — `a ->(2) b` and `b ->(0.5) a` — so on its answer frame the `path` edge was
+   * painted over by the `rejected` one drawn after it, and a viewer read the algorithm's verdict
+   * as the opposite of what it decided. Both weights printed at the same point too. Displacing by
+   * the same amount on each member of the pair separates them, because the normal of `b -> a`
+   * points opposite the normal of `a -> b`.
+   */
+  offset?: number
 }
 
-function Edge({ from, to, state, directed, weight, note, testId }: EdgeProps): ReactNode {
+function Edge({ from, to, state, directed, weight, note, testId, offset = 0 }: EdgeProps): ReactNode {
   // Shorten to the circle boundary so an arrowhead lands on the rim, not the centre.
   const dx = to.x - from.x
   const dy = to.y - from.y
   const len = Math.hypot(dx, dy) || 1
   const ux = dx / len
   const uy = dy / len
-  const x1 = from.x + ux * NODE_R
-  const y1 = from.y + uy * NODE_R
-  const x2 = to.x - ux * NODE_R
-  const y2 = to.y - uy * NODE_R
+  const nx = -uy * offset
+  const ny = ux * offset
+  const x1 = from.x + ux * NODE_R + nx
+  const y1 = from.y + uy * NODE_R + ny
+  const x2 = to.x - ux * NODE_R + nx
+  const y2 = to.y - uy * NODE_R + ny
   const emphasised = state !== undefined && state !== 'visited'
 
   return (
@@ -57,12 +71,26 @@ function Edge({ from, to, state, directed, weight, note, testId }: EdgeProps): R
           fontSize={10}
           fill="var(--av-text-dim)"
         >
-          {weight}
+          {weightLabel(weight)}
         </text>
       ) : null}
     </g>
   )
 }
+
+/**
+ * An edge weight, short enough to sit on an edge.
+ *
+ * A reciprocal weight is exact in neither direction — Evaluate Division's `b -> a` for `a / b = 3`
+ * is `0.3333333333333333`, eighteen glyphs of label on a 40px edge. Three decimals is more
+ * precision than the picture can carry and the panel beside it holds the full value.
+ */
+function weightLabel(weight: number): string {
+  return Number.isInteger(weight) ? String(weight) : String(Number(weight.toFixed(3)))
+}
+
+/** How far apart to draw an antiparallel pair — enough to read two weights side by side. */
+const EDGE_SPLIT = 7
 
 const ARROW_STATES = ['idle', 'active', 'tree', 'rejected', 'path', 'reversed', 'visited'] as const
 
@@ -143,7 +171,6 @@ export function TreeViz({ snapshot }: { snapshot: Of<'tree'> }): ReactNode {
   if (nodes.length === 0 || root === null) return <EmptyState what="tree" />
 
   const laid = layoutTree(nodes, root)
-  const edgeState = new Map(edgeMarks.map((e) => [`${e.from}->${e.to}`, e]))
 
   return (
     <Canvas laid={laid} label="binary tree">
@@ -152,7 +179,8 @@ export function TreeViz({ snapshot }: { snapshot: Of<'tree'> }): ReactNode {
           const from = laid.positions.get(n.id)
           const to = laid.positions.get(child)
           if (!from || !to) return null
-          const mark = edgeState.get(`${n.id}->${child}`)
+          // Parent -> child, so never mirrored — the same rule the graph and the MCP renderer use.
+          const mark = edgeMarkFor(edgeMarks, n.id, child, true)
           return (
             <Edge
               key={`${n.id}-${child}`}
@@ -185,18 +213,8 @@ export function GraphViz({ snapshot }: { snapshot: Of<'graph'> }): ReactNode {
     nodes.map((n) => n.id),
     edges,
   )
-  // Edge marks are stored under the direction the edge was declared in, so on an *undirected*
-  // graph a decision recorded as `next -> city` must still light the edge drawn as `city -> next`.
-  //
-  // On a directed graph it must not. `a -> b` and `b -> a` are two different edges there — that is
-  // the whole point of the direction — and mirroring meant marking one lit both. Evaluate Division
-  // models every equation as an antiparallel pair, so a walk along `a/b` also lit `b/a`, which is
-  // the edge it deliberately did not take.
-  const marked = new Map<string, EdgeMark>()
-  for (const e of edgeMarks) {
-    marked.set(`${e.from}->${e.to}`, e)
-    if (!directed) marked.set(`${e.to}->${e.from}`, e)
-  }
+  // Edges with a twin running the other way have to be pulled apart — see `EdgeProps.offset`.
+  const declared = new Set(edges.map((e) => `${e.from}->${e.to}`))
 
   return (
     <Canvas laid={laid} label="graph">
@@ -204,7 +222,8 @@ export function GraphViz({ snapshot }: { snapshot: Of<'graph'> }): ReactNode {
         const from = laid.positions.get(e.from)
         const to = laid.positions.get(e.to)
         if (!from || !to) return null
-        const mark = marked.get(`${e.from}->${e.to}`)
+        // `edgeMarkFor` is shared with the MCP text renderer on purpose — see its docstring.
+        const mark = edgeMarkFor(edgeMarks, e.from, e.to, directed)
         // A reversed road is drawn pointing the way the algorithm decided it should go.
         const flip = mark?.class === 'reversed'
         return (
@@ -214,6 +233,7 @@ export function GraphViz({ snapshot }: { snapshot: Of<'graph'> }): ReactNode {
             to={flip ? from : to}
             directed={directed}
             testId={`edge-${e.from}-${e.to}`}
+            {...(declared.has(`${e.to}->${e.from}`) ? { offset: EDGE_SPLIT } : {})}
             {...(mark ? { state: mark.class } : {})}
             {...(mark?.note ? { note: mark.note } : {})}
             {...(e.weight !== undefined ? { weight: e.weight } : {})}

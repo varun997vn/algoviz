@@ -203,6 +203,38 @@ describe('MapViz', () => {
     expect(container.querySelectorAll('tbody tr')).toHaveLength(2)
     expect(container.querySelector('[data-node-id="b"]')?.getAttribute('data-highlight')).toBe('active')
   })
+
+  it('draws a lookup that missed, instead of dropping the mark on the floor', () => {
+    // `VizMap.has()` records a mark on the key it looked for whether or not the map holds it, and
+    // this filtered marks by entry — so a *miss* matched no row and was drawn nowhere. Evaluate
+    // Division consults its symbol table on both endpoints of every query for exactly this
+    // reason: so a query that returns -1 because a variable was never mentioned is *seen* rather
+    // than being a query that touched nothing. Its eight misses rendered byte-identically to the
+    // frame before them, and on one query both endpoints miss, so the whole lookup phase was a
+    // still image.
+    const container = renderSnapshot({
+      kind: 'map',
+      entries: [{ key: 'a', value: 1 }],
+      marks: [{ key: 'c', class: 'excluded', note: 'c never appears in an equation', transient: true }],
+    } as never)
+    const rows = [...container.querySelectorAll('tbody tr')]
+    expect(rows).toHaveLength(2)
+    const miss = container.querySelector('[data-node-id="c"]')
+    expect(miss?.getAttribute('data-absent')).toBe('true')
+    expect(miss?.getAttribute('data-highlight')).toBe('excluded')
+    expect(miss?.textContent).toContain('not present')
+    // Real entries keep their place; the absent key follows.
+    expect(rows[0]?.getAttribute('data-node-id')).toBe('a')
+  })
+
+  it('is not empty when the only thing to show is a miss', () => {
+    renderSnapshot({
+      kind: 'map',
+      entries: [],
+      marks: [{ key: 'x', class: 'excluded' }],
+    } as never)
+    expect(screen.queryByTestId('empty-structure')).toBeNull()
+  })
 })
 
 describe('MatrixViz and DpViz', () => {
@@ -247,6 +279,224 @@ describe('MatrixViz and DpViz', () => {
     expect(slashIn('0,0')).not.toBeNull()
     expect(slashIn('0,1')).toBeNull()
     expect(slashIn('1,0')).toBeNull()
+  })
+})
+
+describe('GraphViz edge-mark direction', () => {
+  // The rule had two independent implementations — here and in the MCP text renderer — and they
+  // *had* drifted: the SVG folded marks into a Map (last wins) where the renderer used `.find()`
+  // (first wins), so on any frame where an edge carried both a settled state and the transient
+  // highlight of a walk crossing it, the player and the tool the audits read their evidence from
+  // showed different things. Both now call `edgeMarkFor`; these pin the behaviour it has to have.
+  const nodes = [
+    { id: 'a', label: 'a' },
+    { id: 'b', label: 'b' },
+  ]
+
+  it('does not mirror a mark on a directed graph, where the two directions are different edges', () => {
+    const container = renderSnapshot({
+      kind: 'graph',
+      nodes,
+      edges: [
+        { from: 'a', to: 'b' },
+        { from: 'b', to: 'a' },
+      ],
+      directed: true,
+      marks: [],
+      edgeMarks: [{ from: 'a', to: 'b', class: 'tree' }],
+    })
+    expect(container.querySelector('[data-testid="edge-a-b"]')?.getAttribute('data-edge-state')).toBe('tree')
+    // The reverse edge was deliberately not taken; mirroring lit it anyway.
+    expect(
+      container.querySelector('[data-testid="edge-b-a"]')?.getAttribute('data-edge-state'),
+    ).not.toBe('tree')
+  })
+
+  it('still mirrors on an undirected graph, where there is only one edge to light', () => {
+    // Reorder Routes records a decision as `next -> city` while the edge is drawn `city -> next`;
+    // without mirroring its verdicts would render on nothing.
+    const container = renderSnapshot({
+      kind: 'graph',
+      nodes,
+      edges: [{ from: 'a', to: 'b' }],
+      directed: false,
+      marks: [],
+      edgeMarks: [{ from: 'b', to: 'a', class: 'reversed' }],
+    })
+    expect(container.querySelector('[data-testid="edge-a-b"]')?.getAttribute('data-edge-state')).toBe(
+      'reversed',
+    )
+  })
+
+  it('pulls an antiparallel pair apart instead of drawing one line twice', () => {
+    // `layoutGraph` gives one position per node and `Edge` draws centre to centre, so `a -> b` and
+    // `b -> a` were the same segment. Evaluate Division models every equation as exactly that
+    // pair, so on its answer frame the `rejected` edge — drawn second — painted over the `path`
+    // edge, and the docstring's central claim ("read the answer off the highlighted edges") was
+    // false of the rendering while true of the data. Both weight labels landed on one point too.
+    const container = renderSnapshot({
+      kind: 'graph',
+      nodes,
+      edges: [
+        { from: 'a', to: 'b', weight: 2 },
+        { from: 'b', to: 'a', weight: 0.5 },
+      ],
+      directed: true,
+      marks: [],
+      edgeMarks: [
+        { from: 'a', to: 'b', class: 'path' },
+        { from: 'b', to: 'a', class: 'rejected' },
+      ],
+    } as never)
+
+    const segment = (id: string): string => {
+      const line = container.querySelector(`[data-testid="${id}"] line`)
+      return ['x1', 'y1', 'x2', 'y2'].map((a) => line?.getAttribute(a)).join(',')
+    }
+    expect(segment('edge-a-b')).not.toBe(segment('edge-b-a'))
+
+    // And the two weights are not printed on top of each other either.
+    const labels = [...container.querySelectorAll('text')]
+      .filter((t) => t.textContent === '2' || t.textContent === '0.5')
+      .map((t) => `${t.getAttribute('x')},${t.getAttribute('y')}`)
+    expect(labels).toHaveLength(2)
+    expect(labels[0]).not.toBe(labels[1])
+  })
+
+  it('shortens a weight that does not fit on an edge', () => {
+    // `a / b = 3` makes `b -> a` weigh 0.3333333333333333 — eighteen glyphs on a 40px edge.
+    const container = renderSnapshot({
+      kind: 'graph',
+      nodes,
+      edges: [{ from: 'a', to: 'b', weight: 1 / 3 }],
+      directed: true,
+      marks: [],
+      edgeMarks: [],
+    } as never)
+    expect([...container.querySelectorAll('text')].map((t) => t.textContent)).toContain('0.333')
+  })
+
+  it('draws the transient highlight over the settled state, not under it', () => {
+    // An edge already settled `tree` and being crossed again carries two marks on one frame. The
+    // frame is *about* the crossing, so that is what shows; the settled state is what remains when
+    // the highlight goes. The order the two arrive in must not decide it.
+    const snapshot = (edgeMarks: { from: string; to: string; class: string; transient?: boolean }[]) =>
+      renderSnapshot({
+        kind: 'graph',
+        nodes,
+        edges: [{ from: 'a', to: 'b' }],
+        directed: true,
+        marks: [],
+        edgeMarks,
+      } as never)
+    const settled = { from: 'a', to: 'b', class: 'tree' }
+    const crossing = { from: 'a', to: 'b', class: 'active', transient: true }
+    const stateOf = (c: Element): string | null =>
+      c.querySelector('[data-testid="edge-a-b"]')?.getAttribute('data-edge-state') ?? null
+
+    expect(stateOf(snapshot([settled, crossing]))).toBe('active')
+    expect(stateOf(snapshot([crossing, settled]))).toBe('active')
+    expect(stateOf(snapshot([settled]))).toBe('tree')
+  })
+})
+
+describe('Cell rendering of awkward values', () => {
+  // Everything in every visualizer goes through `Cell`, so these two changes are the widest-blast-
+  // radius edits in the package and neither shipped with a test.
+  it('draws an empty string as a glyph rather than as nothing at all', () => {
+    // `display('')` fell through to `String('')`, so a cell holding the empty string was pixel-wise
+    // identical to one holding nothing. On Decode String the empty string is the *most common*
+    // value on the stack — the saved prefix at every top-level `[`.
+    const container = renderSnapshot({ kind: 'stack', values: ['', 'ab'], marks: [] })
+    expect(container.querySelector('[data-node-id="0"] text')?.textContent).toBe('ε')
+    expect(container.querySelector('[data-node-id="1"] text')?.textContent).toBe('ab')
+  })
+
+  it('truncates a value too wide for its cell while keeping the whole one addressable', () => {
+    // `fontSizeFor` bottoms out at 9px and there was no truncation, so a 20-character value ran
+    // ~94px out of a 44px cell — clipped at one end, overprinting the neighbouring label at the
+    // other. `data-value` must stay the full string so DOM assertions elsewhere are unaffected,
+    // and the tooltip has to fall back to it or the truncated text is unrecoverable.
+    const long = 'abcdefghijklmnopqrst'
+    const container = renderSnapshot({ kind: 'stack', values: [long, 'short'], marks: [] })
+    const cell = container.querySelector('[data-node-id="0"]')
+    expect(cell?.getAttribute('data-value')).toBe(long)
+    expect(cell?.querySelector('text')?.textContent).toBe('abcdefgh…')
+    expect(cell?.querySelector('title')?.textContent).toBe(long)
+
+    // A value that fits is untouched, and gets no tooltip it did not ask for.
+    const fits = container.querySelector('[data-node-id="1"]')
+    expect(fits?.querySelector('text')?.textContent).toBe('short')
+    expect(fits?.querySelector('title')).toBeNull()
+  })
+
+  it('shows the note and the clipped value together, not one instead of the other', () => {
+    // The note used to win outright, which made a noted *and* truncated cell the one place the
+    // value was unrecoverable from the picture: eight glyphs in the cell and a note in the
+    // tooltip, with the value itself nowhere. That is precisely Decode String's stack — every cell
+    // carries a note and holds arbitrary text — which survived only by embedding a copy of the
+    // value in the note by hand.
+    const tipOf = (values: unknown[], note?: string): string | undefined =>
+      renderSnapshot({
+        kind: 'stack',
+        values,
+        marks: [{ index: 0, class: 'result', ...(note ? { note } : {}) }],
+      } as never).querySelector('[data-node-id="0"] title')?.textContent ?? undefined
+
+    expect(tipOf(['abcdefghijklmnop'], 'the saved prefix')).toBe('abcdefghijklmnop — the saved prefix')
+    // A cell that fits shows the note alone — there is nothing the picture is failing to say.
+    expect(tipOf(['abc'], 'the saved prefix')).toBe('the saved prefix')
+    // And with no note, the clipped value is still what the tooltip is for.
+    expect(tipOf(['abcdefghijklmnop'])).toBe('abcdefghijklmnop')
+  })
+})
+
+describe('GridViz labelling', () => {
+  it('puts the column labels above the grid, beside the row they label', () => {
+    // They used to be drawn under the bottom row, which is fine for a one-row 1-D table and wrong
+    // for a tall one — on an LCS table the column numbers sat hundreds of pixels below row 1,
+    // labelling one axis at its end while the other was labelled at its start.
+    const container = renderSnapshot({
+      kind: 'dp',
+      values: [
+        [0, 0, 0],
+        [0, 1, 1],
+        [0, 1, 2],
+      ],
+      dims: 2,
+      marks: [],
+    })
+    const colLabelY = Number(container.querySelector('[data-testid="grid-col-label-1"]')?.getAttribute('y'))
+    const firstRowY = Number(container.querySelector('[data-node-id="0,0"] rect')?.getAttribute('y'))
+    const lastRowY = Number(container.querySelector('[data-node-id="2,0"] rect')?.getAttribute('y'))
+    expect(colLabelY).toBeLessThan(firstRowY)
+    expect(firstRowY).toBeLessThan(lastRowY)
+  })
+
+  it('labels the axes with the strings the recurrence is over, each on its own axis', () => {
+    // `viz.dp2d` accepted `axisLabels` from the day it was written and nothing ever read it, so a
+    // 2-D table left a viewer no way to know what row 3 stood for. Row/column 0 are the
+    // empty-prefix base cases, so character k labels row k+1 and they keep their index.
+    //
+    // Asserted per label rather than as `textContent.toContain`, which is what this first did:
+    // both strings appear *somewhere* whichever axis they land on, so that version passed with
+    // rows and columns swapped — the single thing worth pinning about a prop nothing had read.
+    const container = renderSnapshot({
+      kind: 'dp',
+      values: [
+        [0, 0, 0],
+        [0, 1, 1],
+        [0, 1, 2],
+      ],
+      dims: 2,
+      marks: [],
+      axisLabels: ['ab', 'xy'],
+    })
+    const labelAt = (axis: 'row' | 'col', i: number): string | undefined =>
+      container.querySelector(`[data-testid="grid-${axis}-label-${i}"]`)?.textContent ?? undefined
+
+    expect([labelAt('row', 0), labelAt('row', 1), labelAt('row', 2)]).toEqual(['0', 'a', 'b'])
+    expect([labelAt('col', 0), labelAt('col', 1), labelAt('col', 2)]).toEqual(['0', 'x', 'y'])
   })
 })
 

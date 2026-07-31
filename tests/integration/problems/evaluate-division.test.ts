@@ -305,15 +305,42 @@ describe('every query leaves something on screen', () => {
     const run = queryRuns(result.trace).find((r) => r.label === 'a / d')!
     const frames = framesIn(result.trace, run)
     const gaveUp = frames.filter((f) => f.op === 'step' && /back up/.test(f.label ?? ''))
+    // The two frames give up for two different reasons, and this used to claim both were the same
+    // one. `b` really has nothing left to try — its only edge goes back to `a`. `a` tried `b` and
+    // the branch failed, which is *backtracking*, and the picture already said so: the edge under
+    // that caption carried the note `dead end` while the caption over it said the other thing.
     expect(gaveUp.map((f) => f.label)).toEqual([
       'b: every edge from here leads somewhere already explored — back up',
-      'a: every edge from here leads somewhere already explored — back up',
+      'a: 1 branch from here dead-ended — back up',
     ])
     // And every edge it tried is shown as tried, not left looking untouched.
     const reader = new TraceReader(result.trace)
     const graph = only(reader, run.last, 'graph')
     expect(graph.edgeMarks.filter((m) => m.class === 'rejected').length).toBeGreaterThan(0)
     expect(graph.edgeMarks.filter((m) => m.class === 'path')).toEqual([])
+  })
+
+  it.each(CASES)('never says "already explored" over a picture showing a dead end — %s', (name) => {
+    // The general form of the finding above, and the reason it is worth a test rather than a
+    // one-line label change: the caption on a give-up frame is the *only* explanation of a walk
+    // that returned -1, and a caption contradicting the frame it is drawn on is worse than none.
+    // "Everything ahead was already visited" and "the branch I committed to failed" are the two
+    // things this problem exists to distinguish, so the frame has to name which one happened.
+    const result = caseByName(name)
+    const reader = new TraceReader(result.trace)
+    const wrong: string[] = []
+
+    result.trace.frames.forEach((f, i) => {
+      const at = /^(\w+): every edge from here leads somewhere already explored/.exec(f.label ?? '')
+      if (f.op !== 'step' || !at) return
+      const deadEnds = only(reader, i, 'graph').edgeMarks.filter(
+        (m) => m.from === at[1] && m.note === 'dead end',
+      )
+      if (deadEnds.length > 0) {
+        wrong.push(`frame ${i}: ${f.label} — but ${deadEnds.map((m) => `${m.from}->${m.to}`).join(', ')} dead-ended`)
+      }
+    })
+    expect(wrong).toEqual([])
   })
 })
 

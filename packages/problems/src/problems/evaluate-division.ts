@@ -34,23 +34,33 @@ import type { ProblemDefinition, Viz } from '../types.js'
  * screen, and `x/x` gets an explicit `result` mark and a step of its own — the empty path, whose
  * product is 1.
  *
- * ### Findings this problem turned up in `VizGraph` (nothing here works around a *wrong* answer,
- * ### only around a picture that could not be reset)
+ * ### What this problem turned up in `VizGraph`, all since fixed
  *
  * 1. **`clearMarks()` cleared node marks and left edge marks untouched, and nothing else cleared
  *    them either.** `edgeMarks` was a `Map` that was only ever written. `neighbors()` sets an edge
  *    `active` as it yields it, so on a problem that traverses the same graph more than once every
  *    edge ever considered stayed lit for the rest of the trace. Reorder Routes never noticed
- *    because it decides each edge exactly once. Fixed: `g.clearEdges()` is now the twin of
- *    `clearMarks`, and the reset between queries below is those two lines. The workaround it
- *    replaced — demoting every edge to `visited` by hand — painted edges no query had touched.
- * 2. **There is no `unmarkClass(node, cls)` on `VizGraph`,** though `NodeMarkStore.removeClass`
- *    exists for it and both `VizTree` (`exitPath`) and `VizMatrix` (`unmarkClass`) use it.
- *    `g.unmark(id)` is class-blind, so a `path` mark cannot be unwound without destroying the
- *    `visited` mark underneath it. That is why this solution marks `visited` on the way down and
- *    promotes the winning chain to `path` on the way *out*, rather than carrying a live path mark.
- * 3. **`neighbors()` yields the node but not the weight** it just walked over, even though the
- *    adjacency entry it is iterating holds both — hence the `weightOf` call one line later.
+ *    because it decides each edge exactly once. `g.clearEdges()` is the twin of `clearMarks` now,
+ *    and the reset between queries below is those two lines. The workaround it replaced —
+ *    demoting every edge to `visited` by hand — painted edges no query had touched.
+ * 2. **`neighbors()` yielded the node but not the weight** it had just walked over, even though
+ *    the adjacency entry it iterates holds both, so every weighted step needed
+ *    `weightOf(at, next) ?? 1` — a fallback for an edge that provably exists — in the line that is
+ *    the arithmetic. `weightedNeighbors` yields both, and the loop below uses it.
+ * 3. **`unmarkClass(node, cls)`** now exists on `VizGraph` as it does on `VizTree` and
+ *    `VizMatrix`, so a `path` mark can be unwound without destroying the `visited` mark under it.
+ *    This solution still marks `visited` on the way down and promotes the winning chain to `path`
+ *    on the way *out*, which is not a workaround: a live path mark would claim mid-walk that a
+ *    chain reaches the target, and until the recursion returns nothing has established that.
+ * 4. **Two decisions about an antiparallel pair used to collapse into one.** Every equation here
+ *    is declared as `a -> b` and `b -> a`, and `markEdge` normalised its lookup key without
+ *    normalising the endpoints it stored — so the second decision overwrote the first and was
+ *    labelled with a direction no drawn edge had. It resolves onto the declared edge now, and a
+ *    decision about an edge that does not exist throws.
+ * 5. **That pair was also drawn as one line.** `layoutGraph` gives one position per node and edges
+ *    are drawn centre to centre, so on the answer frame the `rejected` edge painted over the
+ *    `path` edge and the claim above about reading the answer off the highlighted edges was true
+ *    of the trace and false of the picture. `GraphViz` splits an antiparallel pair apart.
  */
 export function reference(
   equations: string[][],
@@ -100,15 +110,24 @@ export function reference(
     g.visit(at)
 
     return viz.group(`${at} (running ${fmt(product)})`, () => {
-      for (const next of g.neighbors(at)) {
+      // Why the loop ran out, counted rather than assumed. The single label this used to emit —
+      // "every edge from here leads somewhere already explored" — was true only when nothing was
+      // tried, and this walk gives up for two different reasons. On the case whose own comment
+      // calls it "the only one where -1 comes out of a walk that ran out of edges", the caption
+      // fired over a picture in which the edge beneath it was annotated `dead end`: the frame that
+      // explains the answer contradicting the frame it is drawn on.
+      let explored = 0
+      let deadEnds = 0
+      // `weightedNeighbors` yields the weight of the edge it just lit, which `neighbors` does not
+      // even though the adjacency entry it iterates holds both. With `neighbors` this needed
+      // `g.weightOf(at, next) ?? 1` on the following line — a fallback for an edge that provably
+      // exists, in the line that is the whole arithmetic of a step.
+      for (const { to: next, weight: w } of g.weightedNeighbors(at)) {
         if (seen.has(next)) {
           g.edge(at, next, 'rejected', 'already explored in this query')
+          explored += 1
           continue
         }
-        // `neighbors` yields the node without the weight it just crossed. The edge is in the
-        // adjacency by construction, so the fallback never fires — and 1 is the identity for a
-        // product, so if it ever did the picture would understate rather than lie.
-        const w = g.weightOf(at, next) ?? 1
         g.edge(at, next, 'tree', `x ${fmt(w)}`)
 
         const found = walk(next, target, product * w)
@@ -123,8 +142,9 @@ export function reference(
         // never shows a product from a branch the picture has already abandoned.
         running = product
         g.edge(at, next, 'rejected', 'dead end')
+        deadEnds += 1
       }
-      viz.step(`${at}: every edge from here leads somewhere already explored — back up`)
+      viz.step(`${at}: ${exhausted(deadEnds, explored)} — back up`)
       return -1
     })
   }
@@ -179,9 +199,36 @@ export function reference(
   return answers.toArray()
 }
 
+/**
+ * Say why a walk ran out of edges, in the terms the picture beside it is drawn in.
+ *
+ * Backtracking and exhaustion look the same from the return value and are the two things a
+ * learner has to tell apart here, so the caption names which one happened rather than asserting
+ * the more convenient of the two.
+ */
+function exhausted(deadEnds: number, explored: number): string {
+  const branches = `${deadEnds} branch${deadEnds === 1 ? '' : 'es'} from here dead-ended`
+  if (deadEnds === 0 && explored === 0) return 'no edges lead out of here at all'
+  if (deadEnds === 0) return 'every edge from here leads somewhere already explored'
+  if (explored === 0) return branches
+  return `${branches}, and every other edge leads somewhere already explored`
+}
+
 const starter = `// a / b = 2 is an edge a -> b weighted 2, and an edge b -> a weighted 1/2. A query
 // c / d is then a path from c to d, and the answer is the product of the weights along it.
 // Anything unreachable — or never mentioned in an equation at all — is -1.
+
+// A walk gives up for two different reasons and they are the two things worth telling apart
+// here: it tried branches and they all failed, or it had nothing left to try. Naming which
+// one happened is the difference between backtracking and exhaustion on screen.
+function exhausted(deadEnds: number, explored: number): string {
+  const branches = \`\${deadEnds} branch\${deadEnds === 1 ? '' : 'es'} from here dead-ended\`
+  if (deadEnds === 0 && explored === 0) return 'no edges lead out of here at all'
+  if (deadEnds === 0) return 'every edge from here leads somewhere already explored'
+  if (explored === 0) return branches
+  return \`\${branches}, and every other edge leads somewhere already explored\`
+}
+
 export default function calcEquation(
   equations: string[][],
   values: number[],
@@ -219,14 +266,18 @@ export default function calcEquation(
     g.visit(at)
 
     return viz.group(\`\${at} (running \${fmt(product)})\`, () => {
-      // TODO: for each neighbour of \`at\` — use g.neighbors(at), which lights the edge as it
-      // yields it — skip the ones already in \`seen\` (mark that edge 'rejected'), otherwise take
-      // the edge: w = g.weightOf(at, next), mark it 'tree', and recurse with product * w.
+      // Count why the loop ends, so the caption below can say which of the two things happened.
+      let explored = 0
+      let deadEnds = 0
+      // TODO: for each { to: next, weight: w } of g.weightedNeighbors(at) — which lights the edge
+      // as it yields it, and hands you the weight the adjacency entry already held — skip the ones
+      // already in \`seen\` (mark that edge 'rejected', and count it in \`explored\`), otherwise take
+      // the edge: mark it 'tree' and recurse with product * w.
       // If the recursion comes back positive, promote the edge to 'path' and return the answer.
       // If it comes back -1, restore \`running\` to \`product\` *first* and only then mark the
-      // edge 'rejected' — those are two frames, and in the other order the frame that gives up
-      // on the edge still shows the product from the branch it just abandoned.
-      viz.step(\`\${at}: every edge from here leads somewhere already explored — back up\`)
+      // edge 'rejected' and count it in \`deadEnds\` — those are two frames, and in the other order
+      // the frame that gives up on the edge still shows the product from the branch it abandoned.
+      viz.step(\`\${at}: \${exhausted(deadEnds, explored)} — back up\`)
       return -1
     })
   }

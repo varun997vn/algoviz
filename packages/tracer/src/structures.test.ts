@@ -521,6 +521,63 @@ describe('VizDpTable', () => {
     ).toThrow(/out of bounds/)
   })
 
+  it('rejects a column outside a 2-D table, and a 2-D write given no value', () => {
+    // Only the row was checked. The 1-D overload `set(i, value)` sits on the class regardless of
+    // `dims`, so `dp.set(1, 7)` on a 2-D table typechecked and wrote `undefined` with no error
+    // anywhere — and a bad column extended one row past the others into a ragged grid, which
+    // `GridViz` silently truncates by taking its column count from row 0.
+    expect(() =>
+      trace((viz) => {
+        const dp = viz.dp2d(2, 2, 0)
+        dp.set(0, 5, 1)
+        return 0
+      }),
+    ).toThrow(/column 5 out of bounds/)
+
+    expect(() =>
+      trace((viz) => {
+        const dp = viz.dp2d<number>(2, 2, 0)
+        ;(dp as unknown as { set: (i: number, v: number) => void }).set(1, 7)
+        return 0
+      }),
+    ).toThrow(/is 2-D — use set\(row, col, value\)/)
+  })
+
+  it('leaves the 1-D form alone, which shares the same overload', () => {
+    const { value } = trace((viz) => {
+      const dp = viz.dp1d<number>(3, 0)
+      dp.set(0, 5)
+      dp.set(2, 9)
+      return dp.toArray()
+    })
+    expect(value).toEqual([5, 0, 9])
+  })
+
+  it('rejects a 2-D write on a 1-D table, and an index outside it', () => {
+    // The 2-D arm was guarded and the 1-D arm was not, which left the worse of the two mismatches
+    // live. `dp.set(0, 1, 42)` typechecks against the class's own `set(i, j, value)` overload; the
+    // 1-D branch ignored `third` and wrote the *column index* — `dp[0] = 1` — then captioned the
+    // frame `dp[0] = 1`, so the picture and the caption corroborated each other and neither was
+    // the value the solution passed. The 2-D mismatch at least wrote a visible `undefined`.
+    expect(() =>
+      trace((viz) => {
+        const dp = viz.dp1d<number>(3, 0)
+        ;(dp as unknown as { set: (i: number, j: number, v: number) => void }).set(0, 1, 42)
+        return 0
+      }),
+    ).toThrow(/is 1-D — use set\(index, value\)/)
+
+    // And no index bound at all, so a 1-D table could grow past its declared size: `set(9, 5)` on
+    // a table of 3 produced `[null × 9, 5]` — the ragged shape the 2-D column check exists to stop.
+    expect(() =>
+      trace((viz) => {
+        const dp = viz.dp1d<number>(3, 0)
+        dp.set(9, 5)
+        return 0
+      }),
+    ).toThrow(/index 9 out of bounds \(0\.\.2\)/)
+  })
+
   it('marks arbitrary cells', () => {
     const { trace: t } = trace((viz) => {
       const dp = viz.dp1d(2, 0)
@@ -562,6 +619,38 @@ describe('VizString', () => {
       return 0
     })
     expect(finalOf(t, 'str1', 'string').marks).toEqual([])
+  })
+})
+
+describe('VizString.replace', () => {
+  it('rewrites the whole string in one frame', () => {
+    // Not every string problem builds left to right. Decode String rewrites its accumulator
+    // wholesale at every `]` (`before + inner.repeat(times)`), and the only way to say that
+    // otherwise is `removeLast(s.length)` then `append(...)` — two ops and a clear-by-length idiom
+    // standing in for one assignment, in the line that is the algorithm.
+    const { value, trace: t } = trace((viz) => {
+      const s = viz.string('ab', { name: 's' })
+      s.replace('xyzxyz')
+      return s.toString()
+    })
+    expect(value).toBe('xyzxyz')
+
+    const frames = t.frames.filter((f) => f.label?.startsWith('replace'))
+    expect(frames).toHaveLength(1)
+    expect(frames[0]?.label).toBe('replace -> "xyzxyz"')
+    // The whole new string is lit for that one frame, and the highlight does not persist.
+    const snap = frames[0]?.snapshots['str1']
+    expect(snap?.kind === 'string' && snap.marks.filter((m) => m.transient).length).toBe(6)
+    expect(finalOf(t, 'str1', 'string').marks).toEqual([])
+  })
+
+  it('handles replacing with the empty string', () => {
+    const { value } = trace((viz) => {
+      const s = viz.string('abc')
+      s.replace('')
+      return { text: s.toString(), length: s.length }
+    })
+    expect(value).toEqual({ text: '', length: 0 })
   })
 })
 
@@ -1026,13 +1115,80 @@ describe('VizGraph', () => {
   })
 
   it('records edge state in both directions for an undirected graph', () => {
-    // A decision recorded as `b -> a` must light up the edge stored as `a -> b`.
+    // A decision recorded as `b -> a` must light up the edge stored as `a -> b` — and must be
+    // *labelled* `a -> b` too. Only the lookup key was normalised, so the mark kept the caller's
+    // endpoints; every renderer matches marks to drawn edges by endpoint, so an undirected walk
+    // taken the undeclared way produced a mark that matched no edge and drew nothing.
     const { trace: t } = trace((viz) => {
       const g = viz.graph({ n: 2, edges: [[0, 1]] })
       g.edge(1, 0, 'tree')
       return 0
     })
-    expect(finalOf(t, 'gph1', 'graph').edgeMarks).toHaveLength(1)
+    expect(finalOf(t, 'gph1', 'graph').edgeMarks).toEqual([{ from: '0', to: '1', class: 'tree' }])
+  })
+
+  it('keeps two decisions about a directed pair apart instead of losing one', () => {
+    // `a -> b` and `b -> a` are two different edges on a directed graph, and Evaluate Division
+    // declares every equation as exactly that pair. Normalising the key without normalising the
+    // endpoints collapsed both decisions into one mark, keyed `a->b` and labelled `b->a` — so the
+    // first decision was destroyed and the survivor matched no drawn edge. Two decisions in,
+    // nothing on screen.
+    const { trace: t } = trace((viz) => {
+      const g = viz.graph({ directed: true, edges: [['a', 'b'], ['b', 'a']] })
+      g.edge('a', 'b', 'tree')
+      g.edge('b', 'a', 'rejected')
+      return 0
+    })
+    expect(finalOf(t, 'gph1', 'graph').edgeMarks).toEqual([
+      { from: 'a', to: 'b', class: 'tree' },
+      { from: 'b', to: 'a', class: 'rejected' },
+    ])
+  })
+
+  it('refuses a decision about an edge that does not exist', () => {
+    // The other half of the same hole: on a directed graph with only `a -> b` declared, marking
+    // `b -> a` used to succeed and silently overwrite the `a -> b` decision. A traversal that
+    // decides something about an edge it does not have is a bug in the traversal.
+    expect(() =>
+      trace((viz) => {
+        const g = viz.graph({ name: 'g', directed: true, edges: [['a', 'b']] })
+        g.edge('b', 'a', 'rejected')
+        return 0
+      }),
+    ).toThrow(/g has no directed edge b -> a/)
+  })
+
+  it('clears one edge state without touching the others', () => {
+    // `clearEdges(state)` shipped with no caller and no test; only the no-arg form is exercised
+    // by a problem.
+    const { trace: t } = trace((viz) => {
+      const g = viz.graph({ n: 4, edges: [[0, 1], [1, 2], [2, 3]] })
+      g.edge(0, 1, 'tree')
+      g.edge(1, 2, 'rejected')
+      g.edge(2, 3, 'tree')
+      g.clearEdges('tree')
+      return 0
+    })
+    expect(finalOf(t, 'gph1', 'graph').edgeMarks).toEqual([
+      { from: '1', to: '2', class: 'rejected' },
+    ])
+  })
+
+  it('yields the weight of the edge it just lit', () => {
+    // `weightedNeighbors` exists because `neighbors` destructures `{ to }` from an entry holding
+    // `{ to, weight }`, forcing `weightOf(at, next) ?? 1` — a fallback for an edge that provably
+    // exists — into the line that is the arithmetic of a step.
+    const { value, trace: t } = trace((viz) => {
+      const g = viz.graph({ weighted: true, directed: true, edges: [['a', 'b', 2], ['a', 'c', 5]] })
+      return [...g.weightedNeighbors('a')]
+    })
+    expect(value).toEqual([
+      { to: 'b', weight: 2 },
+      { to: 'c', weight: 5 },
+    ])
+    // Each one lights its edge for exactly the frame that yielded it.
+    const lit = t.frames.filter((f) => f.label?.startsWith('consider a ->'))
+    expect(lit.map((f) => f.label)).toEqual(['consider a -> b', 'consider a -> c'])
   })
 
   it('marks visited nodes and clears marks', () => {

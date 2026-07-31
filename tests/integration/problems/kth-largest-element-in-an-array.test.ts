@@ -202,9 +202,10 @@ describe('Kth Largest Element in an Array — reference trace semantics', () => 
     expect(heap.values).toHaveLength(k)
     expect(heap.values[0]).toBe(returned)
     expect(heap.marks.filter((m) => m.class === 'result').map((m) => m.index)).toEqual([0])
-    // Nothing moves after the mark is set, which is why marking slot 0 is safe here: `VizHeap`
-    // keys marks by array slot and never moves them when it swaps, so a mark set mid-run would
-    // drift onto whatever value sifted into that slot later.
+    // Nothing moves after the mark is set, so slot 0 is the answer for good. (This comment used
+    // to justify that by claiming `VizHeap` never moves marks when it swaps. That was true when
+    // it was written and is not now — `IndexMarkStore.swap`/`move` carry a mark with its value,
+    // and the heap tests assert it. The assertion below still holds; its old reason did not.)
     expect(reader.captionAt(last)).toMatch(/is the 4th largest/)
   })
 
@@ -266,11 +267,31 @@ describe('Kth Largest Element in an Array — reference trace semantics', () => 
     expect(labels[labels.length - 1]).toMatch(/the heap holds the 4 largest values/)
   })
 
-  it('reports the running answer in the watch panel', () => {
-    const watch = reader.watchAt(last)!
-    expect(watch.kept).toBe(k)
-    expect(watch.kth).toBe(returned)
-    expect(watch.i).toBe(nums.length)
+  it('reports nothing in the watch panel that is false on any frame', () => {
+    // This used to check the last frame only — the one frame where the value it checked could not
+    // be stale — and that is why CI never saw the defect an audit did. The panel reported the k-th
+    // largest as `top.size === k ? top.peek() : null`, guarding on the heap being *full* rather
+    // than *settled*: `peek()` is slot 0, which is the minimum only while the heap property holds,
+    // and the frames where it deliberately does not are the ones this animation exists for. On
+    // `[7,6,5,4]` with k=4 it read 5 for four consecutive frames while the answer was 4 — a number
+    // that is never the 4th largest at any point in that run.
+    //
+    // No ordering fixes that: a sampler fires on every frame whatever the solution does. So the
+    // panel now reports only what is true on every frame, and this checks it on every frame.
+    for (let f = 0; f < reader.frameCount; f += 1) {
+      const watch = reader.watchAt(f)
+      if (!watch) continue
+      expect(Object.keys(watch).sort(), `frame ${f}`).toEqual(['i', 'kept'])
+      const heap = resolve(reader, HEAP, 'heap', f)
+      if (!heap) continue
+      expect(watch.kept, `frame ${f}: watch says ${String(watch.kept)} kept`).toBe(heap.values.length)
+      const cursor = resolve(reader, NUMS, 'array', f)?.cursors.find((c) => c.name === 'i')
+      if (cursor) expect(watch.i, `frame ${f}: caret is at ${cursor.index}`).toBe(cursor.index)
+    }
+    expect(reader.watchAt(last)!.i).toBe(nums.length)
+    // The quantity the panel used to claim is still on screen — in the panel that never lies.
+    const payoff = resolve(reader, PANEL, 'array', last)!
+    expect(payoff.values[payoff.values.length - 1]).toBe(returned)
   })
 })
 
@@ -436,7 +457,7 @@ export default function findKthLargest(nums: number[], k: number, viz: Viz): num
   const top = viz.heap<number>([], { name: 'the k largest so far' })
   const kth = viz.array<number>(nums.length, { name: 'k-th largest so far', fill: null })
   const i = viz.cursor('i', 0, a)
-  viz.watch(() => ({ i: i.value, kept: top.size, kth: top.peek() ?? null }))
+  viz.watch(() => ({ i: i.value, kept: top.size }))
 
   for (i.value = 0; i.value < a.length; i.inc()) {
     const x = a[i.value]
@@ -462,6 +483,45 @@ export default function findKthLargest(nums: number[], k: number, viz: Viz): num
   return answer
 }
 `
+
+  it('is a transcription of the shipped starter, not a different program', () => {
+    // Without this, the block below tests whatever the *test* happens to say. That is not
+    // hypothetical: this file's `filled` snippet put the `kth` write above `viz.step` while the
+    // shipped starter had it below, so "keeps the payoff panel level with the caption" passed
+    // against a program no learner would ever have — and the starter reproduced, verbatim, the
+    // 140-frame lag the reference had just been fixed for. An audit found it; CI could not.
+    // The starter's own placeholders, which its TODOs explicitly say to replace. Everything else
+    // is scaffolding the learner is told to leave alone, so a difference there is drift.
+    const placeholders = ["viz.step('at ' + x)", 'return 0']
+    const starter = requireProblem(PROBLEM).starter
+    const scaffolding = starter
+      .split('\n')
+      .map((l) => l.trim())
+      .filter((l) => l.length > 6 && !l.startsWith('//') && !l.startsWith('*'))
+      .filter((l) => !placeholders.includes(l))
+
+    // By **order**, not by presence: each scaffolding line must appear after the previous one, so
+    // a rearrangement is drift rather than a match. That is a real gap closed — but not the whole
+    // of the one the paragraph above describes, and the honest statement of the limit is that the
+    // starter's `viz.step` line is itself a placeholder, so it is not an anchor here and a `kth`
+    // write moving across it is invisible to *this* test. What catches that is `keeps the payoff
+    // panel level with the caption describing it`, which runs the filled program and reads the
+    // frames. Both were checked by reverting; neither alone covers the other's case.
+    const lines = filled.split('\n').map((l) => l.trim())
+    const drift: string[] = []
+    let at = -1
+    for (const line of scaffolding) {
+      const found = lines.indexOf(line, at + 1)
+      if (found === -1) {
+        drift.push(lines.includes(line) ? `out of order: ${line}` : `missing: ${line}`)
+      } else {
+        at = found
+      }
+    }
+    expect(drift, 'the filled solution has drifted from the starter it claims to fill in').toEqual(
+      [],
+    )
+  })
 
   it('produces a passing, invariant-holding trace when followed literally', () => {
     const run = executeRun({ problem: PROBLEM, source: filled, caseIndex: 'all' })

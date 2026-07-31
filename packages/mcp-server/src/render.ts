@@ -1,5 +1,6 @@
 import {
   TraceReader,
+  edgeMarkFor,
   type Frame,
   type StructureSnapshot,
   type Trace,
@@ -76,10 +77,21 @@ export function renderSnapshot(name: string, snapshot: StructureSnapshot): strin
       return `${name} (${snapshot.comparatorLabel}): [${snapshot.values
         .map((v, i) => cell(v, snapshot.marks.filter((m) => m.index === i)))
         .join(' ')}]`
-    case 'map':
-      return `${name} (map): {${snapshot.entries
-        .map((e) => `${e.key}: ${JSON.stringify(e.value)}${glyphs(snapshot.marks.filter((m) => m.key === e.key))}`)
-        .join(', ')}}`
+    case 'map': {
+      const rows = snapshot.entries.map(
+        (e) => `${e.key}: ${JSON.stringify(e.value)}${glyphs(snapshot.marks.filter((m) => m.key === e.key))}`,
+      )
+      // A mark on a key the map does not hold is what `VizMap.has()` records for a failed lookup,
+      // and filtering marks by entry dropped it — the same hole `MapViz` had. A miss is a claim
+      // the op log makes, so it has to be a claim this backs up.
+      const absent = [...new Set(snapshot.marks.map((m) => m.key))].filter(
+        (k) => !snapshot.entries.some((e) => e.key === k),
+      )
+      for (const key of absent) {
+        rows.push(`${key}: (absent)${glyphs(snapshot.marks.filter((m) => m.key === key))}`)
+      }
+      return `${name} (map): {${rows.join(', ')}}`
+    }
     case 'matrix':
     case 'dp': {
       const rows =
@@ -116,7 +128,18 @@ export function renderSnapshot(name: string, snapshot: StructureSnapshot): strin
         walk(node.right, depth + 1, 'R ')
       }
       walk(snapshot.root, 0, '')
-      const edges = snapshot.edgeMarks.map((e) => `${e.from}->${e.to}:${e.class}`).join(' ')
+      // One line per edge, not per mark. A re-traversed edge carries both its settled state and
+      // the transient highlight of the walk crossing it again, and listing the raw array printed
+      // the same edge twice with two different states — a reader has no way to tell which one the
+      // picture is showing. `edgeMarkFor` decides, once, for every renderer.
+      const seen = new Set<string>()
+      const edges = snapshot.edgeMarks
+        .filter((e) => !seen.has(`${e.from}->${e.to}`) && seen.add(`${e.from}->${e.to}`) !== null)
+        .map((e) => {
+          const mark = edgeMarkFor(snapshot.edgeMarks, e.from, e.to, true)
+          return `${e.from}->${e.to}:${mark?.class ?? e.class}`
+        })
+        .join(' ')
       return `${name} (tree):\n${lines.join('\n')}${edges ? `\n  edges: ${edges}` : ''}`
     }
     case 'graph': {
@@ -126,13 +149,12 @@ export function renderSnapshot(name: string, snapshot: StructureSnapshot): strin
       const arrow = snapshot.directed ? '->' : '--'
       const edges = snapshot.edges
         .map((e) => {
-          // Only look both ways on an undirected graph. On a directed one `a->b` and `b->a` are
-          // distinct edges, so mirroring reported a mark on whichever of the pair it found first.
-          const mark = snapshot.edgeMarks.find(
-            (m) =>
-              (m.from === e.from && m.to === e.to) ||
-              (!snapshot.directed && m.from === e.to && m.to === e.from),
-          )
+          // Shared with `GraphViz` so the two cannot disagree — see `edgeMarkFor`. They did:
+          // this used `.find()` (first wins) where the SVG folded into a Map (last wins), and a
+          // snapshot lists persistent marks before transient ones, so an edge carrying both a
+          // settled state and the walk's `active` highlight was reported here as one thing and
+          // drawn there as the other.
+          const mark = edgeMarkFor(snapshot.edgeMarks, e.from, e.to, snapshot.directed)
           const weight = e.weight === undefined ? '' : `(${e.weight})`
           return `${e.from}${arrow}${e.to}${weight}${mark ? `:${mark.class}` : ''}`
         })
@@ -145,8 +167,15 @@ export function renderSnapshot(name: string, snapshot: StructureSnapshot): strin
       const walk = (id: string, depth: number): void => {
         const node = byId.get(id)
         if (!node) return
-        if (depth > 0) {
-          const marks = snapshot.marks.filter((m) => m.id === id)
+        const marks = snapshot.marks.filter((m) => m.id === id)
+        // The root prints when it carries a mark. It used to be skipped unconditionally, so a
+        // failed lookup — which marks the root `excluded` precisely so a miss does not look like a
+        // hit — rendered with no glyph anywhere, and a trie that is nothing *but* root marks
+        // rendered blank. That is the same defect `TrieViz` was just fixed for, one layer over, in
+        // the tool an auditor reads its evidence from.
+        if (depth === 0) {
+          if (marks.length > 0) lines.push(`  (root)${glyphs(marks)}`)
+        } else {
           lines.push(`  ${'  '.repeat(depth - 1)}${node.char}${node.terminal ? '.' : ''}${glyphs(marks)}`)
         }
         for (const child of node.children) walk(child, depth + 1)

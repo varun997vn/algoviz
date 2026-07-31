@@ -95,9 +95,13 @@ function visibleRange(
   return [start, start + MAX_RENDERED]
 }
 
-export function ArrayViz({ snapshot }: { snapshot: Of<'array'> }): ReactNode {
+export function ArrayViz({ snapshot, what = 'array' }: { snapshot: Of<'array'>; what?: string }): ReactNode {
   const { values, cursors, marks, window: win } = snapshot
-  if (values.length === 0) return <EmptyState what="array" />
+  // `what` exists so `StringViz` — which renders through here — can say "string is empty" rather
+  // than "array is empty". Letter Combinations is the first problem whose string panel is empty at
+  // rest, and it reads `array is empty` on frame 0 and on the final frame: the two a viewer is
+  // most likely to be parked on, in the panel its docstring calls the pen.
+  if (values.length === 0) return <EmptyState what={what} />
 
   const [from, to] = visibleRange(values.length, cursors, win)
   const lanes = laneFor(cursors)
@@ -163,6 +167,7 @@ export function StringViz({ snapshot }: { snapshot: Of<'string'> }): ReactNode {
   const chars = [...snapshot.value]
   return (
     <ArrayViz
+      what="string"
       snapshot={{
         kind: 'array',
         values: chars,
@@ -356,7 +361,18 @@ export function SetViz({ snapshot }: { snapshot: Of<'set'> }): ReactNode {
 
 export function MapViz({ snapshot }: { snapshot: Of<'map'> }): ReactNode {
   const { entries, marks } = snapshot
-  if (entries.length === 0) return <EmptyState what="map" />
+  // A mark on a key the map does not hold — which is exactly what `VizMap.has()` records for a
+  // failed lookup — matched no row and was drawn nowhere. Evaluate Division consults its symbol
+  // table with `has()` on both endpoints of every query precisely so an unknown variable is *seen*
+  // rather than being a query that returns -1 having touched nothing; the eight misses in its case
+  // set rendered byte-identically to the frame before them, and on `x / y` the whole two-frame
+  // lookup phase was a still image. The absent key gets a row of its own, which is the only
+  // honest way to draw "I looked, and it is not here": present in the picture, and visibly not an
+  // entry. Rows for real entries keep their order, and the phantoms follow so the table's contents
+  // still read as the map.
+  const absent = marks.filter((m) => !entries.some((e) => e.key === m.key))
+  const phantoms = [...new Set(absent.map((m) => m.key))]
+  if (entries.length === 0 && phantoms.length === 0) return <EmptyState what="map" />
 
   return (
     <Scroll>
@@ -401,6 +417,23 @@ export function MapViz({ snapshot }: { snapshot: Of<'map'> }): ReactNode {
               >
                 <td>{entry.key}</td>
                 <td>{typeof entry.value === 'object' ? JSON.stringify(entry.value) : display(entry.value as never)}</td>
+              </tr>
+            )
+          })}
+          {phantoms.map((key) => {
+            const keyMarks = marks.filter((m) => m.key === key)
+            const note = keyMarks.find((m) => m.note !== undefined)?.note
+            return (
+              <tr
+                key={`absent-${key}`}
+                data-node-id={key}
+                data-absent="true"
+                title={note ?? `${key} is not in the map`}
+                data-highlight={keyMarks.map((m) => m.class).join(' ')}
+                style={{ color: 'var(--av-text-dim)', fontStyle: 'italic' }}
+              >
+                <td>{key}</td>
+                <td>not present</td>
               </tr>
             )
           })}
@@ -453,7 +486,8 @@ function GridViz({
   const width = cols * (CELL + GAP) + offsetX
   const height = headerH + rows * (CELL + GAP) + 16
   // Row 0 and column 0 of a dp table are the empty-prefix base cases, so character k of an axis
-  // string labels row/column k+1. Undefined for the base row, which leaves it blank — correct.
+  // string labels row/column k+1. Undefined for the base row and column, which then fall through
+  // to the numeric label below — the base cases keep their index, which is what they stand for.
   const axisChar = (axis: 0 | 1, i: number): string | undefined => axisLabels?.[axis]?.[i - 1]
 
   return (

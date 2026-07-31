@@ -242,14 +242,31 @@ export class VizGraph extends BaseStructure {
     this.rec.record({ op: 'mark', structure: this, label: `edge ${from}->${to} is ${state}` })
   }
 
+  /**
+   * Resolve a decision about an edge onto the edge that was actually declared.
+   *
+   * An undirected edge is stored once, so a walk down it in the undeclared direction has to fold
+   * onto the declared one — **key and endpoints together**. Normalising only the key was a silent
+   * loss: the mark kept the caller's `from`/`to`, so on a directed graph `edge('a','b','tree')`
+   * followed by `edge('b','a','rejected')` — two decisions, on what a directed graph considers two
+   * different edges — left one mark, keyed `a->b` and *labelled* `b->a`. `GraphViz` matches marks
+   * to drawn edges by endpoint, so it drew neither: two decisions in, nothing on screen.
+   *
+   * A decision about an edge that does not exist is a bug in the traversal, not a picture to draw,
+   * so it throws — in the same spirit as `VizIntervals.reorder` and `VizDpTable.set`.
+   */
   private markEdge(from: NodeId, to: NodeId, cls: EdgeState, note?: string): void {
-    // Undirected edges are stored once, so normalise the lookup key both ways.
-    const direct = `${from}->${to}`
-    const reverse = `${to}->${from}`
-    const key = this.edges.some((e) => e.from === from && e.to === to) ? direct : reverse
-    const mark: EdgeMark = { from, to, class: cls }
+    const edge =
+      this.edges.find((e) => e.from === from && e.to === to) ??
+      (this.directed ? undefined : this.edges.find((e) => e.from === to && e.to === from))
+    if (!edge) {
+      throw new RangeError(
+        `${this.name} has no ${this.directed ? 'directed ' : ''}edge ${from} -> ${to}`,
+      )
+    }
+    const mark: EdgeMark = { from: edge.from, to: edge.to, class: cls }
     if (note !== undefined) mark.note = note
-    this.edgeMarks.set(key, mark)
+    this.edgeMarks.set(`${edge.from}->${edge.to}`, mark)
   }
 
   private emit(op: 'visit' | 'read', marks: NodeMark[], label: string): void {

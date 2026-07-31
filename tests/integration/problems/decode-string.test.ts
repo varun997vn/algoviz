@@ -28,6 +28,7 @@ const PROBLEM = 'decode-string'
 const INPUT = 's'
 const COUNTS = 'repeat counts'
 const SAVED = 'text before the ['
+const OUT = 'the piece being built'
 
 function idOf(trace: Trace, name: string): string {
   const meta = trace.structures.find((s) => s.name === name)
@@ -59,6 +60,18 @@ function depthTable(s: string): (index: number) => number {
     after.push(d)
   }
   return (index: number) => (index < 0 ? 0 : (after[Math.min(index, after.length - 1)] ?? 0))
+}
+
+/**
+ * The piece being built, read off its **panel**.
+ *
+ * It used to be a watch value, and these assertions read it from `watchAt`. `VizString.replace`
+ * exists so a wholesale rewrite is one frame instead of a clear-by-length idiom, which is what
+ * demoted it to a watch value in the first place; now that the solution uses it, the panel is what
+ * a viewer sees and so it is what these check.
+ */
+function builtAt(reader: TraceReader, frame: number): string {
+  return resolve(reader, OUT, 'string', frame)?.value ?? ''
 }
 
 function caretAt(reader: TraceReader, frame: number): number {
@@ -166,6 +179,7 @@ describe('Decode String — reference trace semantics', () => {
       `${INPUT}:string`,
       `${COUNTS}:stack`,
       `${SAVED}:stack`,
+      `${OUT}:string`,
     ])
   })
 
@@ -210,7 +224,7 @@ describe('Decode String — reference trace semantics', () => {
       if (!saved) continue
       const i = caretAt(reader, f)
       const seen = new Set(s.slice(0, i + 1))
-      const holding = [String(reader.watchAt(f)?.built ?? ''), ...(saved.values as string[])]
+      const holding = [builtAt(reader, f), ...(saved.values as string[])]
       for (const piece of holding) {
         for (const ch of piece) {
           expect(
@@ -250,10 +264,15 @@ describe('Decode String — reference trace semantics', () => {
     expect(resolve(reader, SAVED, 'stack', last)!.marks).toEqual([])
   })
 
-  it('gives every stack cell a note, which is the only place a saved empty string is readable', () => {
-    // `""` renders as a completely blank 44px box and a long prefix overflows it, so for a stack
-    // of strings the note *is* the cell's label. Notes were dead text everywhere until they were
-    // wired to `title`; this asserts the wiring is being used, not just that it exists.
+  it('gives every parked stack cell a note saying what it is for', () => {
+    // For a stack of strings a cell shows the value and the note says what the value *means* —
+    // which bracket parked it, and why. Notes were dead text everywhere until they were wired to
+    // `title`; this asserts the wiring is being used, not just that it exists.
+    //
+    // The note used to carry a copy of the value too, because `""` drew a blank box and a long
+    // prefix overflowed one. Both are fixed in `packages/viz` — an empty cell draws `ε`, and a
+    // clipped cell's tooltip leads with the full value — so the copy became duplication and the
+    // long-prefix tooltip read the value twice.
     let seenNotes = 0
     for (let f = 0; f < reader.frameCount; f += 1) {
       for (const name of [COUNTS, SAVED]) {
@@ -267,13 +286,20 @@ describe('Decode String — reference trace semantics', () => {
       }
     }
     expect(seenNotes).toBeGreaterThan(0)
-    // The empty saved prefix — the one that draws a blank cell — says so in words.
-    const savedNotes = new Set<string>()
+    // Each note names the bracket that parked the cell, so two cells of one stack are never
+    // labelled the same thing — which is what makes the note a label rather than decoration.
+    const savedNotes: string[] = []
     for (let f = 0; f < reader.frameCount; f += 1) {
       const stack = resolve(reader, SAVED, 'stack', f)
-      for (const m of stack?.marks ?? []) if (m.note) savedNotes.add(m.note)
+      for (const m of stack?.marks ?? []) if (m.note) savedNotes.push(m.note)
     }
-    expect([...savedNotes].some((n) => n.includes('""'))).toBe(true)
+    expect(savedNotes.every((n) => /at s\[\d+\]/.test(n))).toBe(true)
+    for (let f = 0; f < reader.frameCount; f += 1) {
+      const notes = (resolve(reader, SAVED, 'stack', f)?.marks ?? [])
+        .map((m) => m.note)
+        .filter((n): n is string => n !== undefined)
+      expect(new Set(notes).size, `frame ${f}: two parked cells share a note`).toBe(notes.length)
+    }
   })
 
   it('reads the input as content versus syntax', () => {
@@ -295,32 +321,38 @@ describe('Decode String — reference trace semantics', () => {
   })
 
   it('never shows a context popped before the text it was kept for appears', () => {
-    // `built = before + inner.repeat(times)` runs *ahead* of the two pops, so on the very frame a
-    // saved prefix leaves the stack the reassembled piece is already in the watch panel. The other
-    // order leaves a frame where the stack has given up the prefix and nothing on screen has
-    // received it — on the pop frames, which are the ones worth stopping on.
+    // The reassembly runs *ahead* of the two pops, so on the very frame a saved prefix leaves the
+    // stack the finished piece is already in its panel. The other order leaves a frame where the
+    // stack has given up the prefix and nothing on screen has received it — on the pop frames,
+    // which are the ones worth stopping on.
     //
     // Checked exactly, not just "something changed": `1[a]` is a real case where the piece before
     // and after a pop are the same string, and a "did it change?" test would be vacuous there.
+    // `inner` is therefore the panel's value as of the last frame on which it *differed*, not the
+    // value one frame back — the rewrite is now its own frame, so "one frame back" is already the
+    // reassembled piece and comparing against it would be circular.
     const savedId = idOf(trace, SAVED)
     let held: string[] = []
+    let inner = ''
     let pops = 0
     for (const frame of trace.frames) {
+      const current = builtAt(reader, frame.index)
       const snap = frame.snapshots[savedId]
-      if (!snap || snap.kind !== 'stack') continue
-      if (snap.values.length < held.length) {
-        const popped = held[held.length - 1] as string
-        const inner = String(reader.watchAt(frame.index - 1)?.built ?? '')
-        // `counts` is popped *after* `saved`, so the multiplier is still on screen right here.
-        const counts = resolve(reader, COUNTS, 'stack', frame.index)!
-        const times = counts.values[counts.values.length - 1] as number
-        expect(
-          reader.watchAt(frame.index)?.built,
-          `frame ${frame.index}: ${JSON.stringify(popped)} left the stack before it was glued onto ${times} × ${JSON.stringify(inner)}`,
-        ).toBe(popped + inner.repeat(times))
-        pops += 1
+      if (snap && snap.kind === 'stack') {
+        if (snap.values.length < held.length) {
+          const popped = held[held.length - 1] as string
+          // `counts` is popped *after* `saved`, so the multiplier is still on screen right here.
+          const counts = resolve(reader, COUNTS, 'stack', frame.index)!
+          const times = counts.values[counts.values.length - 1] as number
+          expect(
+            current,
+            `frame ${frame.index}: ${JSON.stringify(popped)} left the stack before it was glued onto ${times} × ${JSON.stringify(inner)}`,
+          ).toBe(popped + inner.repeat(times))
+          pops += 1
+        }
+        held = snap.values as string[]
       }
-      held = snap.values as string[]
+      if (current !== builtAt(reader, frame.index + 1)) inner = current
     }
     expect(pops).toBe(2)
   })
@@ -335,9 +367,9 @@ describe('Decode String — reference trace semantics', () => {
     expect(labels[labels.length - 1]).toMatch(/both stacks are empty/)
   })
 
-  it('reports the answer and the depth in the watch panel', () => {
+  it('reports the answer in its panel and the depth in the watch panel', () => {
+    expect(builtAt(reader, last)).toBe(returned)
     const watch = reader.watchAt(last)!
-    expect(watch.built).toBe(returned)
     expect(watch.depth).toBe(0)
     expect(watch.k).toBe(0)
   })
@@ -433,7 +465,7 @@ describe('Decode String — the depth invariant holds on every case', () => {
         if (!saved) continue
         const i = caretAt(reader, f)
         const seen = new Set(s.slice(0, i + 1))
-        for (const piece of [String(reader.watchAt(f)?.built ?? ''), ...(saved.values as string[])]) {
+        for (const piece of [builtAt(reader, f), ...(saved.values as string[])]) {
           for (const ch of piece) {
             expect(
               seen.has(ch),
@@ -446,7 +478,7 @@ describe('Decode String — the depth invariant holds on every case', () => {
       // The picture agrees with the answer, and the whole input has been consumed.
       const input = resolve(reader, INPUT, 'string', last)!
       expect(input.marks.filter((m) => !m.transient)).toHaveLength(s.length)
-      expect(reader.watchAt(last)?.built).toBe(caseResult.returned)
+      expect(builtAt(reader, last)).toBe(caseResult.returned)
 
       // Frames scale with the *input*, not with the decoded string. `10[ab]` decodes to twenty
       // characters from six, and `2[2[2[2[a]]]]` to sixteen from thirteen; if the repeats were

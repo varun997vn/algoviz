@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Viz} from './index.js';
-import { BudgetExceededError, TraceReader, lastAtMost, resolveFrame, trace } from './index.js'
+import { BudgetExceededError, TraceReader, edgeMarkFor, lastAtMost, resolveFrame, trace } from './index.js'
 import type { StructureSnapshot, Trace } from './types.js'
 
 /** Mirrors the reader's carry-forward semantics, written independently for the replay test. */
@@ -277,6 +277,98 @@ describe('grouping and narration', () => {
     expect(reader.captionAt(99)).toBe('the explanation')
   })
 
+  it('carries work done inside quiet() onto the next frame that is emitted', () => {
+    // This comment used to claim the change altered the snapshot contract for every problem,
+    // because `viz.heap`, `viz.list`, `viz.map`, `viz.set`, `viz.graph`, `viz.tree` and `viz.trie`
+    // all build their initial state inside `rec.quiet` in their constructors. That is wrong, and
+    // measurably so: `viz.ts` calls `rec.register(s)` *after* each constructor returns, and
+    // `register` emits an `init` frame carrying that very structure — which consumes the muted
+    // entry before any other frame can inherit it. Across all 18 problems × every case, exactly
+    // one frame in the repo carries a catch-up snapshot: `evaluate-division` frame 2, where a
+    // *hand-written* `viz.quiet` block marks the graph and the next thing to happen is the
+    // creation of another structure. Constructor quiet blocks contribute nothing.
+    //
+    // A snapshot only exists on frames that touch the structure, so a structure changed *only*
+    // while quiet kept resolving to its pre-quiet state — seed a table quietly, narrate "the border
+    // is filled in", and the caption and the picture flatly disagreed. Structures mutated while
+    // quiet now ride along on the next emitted frame.
+    //
+    // The sibling test below reads the *terminal* frame, which `recordAll` snapshots wholesale, so
+    // it passes with or without this. This one reads the frame in the middle, which is the only
+    // place the difference is observable.
+    const { trace: t } = trace((viz) => {
+      const a = viz.array([1, 2, 3], { name: 'a' })
+      const b = viz.array([9], { name: 'b' })
+      viz.quiet(() => {
+        a.mark(0, 'result')
+        a.mark(1, 'visited')
+      })
+      b.mark(0, 'active') // the next emitted frame — belongs to `b`, must carry `a` as well
+      viz.step('the marks are in')
+      return 0
+    })
+
+    const idOf = (name: string): string => t.structures.find((x) => x.name === name)?.id ?? ''
+    const catchUp = t.frames.find((f) => f.label === 'mark 0 as active')
+    expect(catchUp, 'no frame for the post-quiet mark').toBeDefined()
+
+    // The frame is *about* b, and carries a too.
+    expect(catchUp!.structureId).toBe(idOf('b'))
+    const carried = catchUp!.snapshots[idOf('a')]
+    expect(carried, 'the quietly-marked array never caught up').toBeDefined()
+    expect(carried?.kind === 'array' && carried.marks.map((m) => m.class).sort()).toEqual([
+      'result',
+      'visited',
+    ])
+
+    // And the catch-up happens once — a later frame is not still re-snapshotting `a`.
+    const narrated = t.frames.find((f) => f.label === 'the marks are in')
+    expect(Object.keys(narrated?.snapshots ?? {})).toEqual([])
+  })
+
+  it('owes no catch-up for a quiet block that only read', () => {
+    // The catch-up was owed on *every* op inside quiet, reads included. A read's whole contribution
+    // to a frame is its transient highlight, and a catch-up snapshot does not carry transients — so
+    // a quiet read forced a snapshot deep-equal to the one already on screen but a **distinct
+    // object**, which is precisely what invariant 2 forbids: `TraceReader` returns the same
+    // reference for an unchanged structure so `React.memo` can skip the redraw. Reads that changed
+    // nothing were redrawing the panel.
+    const { trace: t } = trace((viz) => {
+      const a = viz.array([1, 2, 3], { name: 'a' })
+      const b = viz.array([9], { name: 'b' })
+      viz.quiet(() => {
+        void a[0]
+        a.compare(0, 1)
+      })
+      b.mark(0, 'active')
+      return 0
+    })
+
+    const idOf = (name: string): string => t.structures.find((x) => x.name === name)?.id ?? ''
+    const next = t.frames.find((f) => f.label === 'mark 0 as active')
+    expect(Object.keys(next?.snapshots ?? {})).toEqual([idOf('b')])
+
+    // The identity contract, stated the way a memoised renderer sees it.
+    const reader = new TraceReader(t)
+    const at = t.frames.indexOf(next!)
+    expect(reader.structureAt(idOf('a'), at)).toBe(reader.structureAt(idOf('a'), at - 1))
+  })
+
+  it('still emits no frames of its own for a quiet block', () => {
+    // The catch-up must not turn quiet into "delayed loud": the ops inside stay unnarrated, and
+    // three quiet marks must still cost zero frames rather than arriving late as three.
+    const { trace: t } = trace((viz) => {
+      const a = viz.array([1, 2, 3])
+      viz.quiet(() => {
+        a.mark(0, 'result')
+        a.mark(1, 'visited')
+        a.mark(2, 'excluded')
+      })
+      return 0
+    })
+    expect(t.frames.filter((f) => f.label?.startsWith('mark'))).toEqual([])
+  })
+
   it('suppresses frames inside quiet() but still counts the ops', () => {
     const { trace: t } = trace((viz) => {
       const a = viz.array([1, 2, 3])
@@ -544,5 +636,32 @@ describe('Viz facade', () => {
     )
     // queue and deque are the same kind but distinct structures.
     expect(kinds.filter((k) => k === 'queue')).toHaveLength(2)
+  })
+})
+
+describe('edgeMarkFor', () => {
+  // One rule shared by `GraphViz`, `TreeViz` and the MCP text renderer, because they drifted apart
+  // while each was independently "correct": the SVG folded marks into a Map (last wins) and the
+  // text renderer used `.find()` (first wins). A snapshot lists persistent marks before transient
+  // ones, so the two disagreed on exactly the frames a walk is crossing an already-settled edge —
+  // and `trace_inspect`, the channel every audit reads its evidence from, was the one reporting a
+  // state the user could not see.
+  const marks = [
+    { from: 'a', to: 'b', class: 'tree' as const },
+    { from: 'a', to: 'b', class: 'active' as const, transient: true },
+  ]
+
+  it('lets the transient highlight win, whichever order the marks arrive in', () => {
+    expect(edgeMarkFor(marks, 'a', 'b', true)?.class).toBe('active')
+    expect(edgeMarkFor([...marks].reverse(), 'a', 'b', true)?.class).toBe('active')
+  })
+
+  it('falls back to the settled state once the highlight is gone', () => {
+    expect(edgeMarkFor([marks[0]!], 'a', 'b', true)?.class).toBe('tree')
+  })
+
+  it('folds b->a onto a->b only when the graph is undirected', () => {
+    expect(edgeMarkFor([marks[0]!], 'b', 'a', false)?.class).toBe('tree')
+    expect(edgeMarkFor([marks[0]!], 'b', 'a', true)).toBeUndefined()
   })
 })
