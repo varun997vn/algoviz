@@ -203,6 +203,38 @@ describe('MapViz', () => {
     expect(container.querySelectorAll('tbody tr')).toHaveLength(2)
     expect(container.querySelector('[data-node-id="b"]')?.getAttribute('data-highlight')).toBe('active')
   })
+
+  it('draws a lookup that missed, instead of dropping the mark on the floor', () => {
+    // `VizMap.has()` records a mark on the key it looked for whether or not the map holds it, and
+    // this filtered marks by entry — so a *miss* matched no row and was drawn nowhere. Evaluate
+    // Division consults its symbol table on both endpoints of every query for exactly this
+    // reason: so a query that returns -1 because a variable was never mentioned is *seen* rather
+    // than being a query that touched nothing. Its eight misses rendered byte-identically to the
+    // frame before them, and on one query both endpoints miss, so the whole lookup phase was a
+    // still image.
+    const container = renderSnapshot({
+      kind: 'map',
+      entries: [{ key: 'a', value: 1 }],
+      marks: [{ key: 'c', class: 'excluded', note: 'c never appears in an equation', transient: true }],
+    } as never)
+    const rows = [...container.querySelectorAll('tbody tr')]
+    expect(rows).toHaveLength(2)
+    const miss = container.querySelector('[data-node-id="c"]')
+    expect(miss?.getAttribute('data-absent')).toBe('true')
+    expect(miss?.getAttribute('data-highlight')).toBe('excluded')
+    expect(miss?.textContent).toContain('not present')
+    // Real entries keep their place; the absent key follows.
+    expect(rows[0]?.getAttribute('data-node-id')).toBe('a')
+  })
+
+  it('is not empty when the only thing to show is a miss', () => {
+    renderSnapshot({
+      kind: 'map',
+      entries: [],
+      marks: [{ key: 'x', class: 'excluded' }],
+    } as never)
+    expect(screen.queryByTestId('empty-structure')).toBeNull()
+  })
 })
 
 describe('MatrixViz and DpViz', () => {

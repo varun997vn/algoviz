@@ -422,10 +422,20 @@ problems:
     order: 26
     structures: [ stack, string ]
     techniques: [ stack, parsing ]
-    status: in-progress
+    status: done
     branch: claude/leetcode-visualizer-w01nr6
     pr: null
-    notes: null
+    notes: "trace-verifier: faithful. Re-audited after the answer was promoted from a
+      watch value to a viz.string panel, which adds frames per iteration. All 11
+      cases, ~772 frames, reconstructed independently: counts.size - saved.size is
+      in {0,1} on every frame and both equal the bracket depth on all 126 step
+      frames; an independent replay of (piece, counts, saved) matches exactly. Every
+      frame carrying a caret shows a state the algorithm actually occupies — 367
+      settled, 289 pre-apply, 105 hybrid, 0 impossible — and every hybrid runs in the
+      direction the docstring commits to. The panel never changes on a pop frame, so
+      the reassembly always lands strictly earlier; all 22 opening brackets narrate
+      over a cleared panel. No cell is drawn truncated without its full value in the
+      tooltip."
     dependsOn: []
   - id: p933
     leetcode: 933
@@ -722,10 +732,22 @@ problems:
     order: 46
     structures: [ array, graph, map ]
     techniques: [ dfs, weighted-graph ]
-    status: in-progress
+    status: done
     branch: claude/leetcode-visualizer-w01nr6
     pr: null
-    notes: null
+    notes: "trace-verifier: faithful on re-audit, after a first verdict of misleading.
+      Both findings confirmed fixed by measurement rather than by reading: all six
+      give-up captions across nine cases were reconstructed from the edge notes
+      visible on the same frame, with zero mismatches; and the antiparallel pairs are
+      drawn apart — 40 pairs across the final frames of all nine cases, none closer
+      than 10px in either segment or weight label, so the four path edges of the
+      four-link chain really do read 2x2x2x2 = 16. SVG and trace_inspect were
+      compared on 595 frames x every edge with an independently written resolution
+      rule: zero disagreements. One new finding, since fixed and not in this
+      solution: VizMap.has records a mark on the key it looked for whether or not the
+      map holds it, and both MapViz and the MCP renderer filtered marks by entry, so
+      all eight failed lookups in the case set rendered byte-identically to the frame
+      before them — the miss this problem consults the symbol table to show."
     dependsOn: []
   - id: p1926
     leetcode: 1926

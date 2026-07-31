@@ -122,13 +122,15 @@ export function reference(s: string, viz: Viz): string {
         `repeat whatever gets built inside this bracket ${times} time(s)`,
       )
       saved.push(parked)
-      // The note says what the cell *means*, not what it holds — the cell shows `ε` for an empty
-      // prefix and the tooltip carries a clipped value alongside the note, so this no longer has
-      // to smuggle a copy of the value through as the only legible form of it.
+      // The note says what the cell *means*, not what it holds. It used to embed a copy of the
+      // value, because a blank cell and a clipped one left the tooltip as the only legible form of
+      // it; the cell shows `ε` for an empty prefix now and `Cell` puts the full value in the
+      // tooltip ahead of the note, so the copy was pure duplication — the long-prefix tooltip read
+      // `abcdefghij — … at s[11]: "abcdefghij"`.
       saved.mark(
         saved.size - 1,
         'path',
-        `text held over from before the "[" at s[${i.value}]: ${quote(parked, 60)}`,
+        `text held over from before the "[" at s[${i.value}]`,
       )
       // Reset before narrating, so the step frame shows the parked text on the stack and an empty
       // `built` beside it, rather than the same text in both places.

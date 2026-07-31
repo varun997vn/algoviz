@@ -264,10 +264,15 @@ describe('Decode String — reference trace semantics', () => {
     expect(resolve(reader, SAVED, 'stack', last)!.marks).toEqual([])
   })
 
-  it('gives every stack cell a note, which is the only place a saved empty string is readable', () => {
-    // `""` renders as a completely blank 44px box and a long prefix overflows it, so for a stack
-    // of strings the note *is* the cell's label. Notes were dead text everywhere until they were
-    // wired to `title`; this asserts the wiring is being used, not just that it exists.
+  it('gives every parked stack cell a note saying what it is for', () => {
+    // For a stack of strings a cell shows the value and the note says what the value *means* —
+    // which bracket parked it, and why. Notes were dead text everywhere until they were wired to
+    // `title`; this asserts the wiring is being used, not just that it exists.
+    //
+    // The note used to carry a copy of the value too, because `""` drew a blank box and a long
+    // prefix overflowed one. Both are fixed in `packages/viz` — an empty cell draws `ε`, and a
+    // clipped cell's tooltip leads with the full value — so the copy became duplication and the
+    // long-prefix tooltip read the value twice.
     let seenNotes = 0
     for (let f = 0; f < reader.frameCount; f += 1) {
       for (const name of [COUNTS, SAVED]) {
@@ -281,13 +286,20 @@ describe('Decode String — reference trace semantics', () => {
       }
     }
     expect(seenNotes).toBeGreaterThan(0)
-    // The empty saved prefix — the one that draws a blank cell — says so in words.
-    const savedNotes = new Set<string>()
+    // Each note names the bracket that parked the cell, so two cells of one stack are never
+    // labelled the same thing — which is what makes the note a label rather than decoration.
+    const savedNotes: string[] = []
     for (let f = 0; f < reader.frameCount; f += 1) {
       const stack = resolve(reader, SAVED, 'stack', f)
-      for (const m of stack?.marks ?? []) if (m.note) savedNotes.add(m.note)
+      for (const m of stack?.marks ?? []) if (m.note) savedNotes.push(m.note)
     }
-    expect([...savedNotes].some((n) => n.includes('""'))).toBe(true)
+    expect(savedNotes.every((n) => /at s\[\d+\]/.test(n))).toBe(true)
+    for (let f = 0; f < reader.frameCount; f += 1) {
+      const notes = (resolve(reader, SAVED, 'stack', f)?.marks ?? [])
+        .map((m) => m.note)
+        .filter((n): n is string => n !== undefined)
+      expect(new Set(notes).size, `frame ${f}: two parked cells share a note`).toBe(notes.length)
+    }
   })
 
   it('reads the input as content versus syntax', () => {

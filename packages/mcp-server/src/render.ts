@@ -77,10 +77,21 @@ export function renderSnapshot(name: string, snapshot: StructureSnapshot): strin
       return `${name} (${snapshot.comparatorLabel}): [${snapshot.values
         .map((v, i) => cell(v, snapshot.marks.filter((m) => m.index === i)))
         .join(' ')}]`
-    case 'map':
-      return `${name} (map): {${snapshot.entries
-        .map((e) => `${e.key}: ${JSON.stringify(e.value)}${glyphs(snapshot.marks.filter((m) => m.key === e.key))}`)
-        .join(', ')}}`
+    case 'map': {
+      const rows = snapshot.entries.map(
+        (e) => `${e.key}: ${JSON.stringify(e.value)}${glyphs(snapshot.marks.filter((m) => m.key === e.key))}`,
+      )
+      // A mark on a key the map does not hold is what `VizMap.has()` records for a failed lookup,
+      // and filtering marks by entry dropped it — the same hole `MapViz` had. A miss is a claim
+      // the op log makes, so it has to be a claim this backs up.
+      const absent = [...new Set(snapshot.marks.map((m) => m.key))].filter(
+        (k) => !snapshot.entries.some((e) => e.key === k),
+      )
+      for (const key of absent) {
+        rows.push(`${key}: (absent)${glyphs(snapshot.marks.filter((m) => m.key === key))}`)
+      }
+      return `${name} (map): {${rows.join(', ')}}`
+    }
     case 'matrix':
     case 'dp': {
       const rows =

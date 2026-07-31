@@ -5,17 +5,17 @@
 Every problem here is solved *inside the app*: you write the instrumented solution and
 watch your own algorithm execute over a live visualization of the structures it touches.
 
-**Progress: 16 / 75 done (21%)**
+**Progress: 18 / 75 done (24%)**
 
-`██████░░░░░░░░░░░░░░░░░░░░░░`
+`███████░░░░░░░░░░░░░░░░░░░░░`
 
 | Status | Count |
 | --- | --- |
 | ⬜ todo | 57 |
-| 🟡 in-progress | 2 |
+| 🟡 in-progress | 0 |
 | 🔵 review | 0 |
 | 🔴 blocked | 0 |
-| ✅ done | 16 |
+| ✅ done | 18 |
 
 ## Next up
 
@@ -75,13 +75,13 @@ Run the `solve-problem` skill to take the next one end to end.
 | 1657 | [Determine if Two Strings Are Close](https://leetcode.com/problems/determine-if-two-strings-are-close/) | medium | `map, set` | ⬜ todo | — |
 | 2352 | [Equal Row and Column Pairs](https://leetcode.com/problems/equal-row-and-column-pairs/) | medium | `matrix, map` | ⬜ todo | — |
 
-### Stack — 0/3
+### Stack — 1/3
 
 | # | Problem | Difficulty | Structures | Status | PR |
 | --- | --- | --- | --- | --- | --- |
 | 2390 | [Removing Stars From a String](https://leetcode.com/problems/removing-stars-from-a-string/) | medium | `stack, string` | ⬜ todo | — |
 | 735 | [Asteroid Collision](https://leetcode.com/problems/asteroid-collision/) | medium | `stack, array` | ⬜ todo | — |
-| 394 | [Decode String](https://leetcode.com/problems/decode-string/) | medium | `stack, string` | 🟡 in-progress | — |
+| 394 | [Decode String](https://leetcode.com/problems/decode-string/) | medium | `stack, string` | ✅ done | — |
 
 ### Queue — 0/2
 
@@ -124,14 +124,14 @@ Run the `solve-problem` skill to take the next one end to end.
 | 700 | [Search in a Binary Search Tree](https://leetcode.com/problems/search-in-a-binary-search-tree/) | easy | `tree` | ⬜ todo | — |
 | 450 | [Delete Node in a BST](https://leetcode.com/problems/delete-node-in-a-bst/) | medium | `tree` | ⬜ todo | — |
 
-### Graphs - DFS — 1/4
+### Graphs - DFS — 2/4
 
 | # | Problem | Difficulty | Structures | Status | PR |
 | --- | --- | --- | --- | --- | --- |
 | 841 | [Keys and Rooms](https://leetcode.com/problems/keys-and-rooms/) | medium | `graph, set` | ⬜ todo | — |
 | 547 | [Number of Provinces](https://leetcode.com/problems/number-of-provinces/) | medium | `graph, matrix, set` | ⬜ todo | — |
 | 1466 | [Reorder Routes to Make All Paths Lead to the City Zero](https://leetcode.com/problems/reorder-routes-to-make-all-paths-lead-to-the-city-zero/) | medium | `graph, set` | ✅ done | — |
-| 399 | [Evaluate Division](https://leetcode.com/problems/evaluate-division/) | medium | `array, graph, map` | 🟡 in-progress | — |
+| 399 | [Evaluate Division](https://leetcode.com/problems/evaluate-division/) | medium | `array, graph, map` | ✅ done | — |
 
 ### Graphs - BFS — 1/2
 
@@ -219,16 +219,16 @@ visualizer has no real user yet, however green its unit tests are.
 
 | Structure | Done | Planned |
 | --- | --- | --- |
-| `array` | 7 | 38 |
+| `array` | 8 | 38 |
 | `matrix` | 1 | 4 |
-| `string` | 3 | 13 |
+| `string` | 4 | 13 |
 | `list` | 1 | 4 |
 | `tree` | 2 | 11 |
-| `graph` | 1 | 4 |
-| `stack` | 1 | 5 |
+| `graph` | 2 | 4 |
+| `stack` | 2 | 5 |
 | `queue` | 2 | 6 |
 | `heap` | 1 | 4 |
-| `map` | 1 | 6 |
+| `map` | 2 | 6 |
 | `set` | 2 | 7 |
 | `dp` | 2 | 9 |
 | `intervals` | 1 | 2 |

@@ -11,6 +11,29 @@ function traceOf(groups: string[][]): Trace {
   return { frames, structures: [], opCount: frames.length }
 }
 
+describe('renderSnapshot — map lookups that miss', () => {
+  it('prints the key a failed lookup asked for, which no entry matches', () => {
+    // The same hole `MapViz` had, in the channel every audit reads its evidence from: marks were
+    // filtered by entry, so `has()` on a key the map does not hold recorded a mark that rendered
+    // nowhere. The op log said a lookup happened and the picture beside it did not change.
+    const out = renderSnapshot('known', {
+      kind: 'map',
+      entries: [{ key: 'a', value: 2 }],
+      marks: [{ key: 'c', class: 'excluded' }],
+    })
+    expect(out).toBe('known (map): {a: 2, c: (absent)x}')
+  })
+
+  it('leaves an ordinary map unchanged', () => {
+    const out = renderSnapshot('known', {
+      kind: 'map',
+      entries: [{ key: 'a', value: 2 }],
+      marks: [{ key: 'a', class: 'active' }],
+    })
+    expect(out).toBe('known (map): {a: 2*}')
+  })
+})
+
 describe('renderSnapshot — trie root', () => {
   it('shows a mark on the root, which a failed lookup is', () => {
     // `walk` emitted a line only for `depth > 0`, so the root and its marks were never printed —
