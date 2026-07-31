@@ -312,8 +312,8 @@ problems:
     order: 19
     structures: [ array, cursor ]
     techniques: [ prefix-sum ]
-    status: todo
-    branch: null
+    status: in-progress
+    branch: claude/leetcode-visualizer-w01nr6
     pr: null
     notes: null
     dependsOn: []

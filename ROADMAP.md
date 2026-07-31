@@ -11,8 +11,8 @@ watch your own algorithm execute over a live visualization of the structures it 
 
 | Status | Count |
 | --- | --- |
-| ⬜ todo | 56 |
-| 🟡 in-progress | 1 |
+| ⬜ todo | 55 |
+| 🟡 in-progress | 2 |
 | 🔵 review | 0 |
 | 🔴 blocked | 0 |
 | ✅ done | 18 |
@@ -64,7 +64,7 @@ Run the `solve-problem` skill to take the next one end to end.
 | # | Problem | Difficulty | Structures | Status | PR |
 | --- | --- | --- | --- | --- | --- |
 | 1732 | [Find the Highest Altitude](https://leetcode.com/problems/find-the-highest-altitude/) | easy | `array` | ⬜ todo | — |
-| 724 | [Find Pivot Index](https://leetcode.com/problems/find-pivot-index/) | easy | `array, cursor` | ⬜ todo | — |
+| 724 | [Find Pivot Index](https://leetcode.com/problems/find-pivot-index/) | easy | `array, cursor` | 🟡 in-progress | — |
 
 ### HashMap / Set — 1/4
 

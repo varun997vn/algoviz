@@ -17,6 +17,7 @@ import { letterCombinationsOfAPhoneNumber } from './problems/letter-combinations
 import { decodeString } from './problems/decode-string.js'
 import { evaluateDivision } from './problems/evaluate-division.js'
 import { kokoEatingBananas } from './problems/koko-eating-bananas.js'
+import { findPivotIndex } from './problems/find-pivot-index.js'
 import type { ProblemDefinition } from './types.js'
 
 /**
@@ -46,6 +47,7 @@ export const PROBLEMS: readonly ProblemDefinition[] = [
   decodeString,
   evaluateDivision,
   kokoEatingBananas,
+  findPivotIndex,
 ]
 
 export function listProblems(): ProblemDefinition[] {
@@ -74,4 +76,4 @@ export { mergeStringsAlternately, reverseLinkedList, dailyTemperatures, tribonac
 export { kthLargestElementInAnArray, uniqueNumberOfOccurrences, implementTrie }
 export { nonOverlappingIntervals, maximumAverageSubarrayI, binaryTreeRightSideView }
 export { longestCommonSubsequence, letterCombinationsOfAPhoneNumber }
-export { decodeString, evaluateDivision, kokoEatingBananas }
+export { decodeString, evaluateDivision, kokoEatingBananas, findPivotIndex }
