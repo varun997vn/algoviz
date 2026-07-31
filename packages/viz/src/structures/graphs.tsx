@@ -21,19 +21,33 @@ interface EdgeProps {
   weight?: number
   note?: string
   testId: string
+  /**
+   * Sideways displacement, in pixels, applied along the segment's own left-hand normal.
+   *
+   * `layoutGraph` gives one position per node and this draws centre to centre, so two edges
+   * between the same pair are the same line. Evaluate Division models *every* equation as an
+   * antiparallel pair — `a ->(2) b` and `b ->(0.5) a` — so on its answer frame the `path` edge was
+   * painted over by the `rejected` one drawn after it, and a viewer read the algorithm's verdict
+   * as the opposite of what it decided. Both weights printed at the same point too. Displacing by
+   * the same amount on each member of the pair separates them, because the normal of `b -> a`
+   * points opposite the normal of `a -> b`.
+   */
+  offset?: number
 }
 
-function Edge({ from, to, state, directed, weight, note, testId }: EdgeProps): ReactNode {
+function Edge({ from, to, state, directed, weight, note, testId, offset = 0 }: EdgeProps): ReactNode {
   // Shorten to the circle boundary so an arrowhead lands on the rim, not the centre.
   const dx = to.x - from.x
   const dy = to.y - from.y
   const len = Math.hypot(dx, dy) || 1
   const ux = dx / len
   const uy = dy / len
-  const x1 = from.x + ux * NODE_R
-  const y1 = from.y + uy * NODE_R
-  const x2 = to.x - ux * NODE_R
-  const y2 = to.y - uy * NODE_R
+  const nx = -uy * offset
+  const ny = ux * offset
+  const x1 = from.x + ux * NODE_R + nx
+  const y1 = from.y + uy * NODE_R + ny
+  const x2 = to.x - ux * NODE_R + nx
+  const y2 = to.y - uy * NODE_R + ny
   const emphasised = state !== undefined && state !== 'visited'
 
   return (
@@ -57,12 +71,26 @@ function Edge({ from, to, state, directed, weight, note, testId }: EdgeProps): R
           fontSize={10}
           fill="var(--av-text-dim)"
         >
-          {weight}
+          {weightLabel(weight)}
         </text>
       ) : null}
     </g>
   )
 }
+
+/**
+ * An edge weight, short enough to sit on an edge.
+ *
+ * A reciprocal weight is exact in neither direction — Evaluate Division's `b -> a` for `a / b = 3`
+ * is `0.3333333333333333`, eighteen glyphs of label on a 40px edge. Three decimals is more
+ * precision than the picture can carry and the panel beside it holds the full value.
+ */
+function weightLabel(weight: number): string {
+  return Number.isInteger(weight) ? String(weight) : String(Number(weight.toFixed(3)))
+}
+
+/** How far apart to draw an antiparallel pair — enough to read two weights side by side. */
+const EDGE_SPLIT = 7
 
 const ARROW_STATES = ['idle', 'active', 'tree', 'rejected', 'path', 'reversed', 'visited'] as const
 
@@ -185,6 +213,8 @@ export function GraphViz({ snapshot }: { snapshot: Of<'graph'> }): ReactNode {
     nodes.map((n) => n.id),
     edges,
   )
+  // Edges with a twin running the other way have to be pulled apart — see `EdgeProps.offset`.
+  const declared = new Set(edges.map((e) => `${e.from}->${e.to}`))
 
   return (
     <Canvas laid={laid} label="graph">
@@ -203,6 +233,7 @@ export function GraphViz({ snapshot }: { snapshot: Of<'graph'> }): ReactNode {
             to={flip ? from : to}
             directed={directed}
             testId={`edge-${e.from}-${e.to}`}
+            {...(declared.has(`${e.to}->${e.from}`) ? { offset: EDGE_SPLIT } : {})}
             {...(mark ? { state: mark.class } : {})}
             {...(mark?.note ? { note: mark.note } : {})}
             {...(e.weight !== undefined ? { weight: e.weight } : {})}

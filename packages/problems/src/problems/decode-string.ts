@@ -48,11 +48,20 @@ function quote(text: string, max = 12): string {
  *
  * ### Why the pieces are written before the pops
  *
- * `built = before + inner.repeat(times)` runs *before* `saved.pop()` / `counts.pop()`, so no frame
- * ever shows a context popped off the stack while the thing it was popped for has not appeared.
- * The one frame it costs shows `before` in two places at once — on the stack and inside `built` —
- * which reads as the hand-off it is. Same rule as Daily Temperatures: the answer lands before the
- * structural change that announces it.
+ * `built = before + inner.repeat(times)` and the `out.replace` that puts it on screen both run
+ * *before* `saved.pop()` / `counts.pop()`, so no frame ever shows a context popped off the stack
+ * while the thing it was popped for has not appeared. The one frame it costs shows `before` in two
+ * places at once — on the stack and in the piece panel — which reads as the hand-off it is. Same
+ * rule as Daily Temperatures: the answer lands before the structural change that announces it.
+ *
+ * ### The piece being built is a panel, not a watch value
+ *
+ * It was a watch value until `VizString.replace` existed. A `]` rewrites the accumulator wholesale
+ * — `before + inner.repeat(times)` — and without a one-call way to say that, the only option was
+ * `removeLast(s.length)` then `append(...)`: two ops and a clear-by-length idiom standing in for
+ * one assignment, in the line that *is* the algorithm. Demoting the value to `viz.watch` avoided
+ * that and cost the answer a picture. `replace` was added for this problem and left unadopted;
+ * `out.replace(built)` is one frame for one assignment, and the answer has a panel.
  *
  * ### The input panel
  *
@@ -61,20 +70,20 @@ function quote(text: string, max = 12): string {
  * that never appear in the answer. Together with the caret that is the whole "what have I read?"
  * story, which frees both stack panels to be purely about depth.
  *
- * ### Known rendering limits, exercised on purpose
+ * ### Rendering limits this turned up, since fixed
  *
- * `text before the [` is the first stack in the repo to hold **strings**, and two of its cells are
- * unreadable as `StackViz` stands today. `display('')` returns `''`, so the empty string — the
- * saved text at every top-level `[`, and by far the most common value here — renders as a
- * completely blank 44px box, indistinguishable from a cell with nothing in it. And `fontSizeFor`
- * floors at 9px with no truncation, so a saved prefix of ten characters is already ~47px wide in a
- * 44px cell and a long one runs clean off the 114px-wide `<svg>`, which clips it.
+ * `text before the [` is the first stack in the repo to hold **strings**, and two of its cells
+ * were unreadable. `display('')` returned `''`, so the empty string — the saved text at every
+ * top-level `[`, and by far the most common value here — rendered as a blank 44px box
+ * indistinguishable from a cell holding nothing; it draws `ε` now. And `fontSizeFor` floored at
+ * 9px with no truncation, so a saved prefix of ten characters overflowed a 44px cell and a long
+ * one ran off the `<svg>` and was clipped; `Cell` truncates past nine characters and keeps the
+ * full value in `data-value` and the tooltip.
  *
- * Every parked cell is therefore marked `path` **with a note**, and a note now renders as a
- * `<title>` tooltip, so the value is at least recoverable — but the cell itself is not, and a
- * tooltip is not a picture. The fix belongs in `display`/`Cell` in
- * `packages/viz/src/primitives.tsx`, not here; `abcdefghij2[xy]` is in the case set so the
- * overflow stays reproducible, and `3[a]` reproduces the blank cell.
+ * Every parked cell is still marked `path` **with a note**, because a truncated cell plus a mark
+ * note is the one combination where the full value is not recoverable from the picture — the note
+ * wins the tooltip — so the note spells the value out itself. `abcdefghij2[xy]` is in the case set
+ * so the overflow stays reproducible, and `3[a]` reproduces the empty cell.
  */
 export function reference(s: string, viz: Viz): string {
   const input = viz.string(s, { name: 's' })
@@ -83,9 +92,15 @@ export function reference(s: string, viz: Viz): string {
   // every frame; `text before the [` trails it by one frame at each bracket.
   const counts = viz.stack<number>([], { name: 'repeat counts' })
   const saved = viz.stack<string>([], { name: 'text before the [' })
+  // The answer, as a panel rather than a watch value. This solution originally kept it as a plain
+  // local because the only way to say "replace the whole thing" was `removeLast(n)` then
+  // `append(...)` — a clear-by-length idiom standing in for one assignment, in the line that *is*
+  // the algorithm — so it was demoted to `viz.watch`, which cost the answer a picture.
+  // `VizString.replace` was added for exactly this and then not adopted here; it is now.
+  const out = viz.string('', { name: 'the piece being built' })
   let built = ''
   let k = 0
-  viz.watch(() => ({ i: i.value, depth: counts.size, k, built }))
+  viz.watch(() => ({ i: i.value, depth: counts.size, k }))
 
   for (i.value = 0; i.value < input.length; i.inc()) {
     const ch = input.charAt(i.value)
@@ -107,8 +122,9 @@ export function reference(s: string, viz: Viz): string {
         `repeat whatever gets built inside this bracket ${times} time(s)`,
       )
       saved.push(parked)
-      // The note is what makes this cell legible at all: an empty saved prefix draws a blank box
-      // and a long one overflows, so the tooltip is the only place the value is readable in full.
+      // The note says what the cell *means*, not what it holds — the cell shows `ε` for an empty
+      // prefix and the tooltip carries a clipped value alongside the note, so this no longer has
+      // to smuggle a copy of the value through as the only legible form of it.
       saved.mark(
         saved.size - 1,
         'path',
@@ -118,6 +134,9 @@ export function reference(s: string, viz: Viz): string {
       // `built` beside it, rather than the same text in both places.
       k = 0
       built = ''
+      // Cleared before the narration, so the step frame shows the parked text on the stack and an
+      // empty panel beside it rather than the same text twice.
+      out.replace(built)
       viz.step(
         `"[" — parked ${quote(parked)} and its ${times}×; starting a fresh piece at depth ${counts.size}`,
       )
@@ -130,6 +149,10 @@ export function reference(s: string, viz: Viz): string {
       const before = saved.requireTop()
       const times = counts.requireTop()
       built = before + inner.repeat(times)
+      // One frame, matching the one assignment. Written before the pops for the same reason the
+      // assignment is: no frame may show the bracket closed while the panel still holds the piece
+      // from inside it.
+      out.replace(built)
       // Popped in the mirror of the push order, so `counts` is never the shorter of the two.
       saved.pop()
       counts.pop()
@@ -138,6 +161,7 @@ export function reference(s: string, viz: Viz): string {
       )
     } else {
       built += ch
+      out.append(ch)
       viz.step(`letter ${ch} — the piece at depth ${counts.size} is now ${quote(built)}`)
     }
   }
@@ -157,9 +181,12 @@ export default function decodeString(s: string, viz: Viz): string {
   // Push this one first and pop it last, so its height is the nesting depth on every frame.
   const counts = viz.stack<number>([], { name: 'repeat counts' })
   const saved = viz.stack<string>([], { name: 'text before the [' })
+  // The piece being built, as a panel rather than only a watch value: out.replace(text) rewrites
+  // it wholesale in one frame, which is what a "] does to it.
+  const out = viz.string('', { name: 'the piece being built' })
   let built = ''
   let k = 0
-  viz.watch(() => ({ i: i.value, depth: counts.size, k, built }))
+  viz.watch(() => ({ i: i.value, depth: counts.size, k }))
 
   for (i.value = 0; i.value < input.length; i.inc()) {
     const ch = input.charAt(i.value)
@@ -180,12 +207,16 @@ export default function decodeString(s: string, viz: Viz): string {
     //             Pop saved first, then counts, mirroring the push order.
     //   letter -> built += ch
     //
+    // Keep 'out' in step with 'built' as you go: out.append(ch) for a letter, out.replace('')
+    // when a "[" starts a fresh piece, out.replace(built) when a "]" glues one back on. Each is
+    // one frame, matching the one assignment beside it.
+    //
     // Invariant to preserve: at every viz.step(), counts.size === saved.size === the number of
     // "[" you have read minus the number of "]" you have read. Both stacks end empty.
     //
     // Mark each pushed cell 'path' with a note. 'path' is documented as unwinding when the
-    // stack pops, which VizStack.pop() does for free — and the note is the only place a saved
-    // empty string or a long one is readable, since the cell itself is 44px wide.
+    // stack pops, which VizStack.pop() does for free — and the note is where a saved value is
+    // readable in full, since a cell is 44px wide and truncates past nine characters.
     viz.step('s[' + i.value + '] = ' + ch + ' (depth ' + counts.size + ', parked ' + saved.size + ')')
   }
 

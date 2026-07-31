@@ -34,23 +34,33 @@ import type { ProblemDefinition, Viz } from '../types.js'
  * screen, and `x/x` gets an explicit `result` mark and a step of its own — the empty path, whose
  * product is 1.
  *
- * ### Findings this problem turned up in `VizGraph` (nothing here works around a *wrong* answer,
- * ### only around a picture that could not be reset)
+ * ### What this problem turned up in `VizGraph`, all since fixed
  *
  * 1. **`clearMarks()` cleared node marks and left edge marks untouched, and nothing else cleared
  *    them either.** `edgeMarks` was a `Map` that was only ever written. `neighbors()` sets an edge
  *    `active` as it yields it, so on a problem that traverses the same graph more than once every
  *    edge ever considered stayed lit for the rest of the trace. Reorder Routes never noticed
- *    because it decides each edge exactly once. Fixed: `g.clearEdges()` is now the twin of
- *    `clearMarks`, and the reset between queries below is those two lines. The workaround it
- *    replaced — demoting every edge to `visited` by hand — painted edges no query had touched.
- * 2. **There is no `unmarkClass(node, cls)` on `VizGraph`,** though `NodeMarkStore.removeClass`
- *    exists for it and both `VizTree` (`exitPath`) and `VizMatrix` (`unmarkClass`) use it.
- *    `g.unmark(id)` is class-blind, so a `path` mark cannot be unwound without destroying the
- *    `visited` mark underneath it. That is why this solution marks `visited` on the way down and
- *    promotes the winning chain to `path` on the way *out*, rather than carrying a live path mark.
- * 3. **`neighbors()` yields the node but not the weight** it just walked over, even though the
- *    adjacency entry it is iterating holds both — hence the `weightOf` call one line later.
+ *    because it decides each edge exactly once. `g.clearEdges()` is the twin of `clearMarks` now,
+ *    and the reset between queries below is those two lines. The workaround it replaced —
+ *    demoting every edge to `visited` by hand — painted edges no query had touched.
+ * 2. **`neighbors()` yielded the node but not the weight** it had just walked over, even though
+ *    the adjacency entry it iterates holds both, so every weighted step needed
+ *    `weightOf(at, next) ?? 1` — a fallback for an edge that provably exists — in the line that is
+ *    the arithmetic. `weightedNeighbors` yields both, and the loop below uses it.
+ * 3. **`unmarkClass(node, cls)`** now exists on `VizGraph` as it does on `VizTree` and
+ *    `VizMatrix`, so a `path` mark can be unwound without destroying the `visited` mark under it.
+ *    This solution still marks `visited` on the way down and promotes the winning chain to `path`
+ *    on the way *out*, which is not a workaround: a live path mark would claim mid-walk that a
+ *    chain reaches the target, and until the recursion returns nothing has established that.
+ * 4. **Two decisions about an antiparallel pair used to collapse into one.** Every equation here
+ *    is declared as `a -> b` and `b -> a`, and `markEdge` normalised its lookup key without
+ *    normalising the endpoints it stored — so the second decision overwrote the first and was
+ *    labelled with a direction no drawn edge had. It resolves onto the declared edge now, and a
+ *    decision about an edge that does not exist throws.
+ * 5. **That pair was also drawn as one line.** `layoutGraph` gives one position per node and edges
+ *    are drawn centre to centre, so on the answer frame the `rejected` edge painted over the
+ *    `path` edge and the claim above about reading the answer off the highlighted edges was true
+ *    of the trace and false of the picture. `GraphViz` splits an antiparallel pair apart.
  */
 export function reference(
   equations: string[][],

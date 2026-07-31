@@ -296,6 +296,54 @@ describe('GraphViz edge-mark direction', () => {
     )
   })
 
+  it('pulls an antiparallel pair apart instead of drawing one line twice', () => {
+    // `layoutGraph` gives one position per node and `Edge` draws centre to centre, so `a -> b` and
+    // `b -> a` were the same segment. Evaluate Division models every equation as exactly that
+    // pair, so on its answer frame the `rejected` edge — drawn second — painted over the `path`
+    // edge, and the docstring's central claim ("read the answer off the highlighted edges") was
+    // false of the rendering while true of the data. Both weight labels landed on one point too.
+    const container = renderSnapshot({
+      kind: 'graph',
+      nodes,
+      edges: [
+        { from: 'a', to: 'b', weight: 2 },
+        { from: 'b', to: 'a', weight: 0.5 },
+      ],
+      directed: true,
+      marks: [],
+      edgeMarks: [
+        { from: 'a', to: 'b', class: 'path' },
+        { from: 'b', to: 'a', class: 'rejected' },
+      ],
+    } as never)
+
+    const segment = (id: string): string => {
+      const line = container.querySelector(`[data-testid="${id}"] line`)
+      return ['x1', 'y1', 'x2', 'y2'].map((a) => line?.getAttribute(a)).join(',')
+    }
+    expect(segment('edge-a-b')).not.toBe(segment('edge-b-a'))
+
+    // And the two weights are not printed on top of each other either.
+    const labels = [...container.querySelectorAll('text')]
+      .filter((t) => t.textContent === '2' || t.textContent === '0.5')
+      .map((t) => `${t.getAttribute('x')},${t.getAttribute('y')}`)
+    expect(labels).toHaveLength(2)
+    expect(labels[0]).not.toBe(labels[1])
+  })
+
+  it('shortens a weight that does not fit on an edge', () => {
+    // `a / b = 3` makes `b -> a` weigh 0.3333333333333333 — eighteen glyphs on a 40px edge.
+    const container = renderSnapshot({
+      kind: 'graph',
+      nodes,
+      edges: [{ from: 'a', to: 'b', weight: 1 / 3 }],
+      directed: true,
+      marks: [],
+      edgeMarks: [],
+    } as never)
+    expect([...container.querySelectorAll('text')].map((t) => t.textContent)).toContain('0.333')
+  })
+
   it('draws the transient highlight over the settled state, not under it', () => {
     // An edge already settled `tree` and being crossed again carries two marks on one frame. The
     // frame is *about* the crossing, so that is what shows; the settled state is what remains when
@@ -350,13 +398,24 @@ describe('Cell rendering of awkward values', () => {
     expect(fits?.querySelector('title')).toBeNull()
   })
 
-  it('prefers an explicit mark note over the truncation fallback', () => {
-    const container = renderSnapshot({
-      kind: 'stack',
-      values: ['abcdefghijklmnop'],
-      marks: [{ index: 0, class: 'result', note: 'the saved prefix' }],
-    })
-    expect(container.querySelector('[data-node-id="0"] title')?.textContent).toBe('the saved prefix')
+  it('shows the note and the clipped value together, not one instead of the other', () => {
+    // The note used to win outright, which made a noted *and* truncated cell the one place the
+    // value was unrecoverable from the picture: eight glyphs in the cell and a note in the
+    // tooltip, with the value itself nowhere. That is precisely Decode String's stack — every cell
+    // carries a note and holds arbitrary text — which survived only by embedding a copy of the
+    // value in the note by hand.
+    const tipOf = (values: unknown[], note?: string): string | undefined =>
+      renderSnapshot({
+        kind: 'stack',
+        values,
+        marks: [{ index: 0, class: 'result', ...(note ? { note } : {}) }],
+      } as never).querySelector('[data-node-id="0"] title')?.textContent ?? undefined
+
+    expect(tipOf(['abcdefghijklmnop'], 'the saved prefix')).toBe('abcdefghijklmnop — the saved prefix')
+    // A cell that fits shows the note alone — there is nothing the picture is failing to say.
+    expect(tipOf(['abc'], 'the saved prefix')).toBe('the saved prefix')
+    // And with no note, the clipped value is still what the tooltip is for.
+    expect(tipOf(['abcdefghijklmnop'])).toBe('abcdefghijklmnop')
   })
 })
 

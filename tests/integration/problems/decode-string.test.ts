@@ -28,6 +28,7 @@ const PROBLEM = 'decode-string'
 const INPUT = 's'
 const COUNTS = 'repeat counts'
 const SAVED = 'text before the ['
+const OUT = 'the piece being built'
 
 function idOf(trace: Trace, name: string): string {
   const meta = trace.structures.find((s) => s.name === name)
@@ -59,6 +60,18 @@ function depthTable(s: string): (index: number) => number {
     after.push(d)
   }
   return (index: number) => (index < 0 ? 0 : (after[Math.min(index, after.length - 1)] ?? 0))
+}
+
+/**
+ * The piece being built, read off its **panel**.
+ *
+ * It used to be a watch value, and these assertions read it from `watchAt`. `VizString.replace`
+ * exists so a wholesale rewrite is one frame instead of a clear-by-length idiom, which is what
+ * demoted it to a watch value in the first place; now that the solution uses it, the panel is what
+ * a viewer sees and so it is what these check.
+ */
+function builtAt(reader: TraceReader, frame: number): string {
+  return resolve(reader, OUT, 'string', frame)?.value ?? ''
 }
 
 function caretAt(reader: TraceReader, frame: number): number {
@@ -166,6 +179,7 @@ describe('Decode String — reference trace semantics', () => {
       `${INPUT}:string`,
       `${COUNTS}:stack`,
       `${SAVED}:stack`,
+      `${OUT}:string`,
     ])
   })
 
@@ -210,7 +224,7 @@ describe('Decode String — reference trace semantics', () => {
       if (!saved) continue
       const i = caretAt(reader, f)
       const seen = new Set(s.slice(0, i + 1))
-      const holding = [String(reader.watchAt(f)?.built ?? ''), ...(saved.values as string[])]
+      const holding = [builtAt(reader, f), ...(saved.values as string[])]
       for (const piece of holding) {
         for (const ch of piece) {
           expect(
@@ -295,32 +309,38 @@ describe('Decode String — reference trace semantics', () => {
   })
 
   it('never shows a context popped before the text it was kept for appears', () => {
-    // `built = before + inner.repeat(times)` runs *ahead* of the two pops, so on the very frame a
-    // saved prefix leaves the stack the reassembled piece is already in the watch panel. The other
-    // order leaves a frame where the stack has given up the prefix and nothing on screen has
-    // received it — on the pop frames, which are the ones worth stopping on.
+    // The reassembly runs *ahead* of the two pops, so on the very frame a saved prefix leaves the
+    // stack the finished piece is already in its panel. The other order leaves a frame where the
+    // stack has given up the prefix and nothing on screen has received it — on the pop frames,
+    // which are the ones worth stopping on.
     //
     // Checked exactly, not just "something changed": `1[a]` is a real case where the piece before
     // and after a pop are the same string, and a "did it change?" test would be vacuous there.
+    // `inner` is therefore the panel's value as of the last frame on which it *differed*, not the
+    // value one frame back — the rewrite is now its own frame, so "one frame back" is already the
+    // reassembled piece and comparing against it would be circular.
     const savedId = idOf(trace, SAVED)
     let held: string[] = []
+    let inner = ''
     let pops = 0
     for (const frame of trace.frames) {
+      const current = builtAt(reader, frame.index)
       const snap = frame.snapshots[savedId]
-      if (!snap || snap.kind !== 'stack') continue
-      if (snap.values.length < held.length) {
-        const popped = held[held.length - 1] as string
-        const inner = String(reader.watchAt(frame.index - 1)?.built ?? '')
-        // `counts` is popped *after* `saved`, so the multiplier is still on screen right here.
-        const counts = resolve(reader, COUNTS, 'stack', frame.index)!
-        const times = counts.values[counts.values.length - 1] as number
-        expect(
-          reader.watchAt(frame.index)?.built,
-          `frame ${frame.index}: ${JSON.stringify(popped)} left the stack before it was glued onto ${times} × ${JSON.stringify(inner)}`,
-        ).toBe(popped + inner.repeat(times))
-        pops += 1
+      if (snap && snap.kind === 'stack') {
+        if (snap.values.length < held.length) {
+          const popped = held[held.length - 1] as string
+          // `counts` is popped *after* `saved`, so the multiplier is still on screen right here.
+          const counts = resolve(reader, COUNTS, 'stack', frame.index)!
+          const times = counts.values[counts.values.length - 1] as number
+          expect(
+            current,
+            `frame ${frame.index}: ${JSON.stringify(popped)} left the stack before it was glued onto ${times} × ${JSON.stringify(inner)}`,
+          ).toBe(popped + inner.repeat(times))
+          pops += 1
+        }
+        held = snap.values as string[]
       }
-      held = snap.values as string[]
+      if (current !== builtAt(reader, frame.index + 1)) inner = current
     }
     expect(pops).toBe(2)
   })
@@ -335,9 +355,9 @@ describe('Decode String — reference trace semantics', () => {
     expect(labels[labels.length - 1]).toMatch(/both stacks are empty/)
   })
 
-  it('reports the answer and the depth in the watch panel', () => {
+  it('reports the answer in its panel and the depth in the watch panel', () => {
+    expect(builtAt(reader, last)).toBe(returned)
     const watch = reader.watchAt(last)!
-    expect(watch.built).toBe(returned)
     expect(watch.depth).toBe(0)
     expect(watch.k).toBe(0)
   })
@@ -433,7 +453,7 @@ describe('Decode String — the depth invariant holds on every case', () => {
         if (!saved) continue
         const i = caretAt(reader, f)
         const seen = new Set(s.slice(0, i + 1))
-        for (const piece of [String(reader.watchAt(f)?.built ?? ''), ...(saved.values as string[])]) {
+        for (const piece of [builtAt(reader, f), ...(saved.values as string[])]) {
           for (const ch of piece) {
             expect(
               seen.has(ch),
@@ -446,7 +466,7 @@ describe('Decode String — the depth invariant holds on every case', () => {
       // The picture agrees with the answer, and the whole input has been consumed.
       const input = resolve(reader, INPUT, 'string', last)!
       expect(input.marks.filter((m) => !m.transient)).toHaveLength(s.length)
-      expect(reader.watchAt(last)?.built).toBe(caseResult.returned)
+      expect(builtAt(reader, last)).toBe(caseResult.returned)
 
       // Frames scale with the *input*, not with the decoded string. `10[ab]` decodes to twenty
       // characters from six, and `2[2[2[2[a]]]]` to sixteen from thirteen; if the repeats were

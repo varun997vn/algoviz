@@ -95,7 +95,13 @@ export function Cell({
   // tooltip falls back to it whenever the visible text was cut.
   const text = full.length > 9 ? `${full.slice(0, 8)}…` : full
   const isDim = cls === 'visited' || cls === 'excluded'
-  const tip = title ?? (text === full ? undefined : full)
+  // A note and a truncation together used to be the one combination where the value was gone from
+  // the picture entirely: the note won the tooltip, and the cell showed eight glyphs of it. That is
+  // exactly Decode String's stack, whose cells all carry a note *and* hold arbitrary text — it got
+  // away with it only by embedding a copy of the value in the note by hand. Both, when there are
+  // both, and the value first because it is the thing the cell is failing to show.
+  const clipped = text === full ? undefined : full
+  const tip = clipped === undefined ? title : title === undefined ? clipped : `${clipped} — ${title}`
 
   return (
     <g data-node-id={nodeId} data-highlight={markAttr(marks)} data-value={full}>

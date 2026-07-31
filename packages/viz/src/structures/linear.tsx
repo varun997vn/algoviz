@@ -95,9 +95,13 @@ function visibleRange(
   return [start, start + MAX_RENDERED]
 }
 
-export function ArrayViz({ snapshot }: { snapshot: Of<'array'> }): ReactNode {
+export function ArrayViz({ snapshot, what = 'array' }: { snapshot: Of<'array'>; what?: string }): ReactNode {
   const { values, cursors, marks, window: win } = snapshot
-  if (values.length === 0) return <EmptyState what="array" />
+  // `what` exists so `StringViz` — which renders through here — can say "string is empty" rather
+  // than "array is empty". Letter Combinations is the first problem whose string panel is empty at
+  // rest, and it reads `array is empty` on frame 0 and on the final frame: the two a viewer is
+  // most likely to be parked on, in the panel its docstring calls the pen.
+  if (values.length === 0) return <EmptyState what={what} />
 
   const [from, to] = visibleRange(values.length, cursors, win)
   const lanes = laneFor(cursors)
@@ -163,6 +167,7 @@ export function StringViz({ snapshot }: { snapshot: Of<'string'> }): ReactNode {
   const chars = [...snapshot.value]
   return (
     <ArrayViz
+      what="string"
       snapshot={{
         kind: 'array',
         values: chars,
