@@ -11,8 +11,8 @@ watch your own algorithm execute over a live visualization of the structures it 
 
 | Status | Count |
 | --- | --- |
-| ⬜ todo | 54 |
-| 🟡 in-progress | 3 |
+| ⬜ todo | 53 |
+| 🟡 in-progress | 4 |
 | 🔵 review | 0 |
 | 🔴 blocked | 0 |
 | ✅ done | 18 |
@@ -188,7 +188,7 @@ Run the `solve-problem` skill to take the next one end to end.
 | # | Problem | Difficulty | Structures | Status | PR |
 | --- | --- | --- | --- | --- | --- |
 | 338 | [Counting Bits](https://leetcode.com/problems/counting-bits/) | easy | `array, dp` | ⬜ todo | — |
-| 136 | [Single Number](https://leetcode.com/problems/single-number/) | easy | `array` | ⬜ todo | — |
+| 136 | [Single Number](https://leetcode.com/problems/single-number/) | easy | `array` | 🟡 in-progress | — |
 | 1318 | [Minimum Flips to Make a OR b Equal to c](https://leetcode.com/problems/minimum-flips-to-make-a-or-b-equal-to-c/) | medium | `array` | ⬜ todo | — |
 
 ### Trie — 1/2

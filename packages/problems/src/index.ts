@@ -19,6 +19,7 @@ import { evaluateDivision } from './problems/evaluate-division.js'
 import { kokoEatingBananas } from './problems/koko-eating-bananas.js'
 import { findPivotIndex } from './problems/find-pivot-index.js'
 import { numberOfRecentCalls } from './problems/number-of-recent-calls.js'
+import { singleNumber } from './problems/single-number.js'
 import type { ProblemDefinition } from './types.js'
 
 /**
@@ -50,6 +51,7 @@ export const PROBLEMS: readonly ProblemDefinition[] = [
   kokoEatingBananas,
   findPivotIndex,
   numberOfRecentCalls,
+  singleNumber,
 ]
 
 export function listProblems(): ProblemDefinition[] {
@@ -79,4 +81,4 @@ export { kthLargestElementInAnArray, uniqueNumberOfOccurrences, implementTrie }
 export { nonOverlappingIntervals, maximumAverageSubarrayI, binaryTreeRightSideView }
 export { longestCommonSubsequence, letterCombinationsOfAPhoneNumber }
 export { decodeString, evaluateDivision, kokoEatingBananas, findPivotIndex }
-export { numberOfRecentCalls }
+export { numberOfRecentCalls, singleNumber }
