@@ -312,10 +312,22 @@ problems:
     order: 19
     structures: [ array, cursor ]
     techniques: [ prefix-sum ]
-    status: in-progress
+    status: done
     branch: claude/leetcode-visualizer-w01nr6
     pr: null
-    notes: null
+    notes: "trace-verifier: faithful. The exact claim — leftSum equals the sum of the
+      visited cells and rightSum the sum of the banded ones — was checked
+      independently on every frame of all ten cases with zero mismatches, and the
+      regions never overlap. Read count equals n exactly, so the single pass is
+      measured rather than asserted. Two defects were fixed before this verdict:
+      clearWindow fired on the pivot frame, so the one frame that must show both
+      regions showed only one, announcing left 11 = right 11 with the right 11 drawn
+      as nothing; and rightSum was recomputed in a watch closure from a leftSum that
+      had already advanced, subtracting the same value twice on two of every five
+      frames. Two minor findings from the audit are also closed: the no-pivot ending
+      now narrates rather than leaving a mid-loop caption as the last frame, and the
+      docstring no longer overstates the three-region accounting as holding on every
+      frame rather than every narrated one."
     dependsOn: []
   - id: p2215
     leetcode: 2215
@@ -1102,10 +1114,21 @@ problems:
     order: 68
     structures: [ array ]
     techniques: [ bit-manipulation, xor ]
-    status: in-progress
+    status: done
     branch: claude/leetcode-visualizer-w01nr6
     pr: null
-    notes: null
+    notes: "trace-verifier: faithful. The identity the model rests on — acc's bit b is
+      tally[b] % 2 — was checked strictly on every frame of all eleven cases: the
+      tally is ahead of acc on exactly the frames where a column is being
+      incremented, never behind, never more than one element ahead, and every
+      narrated frame agrees exactly. Sign bit verified honest on all three negative
+      cases, reconstruction matching the returned value. The defect fixed before this
+      verdict was that acc landed whole while the tally caught up one column at a
+      time, making the identity false on up to 90% of frames; acc moves last now, so
+      the picture leads. The redundant per-bit read is gone (read count equals n
+      exactly, where it had been 95 of 214 frames). The starter's TODO had prescribed
+      both defects in so many words and now prescribes the fix; one further gap
+      closed since, its closing viz.step, which the audit noted was never asked for."
     dependsOn: []
   - id: p1318
     leetcode: 1318

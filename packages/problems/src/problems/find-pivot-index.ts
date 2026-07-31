@@ -18,8 +18,13 @@ import type { ProblemDefinition, Viz } from '../types.js'
  *     `rightSum = total - leftSum - nums[i]` is read straight off two numbers already computed.
  *   - the `i` cursor sitting in the one cell that belongs to neither region — the candidate.
  *
- * The picture is the proof that a second pass was never needed: at every step the `visited`
- * region plus the `window` plus the single cursor cell already accounts for the whole array, so
+ * The picture is the proof that a second pass was never needed: on every frame the scan *stops*
+ * on, the `visited` region plus the `window` plus the single cursor cell account for the whole
+ * array between them. (In between, for the two op-frames it takes to grow one region and shrink
+ * the other, one cell briefly belongs to neither — the documented one-frame-per-op gap. Both
+ * *numbers* stay exact on those frames, which is what the test checks and the part that matters:
+ * `leftSum` is the sum of the visited cells and `rightSum` the sum of the banded ones, with no
+ * exceptions at all.) So
  * there is nothing left for a hypothetical "sum the right side" loop to compute that has not
  * already been named. `tests/integration/problems/find-pivot-index.test.ts` checks exactly this,
  * at every `read` frame: the marked cells left of `i` sum to `leftSum`, the windowed cells right
@@ -87,6 +92,13 @@ export function reference(nums: number[], viz: Viz): number {
     windowRightOf(i.value + 1)
   }
 
+  // The scan running out is an answer, so it gets a frame. Without it the last thing a scrubber
+  // stops on is a mid-loop "keep scanning", and the picture — every cell visited, no band left —
+  // is honest but unexplained.
+  viz.step(
+    `every index checked and none balanced: the whole array is on the left now, so there is no ` +
+      `pivot — the answer is -1`,
+  )
   return -1
 }
 
@@ -142,6 +154,8 @@ export default function pivotIndex(nums: number[], viz: Viz): number {
     // picture has already left.
   }
 
+  // TODO: the scan running out is an answer too, so narrate it before returning -1 —
+  // otherwise the last frame a scrubber stops on is a mid-loop 'keep scanning'.
   return -1
 }
 `

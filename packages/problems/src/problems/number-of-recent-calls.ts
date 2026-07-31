@@ -59,12 +59,20 @@ export function reference(pings: number[], viz: Viz): number[] {
   // accumulates an answer draws it.
   const out = viz.array<number>(pings.length, { name: 'calls in the last 3000ms', fill: null })
   let cutoff = 0
-  viz.watch(() => ({ pings: recent.size, oldest_kept: cutoff }))
+  // `cutoff`, named for what it is. It was called `oldest_kept`, which is a different quantity and
+  // usually a different number: on 106 of 157 frames the panel showed a timestamp no ping ever
+  // had, and once the caption below started naming the genuinely-oldest kept ping, the two sat one
+  // frame apart stating different values for the same thing. The name is the whole bug — it agreed
+  // with the truth only on the boundary cases, which is exactly when it looked right.
+  viz.watch(() => ({ pings: recent.size, window_opens_at: cutoff }))
 
   pings.forEach((t, call) => {
     viz.group(`ping(${t})`, () => {
-      recent.push(t)
+      // Cutoff first, then the push. The other way round, every enqueue frame shows the new ping
+      // already in the queue beside the *previous* call's window — the window trailing the arrival
+      // it is meant to bound. This way it leads, which is the harmless direction.
       cutoff = t - 3000
+      recent.push(t)
 
       // The window is inclusive of `t - 3000`, so only strictly older pings leave.
       while (!recent.isEmpty && (recent.front() as number) < cutoff) {
@@ -101,14 +109,18 @@ export default function recentCounter(pings: number[], viz: Viz): number[] {
   // viewer parked at the end should be able to see it.
   const out = viz.array<number>(pings.length, { name: 'calls in the last 3000ms', fill: null })
   let cutoff = 0
-  viz.watch(() => ({ pings: recent.size, oldest_kept: cutoff }))
+  // Named for what it holds. Calling it oldest_kept would be a different quantity and usually a
+  // different number -- a timestamp no ping ever had -- agreeing with the truth only on the
+  // boundary cases, which is exactly when it looks right.
+  viz.watch(() => ({ pings: recent.size, window_opens_at: cutoff }))
 
   pings.forEach((t, call) => {
     viz.group(\`ping(\${t})\`, () => {
-      // TODO: push t onto the back of recent, and set cutoff = t - 3000. Then, while the front
-      // of the queue is older than the cutoff (strictly less than -- a ping exactly at the
-      // cutoff stays, the window is inclusive), mark it 'excluded' and shift() it off before
-      // checking the new front.
+      // TODO: set cutoff = t - 3000 FIRST, then push t onto the back of recent. The other order
+      // shows the new ping already queued beside the previous call's window -- the bound
+      // trailing the arrival it bounds. Then, while the front of the queue is older than the
+      // cutoff (strictly less than -- a ping exactly at the cutoff stays, the window is
+      // inclusive), mark it 'excluded' and shift() it off before checking the new front.
       //
       // TODO: write recent.size into out[call] -- that count is the answer to this call --
       // and write it BEFORE the narration below, so the frame carrying the caption also

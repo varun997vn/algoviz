@@ -1,6 +1,7 @@
 import { beforeAll, describe, expect, it } from 'vitest'
 import { executeRun, type CaseResult } from '@algoviz/runner'
 import { TraceReader, type StructureSnapshot, type Trace } from '@algoviz/tracer'
+import { expectStarterTranscription } from '../invariants.js'
 
 /**
  * Delete Node in a BST — frame-sequence assertions.
@@ -91,6 +92,39 @@ const TWO_CHILDREN_CASES = [
   'delete the root — two children',
   'successor requires more than one left step',
 ]
+
+
+/**
+ * A delete narrates *which of the three cases* happened, and says something true about it.
+ *
+ * The defect this exists for: a leaf used to fall into the one-child branch and be narrated
+ * "has no left child — its right child takes its place", on a node with no right child. Two
+ * branches cannot say three things, and the sentence was simply false.
+ *
+ * Run against the reference *and* the filled starter, because the starter shipped with exactly
+ * this defect while 104 tests passed — and the transcription guard cannot catch it, since the
+ * starter states its three cases in TODO prose rather than in code. This can.
+ */
+function narrationComplaints(trace: Trace, name: string): string[] {
+  const said: string[] = []
+  const reader = new TraceReader(trace)
+  for (const f of reader.stepFrames()) {
+    const label = trace.frames[f]?.label ?? ''
+    const claim = /^(-?\d+) has no (left|right) child — its (left|right) child/.exec(label)
+    if (!claim) continue
+    const tree = treeAt(reader, f)
+    const node = tree.nodes.find((n) => String(n.value) === claim[1])
+    if (!node) {
+      said.push(`${name} frame ${f}: "${label}" names a node the picture does not contain`)
+      continue
+    }
+    const promised = claim[3] === 'left' ? node.left : node.right
+    if (promised === null) {
+      said.push(`${name} frame ${f}: "${label}" — but it has no ${claim[3]} child either`)
+    }
+  }
+  return said
+}
 
 describe('Delete Node in a BST — reference solution', () => {
   it('passes every one of its own cases', () => {
@@ -410,47 +444,79 @@ export default function deleteNode(root: (number | null)[], key: number, viz: Vi
 
 describe('the starter teaches the ordering, not just the reference', () => {
   // The starter's TODOs, filled in exactly as instructed and nothing more.
+  //
+  // This file had 104 passing tests and none of them was a transcription guard, which is exactly
+  // how its starter came to reproduce all four defects the reference had just been fixed for: the
+  // block below was written to match what the *reference* does, so it could never notice that the
+  // starter's comments asked for something else. An audit found it; nothing here could.
   const source = `
 export default function deleteNode(root: (number | null)[], key: number, viz: Viz): (number | null)[] {
   const t = viz.tree(root, { name: 'tree' })
 
+  let found = false
+
+  const rewired = (id: string, side: 'left' | 'right', child: string | null): string => {
+    const current = side === 'left' ? t.childrenOf(id).left : t.childrenOf(id).right
+    if (current === child) return id
+    if (side === 'left') t.setLeft(id, child)
+    else t.setRight(id, child)
+    return id
+  }
+
   const remove = (id: string | null, target: number): string | null => {
-    if (id === null) return null
+    if (id === null) {
+      viz.step(\`\${target} is not here — there is no subtree left to search\`)
+      return null
+    }
     return viz.group(\`node \${t.peek(id)}\`, () =>
       t.onPath(id, () => {
         const val = t.value(id) as number
 
         if (target < val) {
           viz.step(\`\${target} < \${val} — go left\`)
-          const newLeft = remove(t.left(id), target)
-          t.setLeft(id, newLeft)
-          return id
+          return rewired(id, 'left', remove(t.left(id), target))
         }
         if (target > val) {
           viz.step(\`\${target} > \${val} — go right\`)
-          const newRight = remove(t.right(id), target)
-          t.setRight(id, newRight)
-          return id
+          return rewired(id, 'right', remove(t.right(id), target))
         }
 
+        found = true
         t.mark(id, 'match', \`found \${val}\`)
         const { left, right } = t.childrenOf(id)
-        if (left === null) return right
-        if (right === null) return left
+        if (left === null && right === null) {
+          viz.step(\`\${val} is a leaf — nothing hangs off it, so it just goes\`)
+          return null
+        }
+        if (left === null) {
+          viz.step(\`\${val} has no left child — its right child takes its place\`)
+          return right
+        }
+        if (right === null) {
+          viz.step(\`\${val} has no right child — its left child takes its place\`)
+          return left
+        }
 
-        let succ = right
-        while (t.childrenOf(succ).left !== null) succ = t.left(succ) as string
+        viz.step(\`\${val} has two children — look for the leftmost node of its right subtree\`)
+        let succ = t.right(id) as string
+        while (t.childrenOf(succ).left !== null) {
+          succ = t.left(succ) as string
+          viz.step(\`\${t.peek(succ)} is smaller — keep going left\`)
+        }
         const succVal = t.value(succ) as number
+        t.mark(succ, 'pinned', 'the successor')
+        t.unmarkClass(id, 'match')
+        viz.step(\`successor of \${val} is \${succVal} — copy it up, then delete it below\`)
         t.setValue(id, succVal)
-        t.setRight(id, remove(right, succVal))
-        return id
+        return rewired(id, 'right', remove(right, succVal))
       }),
     )
   }
 
   const newRoot = remove(t.root, key)
-  t.root = newRoot
+  if (t.root !== newRoot) t.root = newRoot
   if (newRoot !== null) t.mark(newRoot, 'result', 'root after deletion')
+  viz.step(found ? \`deleted \${key}\` : \`\${key} was never in the tree, so nothing changed\`)
 
   return serialize(t, newRoot)
 }
@@ -471,6 +537,13 @@ function serialize(t: ReturnType<Viz['tree']>, rootId: string | null): (number |
   return out
 }
 `
+
+  it('is a transcription of the shipped starter, not a different program', () => {
+    // By order, not presence — see `expectStarterTranscription`. The placeholders are the lines the
+    // starter's own TODOs tell the reader to replace; everything else is scaffolding they are told
+    // to leave alone, so a difference there is drift.
+    expectStarterTranscription(PROBLEM, source, ['return id'])
+  })
 
   it('holds every invariant the reference does when filled in as instructed', () => {
     const run = executeRun({ problem: PROBLEM, source, caseIndex: 'all' })
@@ -494,6 +567,7 @@ function serialize(t: ReturnType<Viz['tree']>, rootId: string | null): (number |
         problems.push(`${name}: no final tree snapshot`)
         continue
       }
+      problems.push(...narrationComplaints(result.trace, name))
       if (nonTransient(tree, 'path').length > 0) problems.push(`${name}: a path mark survived`)
       if (tree.edgeMarks.some((e) => e.class === 'active')) problems.push(`${name}: an edge stayed active`)
 
@@ -511,25 +585,36 @@ function serialize(t: ReturnType<Viz['tree']>, rootId: string | null): (number |
       }
     }
 
-    // The order-sensitive check: setValue before the matching setRight, on the two-children cases.
+    // The order-sensitive check, asserted against the picture rather than against op positions:
+    // the borrowed value must be on screen before the successor leaves it. Looking for "the next
+    // write frame at the same group depth" assumed the copy-up is always followed by a rewire one
+    // line later, which stopped being true once a rewire that changes nothing stopped emitting a
+    // frame — when the successor is deeper than the immediate right child, the pointer at that
+    // level never moves. The splice happens wherever it happens; what matters is that it happens
+    // after the copy. (The reference's own copy of this check was corrected the same way.)
     for (const name of TWO_CHILDREN_CASES) {
-      const frames = byCaseName.get(name)!.trace.frames
-      const setValueIdx = frames.findIndex(
+      const trace = byCaseName.get(name)!.trace
+      const reader = new TraceReader(trace)
+      const setValueIdx = trace.frames.findIndex(
         (f) => f.op === 'write' && /^write -?\d+ -> -?\d+$/.test(f.label ?? ''),
       )
       if (setValueIdx < 0) {
         problems.push(`${name}: no value-write frame`)
         continue
       }
-      const setValueGroups = frames[setValueIdx]!.groups
-      const setRightIdx = frames.findIndex(
-        (f, i) =>
-          i > setValueIdx &&
-          f.op === 'write' &&
-          f.groups.length === setValueGroups.length &&
-          f.groups.every((g, gi) => g === setValueGroups[gi]),
+      const before = new Set(treeAt(reader, setValueIdx - 1).nodes.map((n) => n.id))
+      const after = new Set(finalTree(trace).nodes.map((n) => n.id))
+      const spliced = [...before].filter((id) => !after.has(id))
+      if (spliced.length !== 1) {
+        problems.push(`${name}: expected exactly one node to be spliced out, got ${spliced.length}`)
+        continue
+      }
+      const leftAt = trace.frames.findIndex(
+        (f, i) => i >= setValueIdx && !treeAt(reader, i).nodes.some((n) => n.id === spliced[0]),
       )
-      if (!(setRightIdx > setValueIdx)) problems.push(`${name}: setValue did not precede the matching setRight`)
+      if (!(leftAt > setValueIdx)) {
+        problems.push(`${name}: the successor left the picture before its value was copied up`)
+      }
     }
 
     expect(problems).toEqual([])

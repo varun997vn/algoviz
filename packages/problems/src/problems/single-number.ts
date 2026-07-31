@@ -149,6 +149,10 @@ export default function singleNumber(nums: number[], viz: Viz): number {
   // the invariant the whole tally exists to make visible. Mark those positions 'result' on
   // tally (tally.at(bit) is the non-recording read). Then find the index in a whose value
   // equals acc and mark it 'result' too, so the array agrees with the tally.
+  //
+  // Then one closing viz.step saying how many columns came out odd. Without it the result
+  // marks land on an unnarrated frame and the last caption a scrubber sees is 'xor in
+  // nums[n-1]' — the sentence that makes the tally mean anything is the one that is missing.
   return acc
 }
 `

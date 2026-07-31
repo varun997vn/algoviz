@@ -162,6 +162,18 @@ describe('Find Pivot Index — reference trace semantics', () => {
     expect(last.marks.filter((m) => m.class === 'result').map((m) => m.index)).toEqual([answer])
   })
 
+  it('narrates the scan running out, which is an answer too', () => {
+    // Without a closing step the last frame a scrubber stops on is a mid-loop "keep scanning",
+    // with every cell visited and no band left — honest, and unexplained.
+    const run = executeRun({ problem: PROBLEM, useReference: true, caseIndex: requireProblem(PROBLEM).cases.findIndex((c) => c.name === 'no valid answer') })
+    const noPivot = run.results[0]!
+    expect(noPivot.returned).toBe(-1)
+    const r = new TraceReader(noPivot.trace)
+    const steps = r.stepFrames()
+    const lastLabel = noPivot.trace.frames[steps[steps.length - 1]!]?.label ?? ''
+    expect(lastLabel).toMatch(/no pivot — the answer is -1/)
+  })
+
   it('narrates every index it checks, up to and including the pivot', () => {
     const steps = reader.stepFrames()
     const labels = steps.map((i) => trace.frames[i]!.label ?? '')
@@ -189,6 +201,7 @@ export default function pivotIndex(nums, viz) {
     }
     viz.step('checked ' + i.value)
   }
+  viz.step('every index checked and none balanced: the whole array is on the left now, so there is no pivot — the answer is -1')
   return -1
 }
 `

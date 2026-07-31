@@ -2,6 +2,7 @@ import { beforeAll, describe, expect, it } from 'vitest'
 import { executeRun, type CaseResult } from '@algoviz/runner'
 import { requireProblem } from '@algoviz/problems'
 import { TraceReader, type Frame, type StructureSnapshot, type Trace } from '@algoviz/tracer'
+import { eachFrame, expectHolds } from '../invariants.js'
 
 /**
  * Number of Recent Calls — frame-sequence assertions.
@@ -16,6 +17,7 @@ import { TraceReader, type Frame, type StructureSnapshot, type Trace } from '@al
  */
 
 const PROBLEM = 'number-of-recent-calls'
+const QUEUE = 'recent'
 
 type QueueSnapshot = Extract<StructureSnapshot, { kind: 'queue' }>
 
@@ -181,6 +183,44 @@ describe('the reference solution', () => {
         const filled = snap?.kind === 'array' ? snap.values.filter((v) => v !== null) : []
         expect(filled[filled.length - 1], `${name} frame ${f}: ${label}`).toBe(Number(said[2]))
       }
+    }
+  })
+
+  it('reports nothing in the watch panel that the queue beside it contradicts', () => {
+    // The panel's window bound was called `oldest_kept` and held the *cutoff*, which is a
+    // different quantity and usually a different number — a timestamp no ping ever had, wrong on
+    // 106 of 157 frames and right only on the boundary cases, i.e. exactly when it looked right.
+    // Adding a caption that named the genuinely-oldest kept ping is what made the two visibly
+    // disagree, one frame apart, about the same thing.
+    for (const [name, result] of byName.entries()) {
+      expectHolds(
+        eachFrame(result.trace, (frame) => {
+          const q = frame.get(QUEUE, 'queue')
+          if (!q || !frame.watch) return
+          const said: string[] = []
+          if (frame.watch.pings !== q.values.length) {
+            said.push(`watch says ${String(frame.watch.pings)} pings, the queue holds ${q.values.length}`)
+          }
+          // The panel's bound is the *current* call's, never a previous one. That is what the
+          // rename and the reorder are for: it held the cutoff under a name meaning something
+          // else, and it was set after the push, so an enqueue frame showed the new ping beside
+          // the window of the call before it.
+          const opensAt = frame.watch.window_opens_at as number
+          const newest = (q.values as number[])[q.values.length - 1]
+          if (newest !== undefined && opensAt !== newest - 3000 && opensAt !== 0) {
+            said.push(`newest ping is ${newest} but the window claims to open at ${opensAt}`)
+          }
+          return said
+
+          // Deliberately *not* asserted here: that nothing older than the bound is still queued.
+          // That is true only once the sweep finishes — between the push and the first eviction
+          // mark there is one frame where the bound has moved and the doomed ping has not yet been
+          // marked, which is the documented one-frame-per-op gap running in the direction I chose
+          // (a true not-yet-swept queue beats a stale bound). The claim belongs to the report
+          // frames, and `windowViolations` already checks it there, exactly.
+        }),
+        `${name}: the watch panel agrees with the queue`,
+      )
     }
   })
 
@@ -361,12 +401,12 @@ export default function recentCounter(pings: number[], viz: Viz): number[] {
   const recent = viz.queue<number>([], { name: 'recent' })
   const out = viz.array<number>(pings.length, { name: 'calls in the last 3000ms', fill: null })
   let cutoff = 0
-  viz.watch(() => ({ pings: recent.size, oldest_kept: cutoff }))
+  viz.watch(() => ({ pings: recent.size, window_opens_at: cutoff }))
 
   pings.forEach((t, call) => {
     viz.group(\`ping(\${t})\`, () => {
-      recent.push(t)
       cutoff = t - 3000
+      recent.push(t)
       while (!recent.isEmpty && (recent.front() as number) < cutoff) {
         recent.mark(0, 'excluded', \`evicted before ping(\${t})\`)
         recent.shift()

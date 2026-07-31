@@ -91,14 +91,24 @@ describe('the search is a binary search, not a scan wearing its clothes', () => 
     const trace = result.trace
     const fastest = Math.max(...(requireProblem(PROBLEM).cases.find((c) => c.name === name)!.args[0] as number[]))
     const probes = probeLabels(trace)
+    const answer = result.returned as number
+
+    // The last probe is the closing one — the winner, re-run once the search is over so the final
+    // picture shows it doing the job. Split it off rather than loosening the bound: it is a
+    // different kind of thing from a search probe, and a test that cannot tell them apart would
+    // also accept a search that took one probe too many.
+    expect(probes[probes.length - 1], 'the closing probe is not on the answer').toBe(
+      `speed ${answer}: does it finish within ${(requireProblem(PROBLEM).cases.find((c) => c.name === name)!.args[1] as number)} hours?`,
+    )
+    const search = probes.slice(0, -1)
 
     // Halving a space of `fastest` candidates takes at most ceil(log2(fastest)) probes; one spare
     // for the final comparison. A scan takes `answer` of them.
     const bound = Math.ceil(Math.log2(Math.max(2, fastest))) + 1
-    expect(probes.length, `${probes.length} probes over ${fastest} candidates: ${probes.join(' | ')}`)
+    expect(search.length, `${search.length} search probes over ${fastest} candidates: ${search.join(' | ')}`)
       .toBeLessThanOrEqual(bound)
-    // No speed is tested twice — a probe that repeats is a loop that is not converging.
-    expect(new Set(probes).size).toBe(probes.length)
+    // No speed is searched twice — a probe that repeats is a loop that is not converging.
+    expect(new Set(search).size).toBe(search.length)
 
     // The live window shrinks, and never by less than half.
     const reader = new TraceReader(trace)
@@ -218,6 +228,34 @@ describe('a probe shows its own work', () => {
       }),
       `${name}: the watch panel agrees with the picture beside it`,
     )
+  })
+
+  it.each(CASES)('%s — the closing frames describe the winner, not the last speed probed', (name) => {
+    // The assertion that was missing, and its absence is instructive: the every-frame check above
+    // uses `eachFrame` correctly and its invariant genuinely held — but the invariant is *internal
+    // consistency* (`hours` equals the cost of the drawn piles at the speed `testing` names), and
+    // a losing probe satisfies that perfectly. Nothing tied the closing frame to the answer.
+    //
+    // So the same failure mode as a filtered walk, one level up: an unfiltered walk of the wrong
+    // quantity. Nine of twelve cases ended announcing the answer beside the readout of a speed
+    // that missed the deadline — the largest reading 301 hours against a 300-hour deadline.
+    const result = byName.get(name)!
+    const reader = new TraceReader(result.trace)
+    const piles = requireProblem(PROBLEM).cases.find((c) => c.name === name)!.args[0] as number[]
+    const answer = result.returned as number
+    const cost = piles.reduce((sum, p) => sum + Math.ceil(p / answer), 0)
+
+    const last = reader.frameCount - 1
+    const watch = reader.watchAt(last)!
+    expect(watch.testing, 'the closing readout names a speed that is not the answer').toBe(answer)
+    expect(watch.hours, 'the closing readout is not the answer’s own cost').toBe(cost)
+    expect(watch.hours as number).toBeLessThanOrEqual(watch.deadline as number)
+
+    // And the caret and the piles agree with it.
+    const mid = arrayAt(reader, SPEEDS, last)?.cursors.find((c) => c.name === 'mid')
+    expect(mid?.index).toBe(answer)
+    const eaten = (arrayAt(reader, PILES, last)?.marks ?? []).filter((m) => m.transient !== true)
+    expect(eaten).toHaveLength(piles.length)
   })
 
   it('never reports an hour count the piles panel has not accounted for', () => {

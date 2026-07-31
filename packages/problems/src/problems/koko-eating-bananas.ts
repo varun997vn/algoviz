@@ -151,17 +151,28 @@ export function reference(piles: number[], h: number, viz: Viz): number {
     )
   }
 
-  // Nothing is reset here. `hours = 0; testing = lo` used to run first, and put three
-  // contradictions on the one frame a viewer parks on: `hours=0` beside piles drawn as eaten,
-  // `testing` naming a speed the `mid` caret was not on, and on `[5,5,5] h=3` a winning speed of 5
-  // reported as finishing in zero hours. The last probe's readout is the winning speed's readout —
-  // the loop ends with `lo === hi === mid`, so it is already exactly right. (The starter never had
-  // this: its TODOs say nothing about resetting, so a learner following them got the honest frame
-  // and the reference did not.)
+  // One last probe, of the winner. The search is over and this is not part of it — it is here so
+  // the closing frames show the answer *doing the job it was chosen for*.
+  //
+  // Two wrong versions preceded this, and the second was worse. First `hours = 0; testing = lo`,
+  // which put "finishes in 0 hours" beside three piles drawn as eaten. Then nothing at all,
+  // justified by a claim I wrote in this comment and in the starter's closing TODO: that the loop
+  // ends with `lo === hi === mid`, so the last probe's readout is already the winner's. That is
+  // true only when the final iteration takes the `hi = mid` branch. When it takes `lo = mid + 1`
+  // the last speed probed is `lo - 1` — one that *missed* the deadline — and its numbers are what
+  // the closing frames carried: nine of twelve cases ended announcing the answer beside the
+  // readout of a speed that failed, the largest reading `301 hours` against a 300-hour deadline.
+  // A plausible wrong number is worse than an obviously placeholder one.
+  //
+  // Re-probing costs one pass over the piles and buys a final picture whose every panel is true
+  // at once: the piles marked with what the winner charges for each, the total, the caret and the
+  // readout all on `lo`, and the result mark beside them.
+  const cost = hoursAt(lo)
   speeds.mark(lo, 'result', `the slowest speed that finishes in ${h} hours`)
   viz.step(
-    `${lo} is the answer: everything below it is too slow, everything above it is faster than it ` +
-      `needs to be, and the whole space was crossed off ${fastest > 1 ? 'a half at a time' : 'at once'}.`,
+    `${lo} is the answer: ${cost} hour(s), inside the ${h} available — everything below it is too ` +
+      `slow, everything above it is faster than it needs to be, and the whole space was crossed ` +
+      `off ${fastest > 1 ? 'a half at a time' : 'at once'}.`,
   )
   return lo
 }
@@ -263,9 +274,12 @@ export default function minEatingSpeed(piles: number[], h: number, viz: Viz): nu
   // blocks either side of it are the picture the problem exists for: too-slow on the left,
   // faster-than-necessary on the right, and the boundary between them is the answer.
   //
-  // Do not reset 'hours' or 'testing' here. The loop ends with lo === hi === the last speed
-  // probed, so the readout already describes the winner exactly; zeroing it puts 'finishes in
-  // 0 hours' beside a panel of piles drawn as eaten, on the one frame a viewer parks on.
+  // Call hoursAt(lo) once more first. The search is over, so this is not part of it — it is
+  // there so the closing frames show the winner doing the job. The last speed *probed* is not
+  // always the winner: when the final iteration rules out the lower half, it was lo - 1, a
+  // speed that missed the deadline, and leaving its numbers on screen announces the answer
+  // beside a readout that says it does not fit. Do not zero them either — 'finishes in 0
+  // hours' beside piles drawn as eaten is the same defect in the other direction.
   return 0
 }
 `

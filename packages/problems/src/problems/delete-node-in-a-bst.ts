@@ -98,11 +98,15 @@ export function reference(root: (number | null)[], key: number, viz: Viz): (numb
         // recording twin is what lights the edge. Taken from `childrenOf` the search began with
         // its most important move — "into the right subtree" — having no frame at all, so the
         // highlight teleported two levels down.
-        let succ = t.right(id) as string
+        // Narrated *before* the step down, so the frame that moves the highlight into the right
+        // subtree carries the sentence explaining why it moved. The other way round, that frame
+        // inherits the caption of whatever was said last — which is about the search, not about
+        // the successor hunt that has just started.
         viz.step(
           `${val} has two children, so nothing can simply take its place — the value that can is ` +
             `the smallest one bigger than it, which is as far left as the right subtree goes`,
         )
+        let succ = t.right(id) as string
         while (t.childrenOf(succ).left !== null) {
           succ = t.left(succ) as string
           viz.step(`${t.peek(succ)} is smaller — keep going left`)
@@ -189,8 +193,28 @@ const starter = `// A BST delete is a search, then one of three cases at the nod
 export default function deleteNode(root: (number | null)[], key: number, viz: Viz): (number | null)[] {
   const t = viz.tree(root, { name: 'tree' })
 
+  // Whether the key was ever actually found — the closing narration needs it, or a run that
+  // deleted nothing still ends by announcing a deletion.
+  let found = false
+
+  // Rewire only when the pointer actually moves. remove() re-attaches the SAME child on every
+  // ancestor of the target, and on every node visited when the key is absent, so calling
+  // setLeft/setRight unconditionally emits a write frame per ancestor announcing a rewire that
+  // changed nothing — and on a miss, one of them "rewires" a pointer that was already null.
+  const rewired = (id: string, side: 'left' | 'right', child: string | null): string => {
+    const current = side === 'left' ? t.childrenOf(id).left : t.childrenOf(id).right
+    if (current === child) return id
+    if (side === 'left') t.setLeft(id, child)
+    else t.setRight(id, child)
+    return id
+  }
+
   const remove = (id: string | null, target: number): string | null => {
-    if (id === null) return null
+    if (id === null) {
+      // TODO: falling off the bottom IS the answer on a miss, so narrate it. Returning silently
+      // leaves one bare \`visit\` op as the only evidence the search ever ended.
+      return null
+    }
     return viz.group(\`node \${t.peek(id)}\`, () =>
       // t.onPath keeps the root->node highlight correct as recursion unwinds.
       t.onPath(id, () => {
@@ -198,23 +222,33 @@ export default function deleteNode(root: (number | null)[], key: number, viz: Vi
 
         // TODO: compare target against val, in this order — this is the whole search:
         //   1. target < val: viz.step narrating "go left", then
-        //      const newLeft = remove(t.left(id), target)
-        //      t.setLeft(id, newLeft)
-        //      return id — this node's identity never changes on the way down, only its child.
-        //   2. target > val: the mirror image, with t.right/t.setRight.
+        //      return rewired(id, 'left', remove(t.left(id), target))
+        //      — this node's identity never changes on the way down, only its child.
+        //   2. target > val: the mirror image, with t.right.
         //   3. target === val: this IS the node to delete. Fall through to the next TODO.
 
-        // TODO: target === val. Mark it found — t.mark(id, 'match', ...) — then destructure
-        // { left, right } from t.childrenOf(id) and handle the three cases:
-        //   - left is null: this node is replaced by its right child — return right.
-        //   - right is null: this node is replaced by its left child — return left.
-        //   - otherwise it has two children. The in-order successor is the leftmost node of
-        //     the right subtree: starting from \`right\`, keep walking with t.left while
-        //     t.childrenOf(...).left is not null. Read the successor's value, THEN
-        //     t.setValue(id, thatValue) — the copy-up has to land before the delete below, or
-        //     the picture shows the subtree changing before the value that explains why does —
-        //     THEN t.setRight(id, remove(right, thatValue)) to delete the successor from the
-        //     right subtree. Return id.
+        // TODO: target === val. Set found = true, mark it — t.mark(id, 'match', ...) — then
+        // destructure { left, right } from t.childrenOf(id) and handle THREE cases, not two:
+        //   - no children at all: it is a leaf, nothing takes its place — return null.
+        //   - left is null: its right child takes its place — return right.
+        //   - right is null: its left child takes its place — return left.
+        //     (Folding the leaf into either of the middle two narrates it with that case's
+        //     sentence, on a node with no such child. Two branches cannot say three things.)
+        //   - otherwise it has two children. The in-order successor is the leftmost node of the
+        //     right subtree. Start with t.right(id), NOT the \`right\` you already have from
+        //     childrenOf: this is a walk, and only the recording twin lights the edge — taken
+        //     silently, the search's first and most important move has no frame at all and the
+        //     highlight teleports two levels. Then walk down with t.left while
+        //     t.childrenOf(...).left is not null, narrating each step.
+        //
+        //     Read the successor's value and mark the successor 'pinned'. Take 'match' off the
+        //     target with t.unmarkClass(id, 'match') BEFORE copying: the moment it holds a
+        //     different value it is no longer the node you searched for, and leaving the mark on
+        //     puts two nodes on screen showing the same number with the same marks.
+        //
+        //     THEN t.setValue(id, thatValue) — the copy-up has to land before the delete below,
+        //     or the picture shows the subtree changing before the value that explains why does —
+        //     THEN return rewired(id, 'right', remove(right, thatValue)).
 
         return id
       }),
@@ -222,8 +256,9 @@ export default function deleteNode(root: (number | null)[], key: number, viz: Vi
   }
 
   const newRoot = remove(t.root, key)
-  // TODO: t.root = newRoot, mark it 'result' if it exists, then return the tree read back
-  // out with serialize(t, newRoot) below.
+  // TODO: set t.root = newRoot only if it actually changed, mark it 'result' if it exists, and
+  // narrate — saying that the key was deleted if \`found\`, and that it was never there if not.
+  // A closing frame that says "deleted N" over an untouched tree is the last thing a viewer sees.
 
   return serialize(t, newRoot)
 }

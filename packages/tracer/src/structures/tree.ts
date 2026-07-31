@@ -112,8 +112,23 @@ export class VizTree extends BaseStructure {
    * defect being documented rather than caught.
    *
    * A visualizer is a pure function of a snapshot, so the snapshot has to be the picture.
+   *
+   * **Known limit, and it is a real one.** Pruning equates "unreachable" with "gone", and for a
+   * deletion those coincide. For a *rotation* they do not: the only way to rotate through this API
+   * is detach-then-reattach, and for the frame in between, a whole subtree vanishes from the
+   * picture and then comes back. Worse, the frame that re-attaches it is captioned with a write on
+   * a node the picture does not contain, because that node's mark is filtered out too — which is
+   * the same "caption asserts something the picture lacks" defect this pruning removed from the
+   * other side. No problem rotates today, so this is latent; closing it properly means a third
+   * state (`detached: true` on the snapshot, drawn dimmed and off to one side, excluded from
+   * `trace_assert` by flag rather than by absence) rather than a fourth ordering trick.
    */
   private reachable(): Set<NodeId> {
+    return this.rootNode ? this.subtreeOf(this.rootNode) : new Set<NodeId>()
+  }
+
+  /** Ids at or under `from`. Cycle-safe, so it can also be used to *detect* a cycle. */
+  private subtreeOf(from: InternalNode): Set<NodeId> {
     const seen = new Set<NodeId>()
     const walk = (node: InternalNode | null): void => {
       if (!node || seen.has(node.id)) return
@@ -121,7 +136,7 @@ export class VizTree extends BaseStructure {
       walk(node.left)
       walk(node.right)
     }
-    walk(this.rootNode)
+    walk(from)
     return seen
   }
 
@@ -169,8 +184,15 @@ export class VizTree extends BaseStructure {
     this.rec.record({ op: 'write', structure: this, label: `root -> ${shown}` })
   }
 
+  /**
+   * How many nodes the tree *has*, which is what the picture shows rather than what was created.
+   *
+   * This counted every node ever made, orphans included, so it disagreed with
+   * `snapshot().nodes.length` and with `toLevelOrder()` the moment anything was spliced out — the
+   * last accessor still describing the pre-mutation model.
+   */
   get size(): number {
-    return this.nodes.size
+    return this.reachable().size
   }
 
   /** Value at a node. Records a read so the node lights up. */
@@ -242,6 +264,17 @@ export class VizTree extends BaseStructure {
   private rewire(id: NodeId, side: 'left' | 'right', child: NodeId | null): void {
     const node = this.require(id)
     const childNode = child === null ? null : this.require(child)
+    // A binary tree with a cycle is not a binary tree, and until there was a write half none could
+    // exist — so nothing downstream defends against one. `layoutTree` recursed until the stack
+    // gave out, which in the browser is a locked tab, and the MCP renderer threw. Refused here
+    // rather than only patched there: a cycle is not a picture that failed to draw, it is a state
+    // the structure should never have reached.
+    if (childNode && this.subtreeOf(childNode).has(id)) {
+      throw new RangeError(
+        `${this.name}: attaching ${formatVal(childNode.value)} under ${formatVal(node.value)} ` +
+          `would make a cycle — ${formatVal(node.value)} is already inside it`,
+      )
+    }
     // Any settled decision about the edge being replaced goes with it. A mark outlives the edge it
     // is about otherwise, and `TreeViz` draws only edges the structure actually has while the MCP
     // renderer listed every mark — so `trace_inspect` reported `t1->t2:tree` for an edge the

@@ -1171,6 +1171,51 @@ describe('VizTree', () => {
     })
   })
 
+  it('refuses a rewire that would make a cycle', () => {
+    // Until there was a write half a `VizTree` could not be cyclic, so nothing downstream defends
+    // against one: `layoutTree` recursed until the stack gave out — in a browser, a locked tab —
+    // and the MCP renderer threw. Refused here rather than only patched there, because a cycle is
+    // not a picture that failed to draw, it is a state the structure should never have reached.
+    expect(() =>
+      trace((viz) => {
+        const tr = viz.tree([1, 2, 3], { name: 'tr' })
+        const root = tr.root as string
+        const left = tr.childrenOf(root).left as string
+        tr.setLeft(left, root)
+        return 0
+      }),
+    ).toThrow(/attaching 1 under 2 would make a cycle — 2 is already inside it/)
+
+    // A node may still be re-parented anywhere that is not inside its own subtree.
+    const { value } = trace((viz) => {
+      const tr = viz.tree([1, 2, 3], { name: 'tr' })
+      const root = tr.root as string
+      const { left, right } = tr.childrenOf(root)
+      tr.setLeft(right as string, left)
+      tr.setLeft(root, null)
+      // `toLevelOrder` drops missing children — see its own docstring — so this reads as the
+      // values in level order, not as the shape.
+      return tr.toLevelOrder()
+    })
+    expect(value).toEqual([1, 3, 2])
+  })
+
+  it('counts the nodes the tree has, not the nodes it ever made', () => {
+    // `size` read the internal map, so it disagreed with `snapshot().nodes.length` and with
+    // `toLevelOrder()` the moment anything was spliced out — the last accessor still describing
+    // the model from before the tree could be restructured.
+    const { value, trace: t } = trace((viz) => {
+      const tr = viz.tree([1, 2, 3, 4], { name: 'tr' })
+      const before = tr.size
+      tr.setLeft(tr.root as string, null)
+      return { before, after: tr.size, levels: tr.toLevelOrder() }
+    })
+    expect(value.before).toBe(4)
+    expect(value.after).toBe(2)
+    expect(value.levels).toEqual([1, 3])
+    expect(finalOf(t, 'tree1', 'tree').nodes).toHaveLength(value.after)
+  })
+
   it('drops a settled decision about an edge it replaces', () => {
     // The first API in the tracer that can make an edge stop existing, so the first that has to
     // say so. A mark outlived the pointer it described: `TreeViz` walks the structure and drew
