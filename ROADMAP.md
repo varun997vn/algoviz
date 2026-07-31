@@ -5,17 +5,17 @@
 Every problem here is solved *inside the app*: you write the instrumented solution and
 watch your own algorithm execute over a live visualization of the structures it touches.
 
-**Progress: 12 / 75 done (16%)**
+**Progress: 15 / 75 done (20%)**
 
-`████░░░░░░░░░░░░░░░░░░░░░░░░`
+`██████░░░░░░░░░░░░░░░░░░░░░░`
 
 | Status | Count |
 | --- | --- |
 | ⬜ todo | 57 |
-| 🟡 in-progress | 6 |
+| 🟡 in-progress | 3 |
 | 🔵 review | 0 |
 | 🔴 blocked | 0 |
-| ✅ done | 12 |
+| ✅ done | 15 |
 
 ## Next up
 
@@ -110,11 +110,11 @@ Run the `solve-problem` skill to take the next one end to end.
 | 1372 | [Longest ZigZag Path in a Binary Tree](https://leetcode.com/problems/longest-zigzag-path-in-a-binary-tree/) | medium | `tree` | ⬜ todo | — |
 | 236 | [Lowest Common Ancestor of a Binary Tree](https://leetcode.com/problems/lowest-common-ancestor-of-a-binary-tree/) | medium | `tree` | ⬜ todo | — |
 
-### Binary Tree - BFS — 0/2
+### Binary Tree - BFS — 1/2
 
 | # | Problem | Difficulty | Structures | Status | PR |
 | --- | --- | --- | --- | --- | --- |
-| 199 | [Binary Tree Right Side View](https://leetcode.com/problems/binary-tree-right-side-view/) | medium | `tree, queue, array` | 🟡 in-progress | — |
+| 199 | [Binary Tree Right Side View](https://leetcode.com/problems/binary-tree-right-side-view/) | medium | `tree, queue, array` | ✅ done | — |
 | 1161 | [Maximum Level Sum of a Binary Tree](https://leetcode.com/problems/maximum-level-sum-of-a-binary-tree/) | medium | `tree, queue` | ⬜ todo | — |
 
 ### Binary Search Tree — 0/2
@@ -158,11 +158,11 @@ Run the `solve-problem` skill to take the next one end to end.
 | 162 | [Find Peak Element](https://leetcode.com/problems/find-peak-element/) | medium | `array, cursor` | ⬜ todo | — |
 | 875 | [Koko Eating Bananas](https://leetcode.com/problems/koko-eating-bananas/) | medium | `array, cursor` | ⬜ todo | — |
 
-### Backtracking — 0/2
+### Backtracking — 1/2
 
 | # | Problem | Difficulty | Structures | Status | PR |
 | --- | --- | --- | --- | --- | --- |
-| 17 | [Letter Combinations of a Phone Number](https://leetcode.com/problems/letter-combinations-of-a-phone-number/) | medium | `trie, array, string` | 🟡 in-progress | — |
+| 17 | [Letter Combinations of a Phone Number](https://leetcode.com/problems/letter-combinations-of-a-phone-number/) | medium | `trie, array, string` | ✅ done | — |
 | 216 | [Combination Sum III](https://leetcode.com/problems/combination-sum-iii/) | medium | `tree, array` | ⬜ todo | — |
 
 ### DP - 1D — 1/4
@@ -174,12 +174,12 @@ Run the `solve-problem` skill to take the next one end to end.
 | 198 | [House Robber](https://leetcode.com/problems/house-robber/) | medium | `dp, array` | ⬜ todo | — |
 | 790 | [Domino and Tromino Tiling](https://leetcode.com/problems/domino-and-tromino-tiling/) | medium | `dp` | ⬜ todo | — |
 
-### DP - Multidimensional — 0/4
+### DP - Multidimensional — 1/4
 
 | # | Problem | Difficulty | Structures | Status | PR |
 | --- | --- | --- | --- | --- | --- |
 | 62 | [Unique Paths](https://leetcode.com/problems/unique-paths/) | medium | `dp` | ⬜ todo | — |
-| 1143 | [Longest Common Subsequence](https://leetcode.com/problems/longest-common-subsequence/) | medium | `dp, string` | 🟡 in-progress | — |
+| 1143 | [Longest Common Subsequence](https://leetcode.com/problems/longest-common-subsequence/) | medium | `dp, string` | ✅ done | — |
 | 714 | [Best Time to Buy and Sell Stock with Transaction Fee](https://leetcode.com/problems/best-time-to-buy-and-sell-stock-with-transaction-fee/) | medium | `dp, array` | ⬜ todo | — |
 | 72 | [Edit Distance](https://leetcode.com/problems/edit-distance/) | medium | `dp, string` | ⬜ todo | — |
 
@@ -219,18 +219,18 @@ visualizer has no real user yet, however green its unit tests are.
 
 | Structure | Done | Planned |
 | --- | --- | --- |
-| `array` | 4 | 38 |
+| `array` | 6 | 38 |
 | `matrix` | 1 | 4 |
-| `string` | 1 | 13 |
+| `string` | 3 | 13 |
 | `list` | 1 | 4 |
-| `tree` | 1 | 11 |
+| `tree` | 2 | 11 |
 | `graph` | 1 | 4 |
 | `stack` | 1 | 5 |
-| `queue` | 1 | 6 |
+| `queue` | 2 | 6 |
 | `heap` | 0 | 4 |
 | `map` | 1 | 6 |
 | `set` | 2 | 7 |
-| `dp` | 1 | 9 |
+| `dp` | 2 | 9 |
 | `intervals` | 1 | 2 |
-| `trie` | 1 | 3 |
+| `trie` | 2 | 3 |
 | `cursor` | 4 | 23 |

@@ -616,10 +616,17 @@ problems:
     order: 39
     structures: [ tree, queue, array ]
     techniques: [ bfs ]
-    status: in-progress
+    status: done
     branch: claude/leetcode-visualizer-w01nr6
     pr: null
-    notes: null
+    notes: "trace-verifier: faithful. A level is one loop iteration rather than one
+      dequeue, so the wave structure is real and not a DFS in disguise; the
+      frontier marks match the queue contents on every frame and only ever trail
+      it. Shared changes from the same batch were audited alongside and three
+      were incomplete — see the tracer commits. The one live consequence here was
+      that this dropped the frontier highlight with t.unmark (every class at
+      once), safe only by the accident that a queued node carries no other mark;
+      it uses unmarkClass now, in the starter as well."
     dependsOn: []
   - id: p1161
     leetcode: 1161
@@ -901,10 +908,20 @@ problems:
     order: 57
     structures: [ trie, array, string ]
     techniques: [ backtracking ]
-    status: in-progress
+    status: done
     branch: claude/leetcode-visualizer-w01nr6
     pr: null
-    notes: null
+    notes: "trace-verifier: faithful. The load-bearing claim holds frame by frame — the
+      path-marked nodes form exactly one chain from the root on every frame of
+      every case, and the word never runs behind the tree by more than one
+      character, only ever in the tree-behind direction. Terminal-node count
+      equals answer count on all nine cases (144 == 144 on 2379); the trie ends
+      with no marks of any class. Empty input returns [] with a narrated frame,
+      not [\"\"] and not an empty trace. The starter, filled in from its own TODOs
+      only, passes 9/9. One cosmetic finding, since fixed: this is the first
+      problem whose string panel is empty at rest, and StringViz renders through
+      ArrayViz, so the pen read `array is empty` on frame 0 and on the final
+      frame."
     dependsOn: []
   - id: p216
     leetcode: 216
@@ -1003,10 +1020,18 @@ problems:
     order: 64
     structures: [ dp, string ]
     techniques: [ dp ]
-    status: in-progress
+    status: done
     branch: claude/leetcode-visualizer-w01nr6
     pr: null
-    notes: null
+    notes: "trace-verifier: faithful. The dp table, the two string panels and their
+      carets agree on every frame, and the dependency highlight lasts exactly the
+      one frame it is emitted on. Two shared defects came out of the same audit
+      and are fixed: VizDpTable.set was guarded on the 2-D arm only, so a 1-D
+      table silently wrote the column index when given three arguments and had no
+      index bound at all; and Recorder.quiet owed a catch-up snapshot on reads,
+      which broke the object-identity contract TraceReader keeps for React.memo.
+      This problem reported that axisLabels was stored and read by nothing —
+      GridViz reads it now."
     dependsOn: []
   - id: p714
     leetcode: 714
