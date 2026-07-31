@@ -16,6 +16,7 @@ import { longestCommonSubsequence } from './problems/longest-common-subsequence.
 import { letterCombinationsOfAPhoneNumber } from './problems/letter-combinations-of-a-phone-number.js'
 import { decodeString } from './problems/decode-string.js'
 import { evaluateDivision } from './problems/evaluate-division.js'
+import { kokoEatingBananas } from './problems/koko-eating-bananas.js'
 import type { ProblemDefinition } from './types.js'
 
 /**
@@ -44,6 +45,7 @@ export const PROBLEMS: readonly ProblemDefinition[] = [
   letterCombinationsOfAPhoneNumber,
   decodeString,
   evaluateDivision,
+  kokoEatingBananas,
 ]
 
 export function listProblems(): ProblemDefinition[] {
@@ -72,4 +74,4 @@ export { mergeStringsAlternately, reverseLinkedList, dailyTemperatures, tribonac
 export { kthLargestElementInAnArray, uniqueNumberOfOccurrences, implementTrie }
 export { nonOverlappingIntervals, maximumAverageSubarrayI, binaryTreeRightSideView }
 export { longestCommonSubsequence, letterCombinationsOfAPhoneNumber }
-export { decodeString, evaluateDivision }
+export { decodeString, evaluateDivision, kokoEatingBananas }

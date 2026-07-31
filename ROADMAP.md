@@ -11,8 +11,8 @@ watch your own algorithm execute over a live visualization of the structures it 
 
 | Status | Count |
 | --- | --- |
-| ⬜ todo | 57 |
-| 🟡 in-progress | 0 |
+| ⬜ todo | 56 |
+| 🟡 in-progress | 1 |
 | 🔵 review | 0 |
 | 🔴 blocked | 0 |
 | ✅ done | 18 |
@@ -156,7 +156,7 @@ Run the `solve-problem` skill to take the next one end to end.
 | 374 | [Guess Number Higher or Lower](https://leetcode.com/problems/guess-number-higher-or-lower/) | easy | `array, cursor` | ⬜ todo | — |
 | 2300 | [Successful Pairs of Spells and Potions](https://leetcode.com/problems/successful-pairs-of-spells-and-potions/) | medium | `array, cursor` | ⬜ todo | — |
 | 162 | [Find Peak Element](https://leetcode.com/problems/find-peak-element/) | medium | `array, cursor` | ⬜ todo | — |
-| 875 | [Koko Eating Bananas](https://leetcode.com/problems/koko-eating-bananas/) | medium | `array, cursor` | ⬜ todo | — |
+| 875 | [Koko Eating Bananas](https://leetcode.com/problems/koko-eating-bananas/) | medium | `array, cursor` | 🟡 in-progress | — |
 
 ### Backtracking — 1/2
 
