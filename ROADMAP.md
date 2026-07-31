@@ -11,8 +11,8 @@ watch your own algorithm execute over a live visualization of the structures it 
 
 | Status | Count |
 | --- | --- |
-| ⬜ todo | 55 |
-| 🟡 in-progress | 2 |
+| ⬜ todo | 54 |
+| 🟡 in-progress | 3 |
 | 🔵 review | 0 |
 | 🔴 blocked | 0 |
 | ✅ done | 18 |
@@ -87,7 +87,7 @@ Run the `solve-problem` skill to take the next one end to end.
 
 | # | Problem | Difficulty | Structures | Status | PR |
 | --- | --- | --- | --- | --- | --- |
-| 933 | [Number of Recent Calls](https://leetcode.com/problems/number-of-recent-calls/) | easy | `queue` | ⬜ todo | — |
+| 933 | [Number of Recent Calls](https://leetcode.com/problems/number-of-recent-calls/) | easy | `queue` | 🟡 in-progress | — |
 | 649 | [Dota2 Senate](https://leetcode.com/problems/dota2-senate/) | medium | `queue, string` | ⬜ todo | — |
 
 ### Linked List — 1/4
