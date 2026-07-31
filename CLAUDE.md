@@ -43,6 +43,28 @@ and if it needs problem context the model is wrong.
 
 Always `pnpm`, never bare `npm`/`yarn`. Filter with `pnpm --filter @algoviz/<pkg>`.
 
+## Deployment
+
+The app is a static bundle with no server of any kind — solutions are transpiled in the browser by
+sucrase and executed in a Web Worker, and nothing fetches anything. `.github/workflows/pages.yml`
+publishes it to <https://varun997vn.github.io/algoviz/> on every push to `main`.
+
+**`ALGOVIZ_BASE` is the whole of the configuration**, and it is load-bearing in a way that fails
+quietly. A project page is served under the repository name, so every asset URL is built with that
+prefix — including the one inside `new Worker(new URL(...))`. Get it wrong and the page still
+loads: the editor appears and the problem list works, and only *running* a solution 404s. So the
+Pages workflow builds with the base and then runs the e2e suite against **that** artifact rather
+than testing one build and shipping another. Reproduce it locally with
+`ALGOVIZ_BASE=/algoviz/ pnpm test:ui`; unset, everything serves at `/` as before.
+
+Two things GitHub Pages cannot do, both currently non-issues and both worth knowing before adding a
+dependency that needs them:
+
+- **It cannot set headers**, so `SharedArrayBuffer`/`Atomics` are unavailable — they need
+  `COOP`/`COEP`. The runner's interrupt is `worker.terminate()`, which needs neither.
+- **It has no history-API fallback**, so a client-side route like `/problem/two-sum` would 404 on
+  reload. State lives in query params (`?problem=…`) instead.
+
 ## Generated files — never hand-edit
 
 - `ROADMAP.md` — from `roadmap/roadmap.yaml` via `pnpm roadmap:generate`. `pnpm roadmap:check`

@@ -1,0 +1,79 @@
+name: Pages
+
+# Publishes the workbench to https://varun997vn.github.io/algoviz/.
+#
+# Requires GitHub Pages to be set to "Source: GitHub Actions" in the repository settings — a
+# workflow cannot enable that for you, and until it is, `deploy-pages` fails with a 404.
+on:
+  push:
+    branches: [main]
+  # So a branch can be published before it merges, by picking its ref when dispatching.
+  workflow_dispatch:
+
+# Pages needs the id-token to deploy; everything else is read-only.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deploy at a time, and never cancel one mid-flight — a half-published site is worse than a
+# stale one, which is why this differs from the cancel-in-progress group in `ci.yml`.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: '22'
+  # A project page is served under the repository name, so every asset URL is built with this
+  # prefix — including the one inside `new Worker(new URL(...))`. See `apps/web/vite.config.ts`.
+  ALGOVIZ_BASE: /algoviz/
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      # CI runners have no /opt/pw-browsers, so unlike local development they must download the
+      # browser. The pinned @playwright/test version decides which revision — see CLAUDE.md.
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      # Builds with ALGOVIZ_BASE and then drives *that* artifact, rather than testing one build and
+      # shipping another. The thing a subpath deployment gets wrong is the worker URL, and the page
+      # loads fine without it — the editor appears, the problem list works, and only *running* a
+      # solution 404s. Nothing short of the e2e suite would notice before a user did.
+      - name: Build and prove it works at ${{ env.ALGOVIZ_BASE }}
+        run: pnpm test:ui
+
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: apps/web/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

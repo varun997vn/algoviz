@@ -15,7 +15,7 @@ test.beforeEach(async ({ page }) => {
 })
 
 async function openProblem(page: Page, slug: string): Promise<void> {
-  await page.goto(`/?problem=${slug}`)
+  await page.goto(`./?problem=${slug}`)
   await expect(page.getByTestId('workbench')).toBeVisible()
 }
 
@@ -35,7 +35,7 @@ async function setSource(page: Page, source: string): Promise<void> {
 }
 
 test('the picker lists all 75 roadmap problems and marks which are playable', async ({ page }) => {
-  await page.goto('/')
+  await page.goto('./')
   await expect(page.getByRole('heading', { name: 'LeetCode 75, visualized' })).toBeVisible()
 
   const items = page.locator('[data-testid^="problem-item-"]')
@@ -53,7 +53,7 @@ test('the picker lists all 75 roadmap problems and marks which are playable', as
 })
 
 test('search narrows the list and "playable only" filters to what is built', async ({ page }) => {
-  await page.goto('/')
+  await page.goto('./')
   await page.getByTestId('problem-search').fill('container')
   await expect(page.locator('[data-testid^="problem-item-"]')).toHaveCount(1)
 
@@ -65,7 +65,7 @@ test('search narrows the list and "playable only" filters to what is built', asy
 })
 
 test('opening a problem shows its starter code and nothing has run yet', async ({ page }) => {
-  await page.goto('/')
+  await page.goto('./')
   await page.getByTestId('problem-item-11').getByRole('button').click()
 
   await expect(page.getByTestId('current-problem')).toContainText('Container With Most Water')
