@@ -1115,13 +1115,80 @@ describe('VizGraph', () => {
   })
 
   it('records edge state in both directions for an undirected graph', () => {
-    // A decision recorded as `b -> a` must light up the edge stored as `a -> b`.
+    // A decision recorded as `b -> a` must light up the edge stored as `a -> b` — and must be
+    // *labelled* `a -> b` too. Only the lookup key was normalised, so the mark kept the caller's
+    // endpoints; every renderer matches marks to drawn edges by endpoint, so an undirected walk
+    // taken the undeclared way produced a mark that matched no edge and drew nothing.
     const { trace: t } = trace((viz) => {
       const g = viz.graph({ n: 2, edges: [[0, 1]] })
       g.edge(1, 0, 'tree')
       return 0
     })
-    expect(finalOf(t, 'gph1', 'graph').edgeMarks).toHaveLength(1)
+    expect(finalOf(t, 'gph1', 'graph').edgeMarks).toEqual([{ from: '0', to: '1', class: 'tree' }])
+  })
+
+  it('keeps two decisions about a directed pair apart instead of losing one', () => {
+    // `a -> b` and `b -> a` are two different edges on a directed graph, and Evaluate Division
+    // declares every equation as exactly that pair. Normalising the key without normalising the
+    // endpoints collapsed both decisions into one mark, keyed `a->b` and labelled `b->a` — so the
+    // first decision was destroyed and the survivor matched no drawn edge. Two decisions in,
+    // nothing on screen.
+    const { trace: t } = trace((viz) => {
+      const g = viz.graph({ directed: true, edges: [['a', 'b'], ['b', 'a']] })
+      g.edge('a', 'b', 'tree')
+      g.edge('b', 'a', 'rejected')
+      return 0
+    })
+    expect(finalOf(t, 'gph1', 'graph').edgeMarks).toEqual([
+      { from: 'a', to: 'b', class: 'tree' },
+      { from: 'b', to: 'a', class: 'rejected' },
+    ])
+  })
+
+  it('refuses a decision about an edge that does not exist', () => {
+    // The other half of the same hole: on a directed graph with only `a -> b` declared, marking
+    // `b -> a` used to succeed and silently overwrite the `a -> b` decision. A traversal that
+    // decides something about an edge it does not have is a bug in the traversal.
+    expect(() =>
+      trace((viz) => {
+        const g = viz.graph({ name: 'g', directed: true, edges: [['a', 'b']] })
+        g.edge('b', 'a', 'rejected')
+        return 0
+      }),
+    ).toThrow(/g has no directed edge b -> a/)
+  })
+
+  it('clears one edge state without touching the others', () => {
+    // `clearEdges(state)` shipped with no caller and no test; only the no-arg form is exercised
+    // by a problem.
+    const { trace: t } = trace((viz) => {
+      const g = viz.graph({ n: 4, edges: [[0, 1], [1, 2], [2, 3]] })
+      g.edge(0, 1, 'tree')
+      g.edge(1, 2, 'rejected')
+      g.edge(2, 3, 'tree')
+      g.clearEdges('tree')
+      return 0
+    })
+    expect(finalOf(t, 'gph1', 'graph').edgeMarks).toEqual([
+      { from: '1', to: '2', class: 'rejected' },
+    ])
+  })
+
+  it('yields the weight of the edge it just lit', () => {
+    // `weightedNeighbors` exists because `neighbors` destructures `{ to }` from an entry holding
+    // `{ to, weight }`, forcing `weightOf(at, next) ?? 1` — a fallback for an edge that provably
+    // exists — into the line that is the arithmetic of a step.
+    const { value, trace: t } = trace((viz) => {
+      const g = viz.graph({ weighted: true, directed: true, edges: [['a', 'b', 2], ['a', 'c', 5]] })
+      return [...g.weightedNeighbors('a')]
+    })
+    expect(value).toEqual([
+      { to: 'b', weight: 2 },
+      { to: 'c', weight: 5 },
+    ])
+    // Each one lights its edge for exactly the frame that yielded it.
+    const lit = t.frames.filter((f) => f.label?.startsWith('consider a ->'))
+    expect(lit.map((f) => f.label)).toEqual(['consider a -> b', 'consider a -> c'])
   })
 
   it('marks visited nodes and clears marks', () => {

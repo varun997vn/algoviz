@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Viz} from './index.js';
-import { BudgetExceededError, TraceReader, lastAtMost, resolveFrame, trace } from './index.js'
+import { BudgetExceededError, TraceReader, edgeMarkFor, lastAtMost, resolveFrame, trace } from './index.js'
 import type { StructureSnapshot, Trace } from './types.js'
 
 /** Mirrors the reader's carry-forward semantics, written independently for the replay test. */
@@ -636,5 +636,32 @@ describe('Viz facade', () => {
     )
     // queue and deque are the same kind but distinct structures.
     expect(kinds.filter((k) => k === 'queue')).toHaveLength(2)
+  })
+})
+
+describe('edgeMarkFor', () => {
+  // One rule shared by `GraphViz`, `TreeViz` and the MCP text renderer, because they drifted apart
+  // while each was independently "correct": the SVG folded marks into a Map (last wins) and the
+  // text renderer used `.find()` (first wins). A snapshot lists persistent marks before transient
+  // ones, so the two disagreed on exactly the frames a walk is crossing an already-settled edge —
+  // and `trace_inspect`, the channel every audit reads its evidence from, was the one reporting a
+  // state the user could not see.
+  const marks = [
+    { from: 'a', to: 'b', class: 'tree' as const },
+    { from: 'a', to: 'b', class: 'active' as const, transient: true },
+  ]
+
+  it('lets the transient highlight win, whichever order the marks arrive in', () => {
+    expect(edgeMarkFor(marks, 'a', 'b', true)?.class).toBe('active')
+    expect(edgeMarkFor([...marks].reverse(), 'a', 'b', true)?.class).toBe('active')
+  })
+
+  it('falls back to the settled state once the highlight is gone', () => {
+    expect(edgeMarkFor([marks[0]!], 'a', 'b', true)?.class).toBe('tree')
+  })
+
+  it('folds b->a onto a->b only when the graph is undirected', () => {
+    expect(edgeMarkFor([marks[0]!], 'b', 'a', false)?.class).toBe('tree')
+    expect(edgeMarkFor([marks[0]!], 'b', 'a', true)).toBeUndefined()
   })
 })

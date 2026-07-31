@@ -251,9 +251,11 @@ describe('MatrixViz and DpViz', () => {
 })
 
 describe('GraphViz edge-mark direction', () => {
-  // One rule with two independent implementations — here and in the MCP text renderer — and
-  // neither was pinned. They can drift apart silently, and the player and the tool the audits read
-  // their evidence from disagreeing is the worst version of that.
+  // The rule had two independent implementations — here and in the MCP text renderer — and they
+  // *had* drifted: the SVG folded marks into a Map (last wins) where the renderer used `.find()`
+  // (first wins), so on any frame where an edge carried both a settled state and the transient
+  // highlight of a walk crossing it, the player and the tool the audits read their evidence from
+  // showed different things. Both now call `edgeMarkFor`; these pin the behaviour it has to have.
   const nodes = [
     { id: 'a', label: 'a' },
     { id: 'b', label: 'b' },
@@ -292,6 +294,29 @@ describe('GraphViz edge-mark direction', () => {
     expect(container.querySelector('[data-testid="edge-a-b"]')?.getAttribute('data-edge-state')).toBe(
       'reversed',
     )
+  })
+
+  it('draws the transient highlight over the settled state, not under it', () => {
+    // An edge already settled `tree` and being crossed again carries two marks on one frame. The
+    // frame is *about* the crossing, so that is what shows; the settled state is what remains when
+    // the highlight goes. The order the two arrive in must not decide it.
+    const snapshot = (edgeMarks: { from: string; to: string; class: string; transient?: boolean }[]) =>
+      renderSnapshot({
+        kind: 'graph',
+        nodes,
+        edges: [{ from: 'a', to: 'b' }],
+        directed: true,
+        marks: [],
+        edgeMarks,
+      } as never)
+    const settled = { from: 'a', to: 'b', class: 'tree' }
+    const crossing = { from: 'a', to: 'b', class: 'active', transient: true }
+    const stateOf = (c: Element): string | null =>
+      c.querySelector('[data-testid="edge-a-b"]')?.getAttribute('data-edge-state') ?? null
+
+    expect(stateOf(snapshot([settled, crossing]))).toBe('active')
+    expect(stateOf(snapshot([crossing, settled]))).toBe('active')
+    expect(stateOf(snapshot([settled]))).toBe('tree')
   })
 })
 

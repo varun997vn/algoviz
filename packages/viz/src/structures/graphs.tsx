@@ -1,4 +1,4 @@
-import type { EdgeMark, MarkClass, NodeId, StructureSnapshot } from '@algoviz/tracer'
+import { edgeMarkFor, type EdgeMark, type MarkClass, type NodeId, type StructureSnapshot } from '@algoviz/tracer'
 import type { ReactNode } from 'react'
 import { CELL, Cell, EmptyState, Scroll, display, edgeStroke, marksOnNode, markAttr, winningClass } from '../primitives.js'
 import { layoutGraph, layoutTree, layoutTrie, NODE_R, type LaidOut, type Point } from '../layout.js'
@@ -143,7 +143,6 @@ export function TreeViz({ snapshot }: { snapshot: Of<'tree'> }): ReactNode {
   if (nodes.length === 0 || root === null) return <EmptyState what="tree" />
 
   const laid = layoutTree(nodes, root)
-  const edgeState = new Map(edgeMarks.map((e) => [`${e.from}->${e.to}`, e]))
 
   return (
     <Canvas laid={laid} label="binary tree">
@@ -152,7 +151,8 @@ export function TreeViz({ snapshot }: { snapshot: Of<'tree'> }): ReactNode {
           const from = laid.positions.get(n.id)
           const to = laid.positions.get(child)
           if (!from || !to) return null
-          const mark = edgeState.get(`${n.id}->${child}`)
+          // Parent -> child, so never mirrored — the same rule the graph and the MCP renderer use.
+          const mark = edgeMarkFor(edgeMarks, n.id, child, true)
           return (
             <Edge
               key={`${n.id}-${child}`}
@@ -185,18 +185,6 @@ export function GraphViz({ snapshot }: { snapshot: Of<'graph'> }): ReactNode {
     nodes.map((n) => n.id),
     edges,
   )
-  // Edge marks are stored under the direction the edge was declared in, so on an *undirected*
-  // graph a decision recorded as `next -> city` must still light the edge drawn as `city -> next`.
-  //
-  // On a directed graph it must not. `a -> b` and `b -> a` are two different edges there — that is
-  // the whole point of the direction — and mirroring meant marking one lit both. Evaluate Division
-  // models every equation as an antiparallel pair, so a walk along `a/b` also lit `b/a`, which is
-  // the edge it deliberately did not take.
-  const marked = new Map<string, EdgeMark>()
-  for (const e of edgeMarks) {
-    marked.set(`${e.from}->${e.to}`, e)
-    if (!directed) marked.set(`${e.to}->${e.from}`, e)
-  }
 
   return (
     <Canvas laid={laid} label="graph">
@@ -204,7 +192,8 @@ export function GraphViz({ snapshot }: { snapshot: Of<'graph'> }): ReactNode {
         const from = laid.positions.get(e.from)
         const to = laid.positions.get(e.to)
         if (!from || !to) return null
-        const mark = marked.get(`${e.from}->${e.to}`)
+        // `edgeMarkFor` is shared with the MCP text renderer on purpose — see its docstring.
+        const mark = edgeMarkFor(edgeMarks, e.from, e.to, directed)
         // A reversed road is drawn pointing the way the algorithm decided it should go.
         const flip = mark?.class === 'reversed'
         return (

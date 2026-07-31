@@ -1,5 +1,6 @@
 import {
   TraceReader,
+  edgeMarkFor,
   type Frame,
   type StructureSnapshot,
   type Trace,
@@ -116,7 +117,18 @@ export function renderSnapshot(name: string, snapshot: StructureSnapshot): strin
         walk(node.right, depth + 1, 'R ')
       }
       walk(snapshot.root, 0, '')
-      const edges = snapshot.edgeMarks.map((e) => `${e.from}->${e.to}:${e.class}`).join(' ')
+      // One line per edge, not per mark. A re-traversed edge carries both its settled state and
+      // the transient highlight of the walk crossing it again, and listing the raw array printed
+      // the same edge twice with two different states — a reader has no way to tell which one the
+      // picture is showing. `edgeMarkFor` decides, once, for every renderer.
+      const seen = new Set<string>()
+      const edges = snapshot.edgeMarks
+        .filter((e) => !seen.has(`${e.from}->${e.to}`) && seen.add(`${e.from}->${e.to}`) !== null)
+        .map((e) => {
+          const mark = edgeMarkFor(snapshot.edgeMarks, e.from, e.to, true)
+          return `${e.from}->${e.to}:${mark?.class ?? e.class}`
+        })
+        .join(' ')
       return `${name} (tree):\n${lines.join('\n')}${edges ? `\n  edges: ${edges}` : ''}`
     }
     case 'graph': {
@@ -126,13 +138,12 @@ export function renderSnapshot(name: string, snapshot: StructureSnapshot): strin
       const arrow = snapshot.directed ? '->' : '--'
       const edges = snapshot.edges
         .map((e) => {
-          // Only look both ways on an undirected graph. On a directed one `a->b` and `b->a` are
-          // distinct edges, so mirroring reported a mark on whichever of the pair it found first.
-          const mark = snapshot.edgeMarks.find(
-            (m) =>
-              (m.from === e.from && m.to === e.to) ||
-              (!snapshot.directed && m.from === e.to && m.to === e.from),
-          )
+          // Shared with `GraphViz` so the two cannot disagree — see `edgeMarkFor`. They did:
+          // this used `.find()` (first wins) where the SVG folded into a Map (last wins), and a
+          // snapshot lists persistent marks before transient ones, so an edge carrying both a
+          // settled state and the walk's `active` highlight was reported here as one thing and
+          // drawn there as the other.
+          const mark = edgeMarkFor(snapshot.edgeMarks, e.from, e.to, snapshot.directed)
           const weight = e.weight === undefined ? '' : `(${e.weight})`
           return `${e.from}${arrow}${e.to}${weight}${mark ? `:${mark.class}` : ''}`
         })
