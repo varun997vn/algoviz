@@ -151,6 +151,26 @@ export function expectHolds(complaints: readonly string[], label: string): void 
 }
 
 /**
+ * Assert that calling `fn` (an `expectHolds`-based check) rejects, and that one of its complaints
+ * matches `pattern`.
+ *
+ * `expectHolds` collects every violating frame instead of throwing on the first, which is the
+ * whole point — but it means a "the check has teeth" test can no longer assert the thrown message
+ * *is* one specific complaint, only that the complaint is *among* what got reported.
+ */
+export function expectRejects(fn: () => void, pattern: RegExp): void {
+  try {
+    fn()
+  } catch (err) {
+    const actual = (err as { actual?: unknown }).actual
+    const text = Array.isArray(actual) ? actual.join('\n') : String(err)
+    expect(text, `expected a complaint matching ${pattern}`).toMatch(pattern)
+    return
+  }
+  expect.fail(`expected ${fn} to reject, matching ${pattern}`)
+}
+
+/**
  * A watch value must equal a quantity independently recomputed from the picture, on every frame.
  *
  * The single most productive assertion in this repo — the watch panel is where a solution states

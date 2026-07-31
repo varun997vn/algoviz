@@ -9,6 +9,7 @@ import {
   type Viz,
 } from '@algoviz/tracer'
 import { singleNumber } from '@algoviz/problems'
+import { eachFrame, expectHolds, structureId } from '../invariants.js'
 
 /**
  * LeetCode 136 — Single Number.
@@ -39,16 +40,11 @@ const PROBLEM = 'single-number'
 const NUMS = 'nums'
 const TALLY = 'bit tally (count of 1s, MSB->LSB)'
 
-function idOf(trace: Trace, name: string): string {
-  const meta = trace.structures.find((s) => s.name === name)
-  if (!meta) {
-    throw new Error(
-      `no structure named "${name}" — got ${trace.structures.map((s) => s.name).join(', ')}`,
-    )
-  }
-  return meta.id
-}
-
+/**
+ * Single-frame lookup — most callers below want one structure at one specific frame, not a walk.
+ * Unlike `structureId`, returns `undefined` rather than throwing when the structure is absent
+ * entirely: the "rejects a solution that never builds a tally" test below depends on that.
+ */
 function resolve<K extends StructureSnapshot['kind']>(
   reader: TraceReader,
   name: string,
@@ -99,24 +95,25 @@ function fromParity(tally: readonly number[]): number {
  * `acc`'s bit or one step past it, never one step short.
  */
 function expectAccNeverLeadsTheTally(trace: Trace, label: string): void {
-  const reader = new TraceReader(trace)
-  const id = idOf(trace, 'bit tally (count of 1s, MSB->LSB)')
-  const problems: string[] = []
-  for (let f = 0; f < reader.frameCount; f += 1) {
-    const snap = reader.structureAt(id, f)
-    const acc = reader.watchAt(f)?.acc
-    if (!snap || snap.kind !== 'array' || typeof acc !== 'number') continue
-    for (let bit = 0; bit < 32; bit += 1) {
-      const count = (snap.values[bit] as number | null) ?? 0
-      const accBit = (acc >>> (31 - bit)) & 1
-      // The tally may have counted this column's newest 1 before `acc` absorbed it, so parity may
-      // run one ahead. It may never run behind — that is `acc` claiming an unshown result.
-      if (count % 2 !== accBit && (count - 1) % 2 !== accBit) {
-        problems.push(`frame ${f}: bit ${bit} count ${count} vs acc bit ${accBit}`)
+  expectHolds(
+    eachFrame(trace, (frame) => {
+      const snap = frame.get(TALLY, 'array')
+      const acc = frame.watch?.acc
+      if (!snap || typeof acc !== 'number') return
+      const said: string[] = []
+      for (let bit = 0; bit < 32; bit += 1) {
+        const count = (snap.values[bit] as number | null) ?? 0
+        const accBit = (acc >>> (31 - bit)) & 1
+        // The tally may have counted this column's newest 1 before `acc` absorbed it, so parity
+        // may run one ahead. It may never run behind — that is `acc` claiming an unshown result.
+        if (count % 2 !== accBit && (count - 1) % 2 !== accBit) {
+          said.push(`bit ${bit} count ${count} vs acc bit ${accBit}`)
+        }
       }
-    }
-  }
-  expect(problems.slice(0, 5), `${label}: acc ran ahead of the picture`).toEqual([])
+      return said
+    }),
+    `${label}: acc ran ahead of the picture`,
+  )
 }
 
 /**
@@ -194,7 +191,7 @@ describe('Single Number — reference trace semantics', () => {
 
   it('starts the tally at all zeros', () => {
     const reader = new TraceReader(trace)
-    const tallyId = idOf(trace, TALLY)
+    const tallyId = structureId(trace, TALLY)
     const createdAt = trace.frames.findIndex((f) => f.snapshots[tallyId] !== undefined)
     expect(createdAt, 'tally is never snapshotted').toBeGreaterThanOrEqual(0)
     const first = resolve(reader, TALLY, 'array', createdAt)

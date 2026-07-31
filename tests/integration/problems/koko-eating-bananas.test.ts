@@ -7,6 +7,7 @@ import {
   expectHolds,
   expectMarksPartition,
   expectStarterTranscription,
+  structureId,
 } from '../invariants.js'
 
 /**
@@ -44,16 +45,8 @@ beforeAll(() => {
 
 const CASES = requireProblem(PROBLEM).cases.map((c) => c.name)
 
-function idOf(trace: Trace, name: string): string {
-  const meta = trace.structures.find((s) => s.name === name)
-  if (!meta) {
-    throw new Error(`no structure named "${name}" — got ${trace.structures.map((s) => s.name).join(', ')}`)
-  }
-  return meta.id
-}
-
 function arrayAt(reader: TraceReader, name: string, frame: number): ArraySnapshot | undefined {
-  const snap = reader.structureAt(idOf(reader.trace, name), frame)
+  const snap = reader.structureAt(structureId(reader.trace, name), frame)
   return snap?.kind === 'array' ? snap : undefined
 }
 
@@ -131,7 +124,7 @@ describe('the search is a binary search, not a scan wearing its clothes', () => 
     // difference between an animation of a binary search and an animation of a scan. Marking cell
     // by cell would leave the returned answer, the partition and the probe count all identical.
     const result = byName.get('240 scrambled piles in 300 hours, met exactly')!
-    const speedsId = idOf(result.trace, SPEEDS)
+    const speedsId = structureId(result.trace, SPEEDS)
 
     let previous = 0
     const bulk: number[] = []
@@ -324,7 +317,7 @@ describe('the checks have teeth', () => {
     // faster speeds one at a time.
     const run = executeRun({ problem: PROBLEM, source: scanner, caseIndex: 3 })
     const trace = run.results[0]!.trace
-    const speedsId = idOf(trace, SPEEDS)
+    const speedsId = structureId(trace, SPEEDS)
     let previous = 0
     const bulk: number[] = []
     for (const frame of trace.frames) {

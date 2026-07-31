@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { executeRun } from '@algoviz/runner'
 import { requireProblem } from '@algoviz/problems'
 import { TraceReader, type StructureSnapshot, type Trace } from '@algoviz/tracer'
+import { eachFrame, expectHolds, structureId } from '../invariants.js'
 
 /**
  * LeetCode 643 — Maximum Average Subarray I.
@@ -30,18 +31,8 @@ const NUMS = 'nums'
 
 type ArraySnap = Extract<StructureSnapshot, { kind: 'array' }>
 
-function idOf(trace: Trace, name: string): string {
-  const meta = trace.structures.find((s) => s.name === name)
-  if (!meta) {
-    throw new Error(
-      `no structure named "${name}" — got ${trace.structures.map((s) => s.name).join(', ')}`,
-    )
-  }
-  return meta.id
-}
-
 function resolve(reader: TraceReader, name: string, frame: number): ArraySnap | undefined {
-  const snap = reader.structureAt(idOf(reader.trace, name), frame)
+  const snap = reader.structureAt(structureId(reader.trace, name), frame)
   return snap?.kind === 'array' ? snap : undefined
 }
 
@@ -69,7 +60,7 @@ function windowMoves(reader: TraceReader): [number, number][] {
  * describes what the *picture* highlighted.
  */
 function readIndices(trace: Trace): number[] {
-  const id = idOf(trace, NUMS)
+  const id = structureId(trace, NUMS)
   const out: number[] = []
   for (const frame of trace.frames) {
     if (frame.op !== 'read' || frame.structureId !== id) continue
@@ -99,16 +90,21 @@ function expectWindowSlides(trace: Trace, n: number, k: number, label: string): 
   const reader = new TraceReader(trace)
 
   let framesWithWindow = 0
-  for (const [i, win] of windowPerFrame(reader).entries()) {
-    if (!win) continue
-    framesWithWindow += 1
-    expect(
-      win[1] - win[0] + 1,
-      `${label} frame ${i}: window ${win[0]}..${win[1]} is ${win[1] - win[0] + 1} wide, not k=${k}`,
-    ).toBe(k)
-    expect(win[0], `${label} frame ${i}: window starts before the array`).toBeGreaterThanOrEqual(0)
-    expect(win[1], `${label} frame ${i}: window ends past the array`).toBeLessThan(n)
-  }
+  expectHolds(
+    eachFrame(trace, (frame) => {
+      const win = frame.get(NUMS, 'array')?.window
+      if (!win) return
+      framesWithWindow += 1
+      const said: string[] = []
+      if (win[1] - win[0] + 1 !== k) {
+        said.push(`window ${win[0]}..${win[1]} is ${win[1] - win[0] + 1} wide, not k=${k}`)
+      }
+      if (win[0] < 0) said.push('window starts before the array')
+      if (win[1] >= n) said.push('window ends past the array')
+      return said
+    }),
+    `${label}: the window is exactly k wide and in bounds on every frame`,
+  )
   expect(framesWithWindow, `${label}: no frame ever carried a window`).toBeGreaterThan(0)
 
   const moves = windowMoves(reader)

@@ -119,6 +119,8 @@ describe('N-th Tribonacci Number — the recurrence is visible in the table', ()
   it('never changes a cell that already holds a value', () => {
     // Left-to-right write order is not enough on its own: a rolling-variable solution mislabelled
     // as a table would also revisit cells. Once a cell has a value it must stay put forever.
+    // Stateful across frames (needs the previous frame's values), so it does not fit `eachFrame`'s
+    // pure-per-frame shape — but it still walks every frame, not a subset.
     let previous: (number | null)[] | undefined
     for (let i = 0; i < reader.frameCount; i += 1) {
       const values = dpAt(reader, i).values as (number | null)[]

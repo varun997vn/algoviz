@@ -195,9 +195,12 @@ function auditAnimation({ text1, text2, trace, returned, who }: Audit): void {
   }
 
   // ---- blank ahead of the fill front --------------------------------------------------------
-  // By the first narrated frame the border is down; everything the algorithm has not reached yet
-  // must still be `null`, so "not computed" and "computed, equals zero" never look alike — and a
-  // solution that pastes a finished table in cannot pass this.
+  // Narrated frames only — verified deliberately, not by default. The border is laid one cell
+  // per frame (`init` then `n+m+1` `write` ops before the fill starts), so at the table's own
+  // declaring frame and for a few frames after it row 0 / column 0 are still legitimately `null`
+  // mid-write; only by the first narrated frame is the border guaranteed fully down. Widening this
+  // to every frame throws on those transitional border-writing frames, which is CLAUDE.md's "one
+  // frame per op" gap, not a defect in the picture a viewer actually stops on.
   for (const step of reader.stepFrames()) {
     const done = writes.filter((w) => w.index < step).length
     const values = dpAt(reader, dpId, step).values as (number | null)[][]

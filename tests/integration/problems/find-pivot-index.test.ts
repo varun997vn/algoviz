@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { executeRun } from '@algoviz/runner'
 import { requireProblem } from '@algoviz/problems'
 import { TraceReader, type StructureSnapshot, type Trace } from '@algoviz/tracer'
+import { eachFrame, expectHolds, expectRejects, expectStarterTranscription, structureId } from '../invariants.js'
 
 /**
  * LeetCode 724 — Find Pivot Index.
@@ -20,18 +21,8 @@ const NUMS = 'nums'
 
 type ArraySnap = Extract<StructureSnapshot, { kind: 'array' }>
 
-function idOf(trace: Trace, name: string): string {
-  const meta = trace.structures.find((s) => s.name === name)
-  if (!meta) {
-    throw new Error(
-      `no structure named "${name}" — got ${trace.structures.map((s) => s.name).join(', ')}`,
-    )
-  }
-  return meta.id
-}
-
 function resolve(reader: TraceReader, name: string, frame: number): ArraySnap | undefined {
-  const snap = reader.structureAt(idOf(reader.trace, name), frame)
+  const snap = reader.structureAt(structureId(reader.trace, name), frame)
   return snap?.kind === 'array' ? snap : undefined
 }
 
@@ -43,85 +34,78 @@ function resolve(reader: TraceReader, name: string, frame: number): ArraySnap | 
  * alone.
  */
 function expectRegionsMatchSums(trace: Trace, nums: number[], label: string): void {
-  const reader = new TraceReader(trace)
-  const id = idOf(trace, NUMS)
   const total = nums.reduce((s, v) => s + v, 0)
   let checked = 0
 
-  // Every frame that carries a `nums` snapshot, not just the `read` frames. Checking only reads
-  // checked exactly the frames that were right and skipped exactly the ones that were wrong: the
-  // sums used to be recomputed in the watch closure from a `leftSum` that had already advanced,
-  // so the two `mark`/`window` frames per index reported a number matching neither region.
-  for (const frame of trace.frames) {
-    const snap = frame.snapshots[id]
-    if (snap?.kind !== 'array') continue
-    const watchNow = reader.watchAt(frame.index)
-    if (watchNow) {
-      const visitedNow = snap.marks
+  // `eachFrame` — not just the `read` frames. Checking only reads checked exactly the frames that
+  // were right and skipped exactly the ones that were wrong: the sums used to be recomputed in the
+  // watch closure from a `leftSum` that had already advanced, so the two `mark`/`window` frames
+  // per index reported a number matching neither region.
+  expectHolds(
+    eachFrame(trace, (frame) => {
+      const snap = frame.get(NUMS, 'array')
+      if (!snap) return
+      const said: string[] = []
+      const watchNow = frame.watch
+      if (watchNow) {
+        const visitedNow = snap.marks
+          .filter((m) => m.class === 'visited' && !m.transient)
+          .map((m) => nums[m.index] ?? 0)
+          .reduce((a, b) => a + b, 0)
+        if (watchNow.leftSum !== visitedNow) {
+          said.push(`(${frame.op}): leftSum is not the sum of the visited cells`)
+        }
+        const band = snap.window
+        const bandSum = band ? nums.slice(band[0], band[1] + 1).reduce((a, b) => a + b, 0) : 0
+        if (watchNow.rightSum !== bandSum) {
+          said.push(`(${frame.op}): rightSum is not the sum of the banded cells`)
+        }
+      }
+      // `nums` is the only structure this problem declares, so a `read` op is always on it.
+      if (frame.op !== 'read') return said
+
+      const readMark = snap.marks.find((m) => m.transient === true)
+      if (!readMark) {
+        said.push('read frame with no transient mark')
+        return said
+      }
+      const idx = readMark.index
+
+      const watch = frame.watch
+      if (watch?.leftSum === undefined) {
+        said.push('no leftSum on a read frame')
+        return said
+      }
+      const leftSum = watch.leftSum as number
+
+      const visited = snap.marks
         .filter((m) => m.class === 'visited' && !m.transient)
-        .map((m) => nums[m.index] ?? 0)
-        .reduce((a, b) => a + b, 0)
-      expect(
-        watchNow.leftSum,
-        `${label} frame ${frame.index} (${frame.op}): leftSum is not the sum of the visited cells`,
-      ).toBe(visitedNow)
-      const band = snap.window
-      const bandSum = band
-        ? nums.slice(band[0], band[1] + 1).reduce((a, b) => a + b, 0)
-        : 0
-      expect(
-        watchNow.rightSum,
-        `${label} frame ${frame.index} (${frame.op}): rightSum is not the sum of the banded cells`,
-      ).toBe(bandSum)
-    }
-    if (frame.op !== 'read' || frame.structureId !== id) continue
+        .map((m) => m.index)
+        .sort((a, b) => a - b)
+      if (JSON.stringify(visited) !== JSON.stringify(Array.from({ length: idx }, (_, k) => k))) {
+        said.push(`visited region is not [0..${idx - 1}]`)
+      }
+      if (visited.reduce((s, i2) => s + nums[i2]!, 0) !== leftSum) {
+        said.push('visited cells do not sum to leftSum')
+      }
 
-    const readMark = snap.marks.find((m) => m.transient === true)
-    expect(readMark, `${label} frame ${frame.index}: read frame with no transient mark`).toBeDefined()
-    const idx = readMark!.index
-
-    const watch = reader.watchAt(frame.index)
-    expect(watch?.leftSum, `${label} frame ${frame.index}: no leftSum on a read frame`).not.toBe(
-      undefined,
-    )
-    const leftSum = watch!.leftSum as number
-
-    const visited = snap.marks
-      .filter((m) => m.class === 'visited' && !m.transient)
-      .map((m) => m.index)
-      .sort((a, b) => a - b)
-    expect(
-      visited,
-      `${label} frame ${frame.index}: visited region is not [0..${idx - 1}]`,
-    ).toEqual(Array.from({ length: idx }, (_, k) => k))
-    expect(
-      visited.reduce((s, i2) => s + nums[i2]!, 0),
-      `${label} frame ${frame.index}: visited cells do not sum to leftSum`,
-    ).toBe(leftSum)
-
-    const expectedRightSum = total - leftSum - nums[idx]!
-    if (idx + 1 <= nums.length - 1) {
-      expect(
-        snap.window,
-        `${label} frame ${frame.index}: no window shown for the region right of ${idx}`,
-      ).toEqual([idx + 1, nums.length - 1])
-      const windowSum = nums.slice(idx + 1).reduce((s, v) => s + v, 0)
-      expect(
-        windowSum,
-        `${label} frame ${frame.index}: window does not sum to rightSum`,
-      ).toBe(expectedRightSum)
-    } else {
-      expect(
-        snap.window,
-        `${label} frame ${frame.index}: a window is shown with nothing left to its right`,
-      ).toBe(undefined)
-    }
-    expect(
-      watch?.rightSum,
-      `${label} frame ${frame.index}: watch panel rightSum disagrees with the picture`,
-    ).toBe(expectedRightSum)
-    checked += 1
-  }
+      const expectedRightSum = total - leftSum - nums[idx]!
+      if (idx + 1 <= nums.length - 1) {
+        const expectedWindow = [idx + 1, nums.length - 1]
+        if (JSON.stringify(snap.window) !== JSON.stringify(expectedWindow)) {
+          said.push(`no window shown for the region right of ${idx}`)
+        }
+        const windowSum = nums.slice(idx + 1).reduce((s, v) => s + v, 0)
+        if (windowSum !== expectedRightSum) said.push('window does not sum to rightSum')
+      } else if (snap.window !== undefined) {
+        said.push('a window is shown with nothing left to its right')
+      }
+      if (watch.rightSum !== expectedRightSum) said.push('watch panel rightSum disagrees with the picture')
+      checked += 1
+      return said
+    }),
+    `${label}: regions match the sums they claim`,
+  )
 
   expect(checked, `${label}: no read frame was checked`).toBeGreaterThan(0)
 }
@@ -147,7 +131,7 @@ describe('Find Pivot Index — reference trace semantics', () => {
   })
 
   it('reads each index exactly once, and stops at the pivot — one pass, not two', () => {
-    const id = idOf(trace, NUMS)
+    const id = structureId(trace, NUMS)
     const reads = trace.frames.filter((f) => f.op === 'read' && f.structureId === id)
     // The pivot is index 3, so the scan reads 0..3 and never touches 4 or 5.
     expect(reads.map((f) => (f.snapshots[id] as ArraySnap).marks.find((m) => m.transient)?.index)).toEqual(
@@ -215,7 +199,7 @@ export default function pivotIndex(nums, viz) {
     expect(result.results[0]?.passed).toBe(true)
     expect(result.results[0]?.returned).toBe(3)
     const trace = result.results[0]!.trace
-    const id = idOf(trace, NUMS)
+    const id = structureId(trace, NUMS)
     expect(trace.frames.filter((f) => f.op === 'read' && f.structureId === id)).toHaveLength(4)
   })
 
@@ -224,9 +208,10 @@ export default function pivotIndex(nums, viz) {
     // panel. The impostor never calls `viz.watch` at all — the two sums are computed and thrown
     // away every step, never shown as a number or as a region — which is exactly the defect this
     // problem's animation exists to make visible.
-    expect(() =>
-      expectRegionsMatchSums(result.results[0]!.trace, [1, 7, 3, 6, 5, 6], 'impostor'),
-    ).toThrow(/no leftSum on a read frame/)
+    expectRejects(
+      () => expectRegionsMatchSums(result.results[0]!.trace, [1, 7, 3, 6, 5, 6], 'impostor'),
+      /no leftSum on a read frame/,
+    )
   })
 })
 
@@ -262,7 +247,7 @@ describe('Find Pivot Index — the invariant holds on every case', () => {
       expect(returned).toBe(expected)
 
       // One read per index, whatever the outcome — never a re-sum of either side.
-      const id = idOf(caseResult.trace, NUMS)
+      const id = structureId(caseResult.trace, NUMS)
       const reads = caseResult.trace.frames.filter((f) => f.op === 'read' && f.structureId === id)
       const scanned = returned === -1 ? nums.length : returned + 1
       expect(reads, `${testCase.name}: expected ${scanned} reads`).toHaveLength(scanned)
@@ -282,7 +267,7 @@ describe('Find Pivot Index — the invariant holds on every case', () => {
     const last = resolve(reader, NUMS, reader.frameCount - 1)!
     expect(last.marks.filter((m) => m.class === 'result').map((m) => m.index)).toEqual([2])
     // Indices 3 and 4 are also valid pivots and are never even read.
-    const id = idOf(caseResult.trace, NUMS)
+    const id = structureId(caseResult.trace, NUMS)
     const readIndices = caseResult.trace.frames
       .filter((f) => f.op === 'read' && f.structureId === id)
       .map((f) => (f.snapshots[id] as ArraySnap).marks.find((m) => m.transient)?.index)
@@ -293,11 +278,14 @@ describe('Find Pivot Index — the invariant holds on every case', () => {
     const index = problem.cases.findIndex((c) => c.name === 'single element')
     const caseResult = result.results[index]!
     expect(caseResult.returned).toBe(0)
-    const reader = new TraceReader(caseResult.trace)
-    // No window is ever shown — there is nothing to either side of the only element.
-    for (let i = 0; i < reader.frameCount; i += 1) {
-      expect(resolve(reader, NUMS, i)?.window).toBe(undefined)
-    }
+    // No window is ever shown, on any frame — there is nothing to either side of the only element.
+    expectHolds(
+      eachFrame(caseResult.trace, (frame) => {
+        const window = frame.get(NUMS, 'array')?.window
+        if (window !== undefined) return `window ${JSON.stringify(window)} shown with nothing beside the only element`
+      }),
+      'single element: no window is ever shown',
+    )
   })
 
   it('runs the full O(n) scan and finds nothing on the long run', () => {
@@ -305,7 +293,7 @@ describe('Find Pivot Index — the invariant holds on every case', () => {
     const caseResult = result.results[index]!
     const [nums] = problem.cases[index]!.args as [number[]]
     expect(caseResult.returned).toBe(-1)
-    const id = idOf(caseResult.trace, NUMS)
+    const id = structureId(caseResult.trace, NUMS)
     expect(caseResult.trace.frames.filter((f) => f.op === 'read' && f.structureId === id)).toHaveLength(
       nums.length,
     )
@@ -334,29 +322,6 @@ describe('the starter teaches the same picture, not just the same answer', () =>
     const run = executeRun({ problem: PROBLEM, source: problem.starter, caseIndex: 0 })
     expect(run.results[0]!.passed).toBe(false)
   })
-
-  /**
-   * Every non-comment, non-placeholder line of the shipped starter must appear in the filled
-   * version, *in the same order*. This is stronger than "the same lines appear somewhere": it
-   * fails if a future fix lands in the reference and the starter's boilerplate silently drifts
-   * out of sync with it — the defect this repo has shipped five times.
-   */
-  function assertTranscribesInOrder(starter: string, filled: string): void {
-    const placeholders = new Set([`viz.step('index ' + i.value)`, 'break'])
-    const starterLines = starter
-      .split('\n')
-      .map((l) => l.trim())
-      .filter((l) => l.length > 0 && !l.startsWith('//') && !placeholders.has(l))
-
-    let cursor = 0
-    for (const line of starterLines) {
-      const at = filled.indexOf(line, cursor)
-      expect(at, `line not found in order after position ${cursor}: ${JSON.stringify(line)}`).toBeGreaterThanOrEqual(
-        0,
-      )
-      cursor = at + line.length
-    }
-  }
 
   it('produces the same faithful animation when filled in exactly as its comments say', () => {
     // Written only from the starter's TODOs — no peeking at the reference.
@@ -396,7 +361,9 @@ export default function pivotIndex(nums: number[], viz: Viz): number {
   return -1
 }
 `
-    assertTranscribesInOrder(problem.starter, filled)
+    // The starter's TODO block is entirely `//` comments, so nothing in it needs a placeholder
+    // exemption — every non-comment line of the starter's boilerplate reappears here, in order.
+    expectStarterTranscription(PROBLEM, filled, [])
 
     const run = executeRun({ problem: PROBLEM, source: filled })
     expect(run.diagnostics).toEqual([])

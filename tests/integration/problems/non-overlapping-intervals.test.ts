@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { executeRun } from '@algoviz/runner'
 import { requireProblem } from '@algoviz/problems'
 import { TraceReader, type StructureSnapshot, type Trace } from '@algoviz/tracer'
+import { eachFrame, expectHolds, expectMarksPartition, expectRejects, structureId } from '../invariants.js'
 
 /**
  * LeetCode 435 — Non-overlapping Intervals.
@@ -40,18 +41,8 @@ interface Ivl {
 
 type IntervalsSnapshot = Extract<StructureSnapshot, { kind: 'intervals' }>
 
-function idOf(trace: Trace, name: string): string {
-  const meta = trace.structures.find((s) => s.name === name)
-  if (!meta) {
-    throw new Error(
-      `no structure named "${name}" — got ${trace.structures.map((s) => s.name).join(', ')}`,
-    )
-  }
-  return meta.id
-}
-
 function intervalsAt(reader: TraceReader, frame: number): IntervalsSnapshot | undefined {
-  const snap = reader.structureAt(idOf(reader.trace, IVL), frame)
+  const snap = reader.structureAt(structureId(reader.trace, IVL), frame)
   return snap?.kind === 'intervals' ? snap : undefined
 }
 
@@ -89,75 +80,86 @@ function expectGreedyPictureFaithful(trace: Trace, returned: number, label: stri
     ).toBeGreaterThanOrEqual(final!.items[k - 1]!.end)
   }
 
-  let previousBoundary: number | null = null
   let framesChecked = 0
 
-  for (let i = 0; i <= last; i += 1) {
-    const snap = intervalsAt(reader, i)
-    if (!snap) continue
-    framesChecked += 1
+  expectHolds(
+    eachFrame(trace, (frame) => {
+      const snap = frame.get(IVL, 'intervals')
+      if (!snap) return
+      framesChecked += 1
+      const said: string[] = []
 
-    const kept = persistent(snap, 'result')
-    const removed = persistent(snap, 'excluded')
+      const kept = persistent(snap, 'result')
+      const removed = persistent(snap, 'excluded')
 
-    // No bar ever wears two verdicts at once, and the transient layer never leaks into state.
-    expect(
-      kept.filter((k) => removed.includes(k)),
-      `${label} frame ${i}: interval(s) marked both kept and removed`,
-    ).toEqual([])
-    for (const cls of ['active', 'compare'] as const) {
-      expect(
-        persistent(snap, cls),
-        `${label} frame ${i}: a "${cls}" mark survived as persistent state — it must be transient`,
-      ).toEqual([])
-    }
-
-    // The green chain is disjoint *while it grows*, not only once it is done.
-    for (const a of kept) {
-      for (const b of kept) {
-        if (a >= b) continue
-        expect(
-          overlap(snap.items[a]!, snap.items[b]!),
-          `${label} frame ${i}: kept intervals [${snap.items[a]!.start},${snap.items[a]!.end}] and [${snap.items[b]!.start},${snap.items[b]!.end}] overlap`,
-        ).toBe(false)
-      }
-    }
-
-    // The boundary is the right edge of the rightmost kept bar, and it never retreats.
-    const watch = reader.watchAt(i)
-    if (watch && 'lastEnd' in watch) {
-      const shown = watch['lastEnd'] as number | null
-      const fromPicture = kept.length === 0 ? null : Math.max(...kept.map((k) => snap.items[k]!.end))
-      expect(
-        shown,
-        `${label} frame ${i}: watch says lastEnd=${String(shown)}, but the rightmost kept bar ends at ${String(fromPicture)}`,
-      ).toBe(fromPicture)
-      if (shown !== null) {
-        if (previousBoundary !== null) {
-          expect(
-            shown,
-            `${label} frame ${i}: the boundary went backwards, ${previousBoundary} -> ${shown}`,
-          ).toBeGreaterThanOrEqual(previousBoundary)
+      // No bar ever wears two verdicts at once, and the transient layer never leaks into state.
+      if (kept.some((k) => removed.includes(k))) said.push('interval(s) marked both kept and removed')
+      for (const cls of ['active', 'compare'] as const) {
+        if (persistent(snap, cls).length > 0) {
+          said.push(`a "${cls}" mark survived as persistent state — it must be transient`)
         }
-        previousBoundary = shown
       }
-      // The counter beside the picture counts exactly the red bars, on every frame.
-      expect(
-        watch['removed'],
-        `${label} frame ${i}: watch says ${String(watch['removed'])} removed, picture shows ${removed.length}`,
-      ).toBe(removed.length)
-    }
-  }
 
+      // The green chain is disjoint *while it grows*, not only once it is done.
+      for (const a of kept) {
+        for (const b of kept) {
+          if (a >= b) continue
+          if (overlap(snap.items[a]!, snap.items[b]!)) {
+            said.push(
+              `kept intervals [${snap.items[a]!.start},${snap.items[a]!.end}] and [${snap.items[b]!.start},${snap.items[b]!.end}] overlap`,
+            )
+          }
+        }
+      }
+
+      // The boundary is the right edge of the rightmost kept bar.
+      const watch = frame.watch
+      if (watch && 'lastEnd' in watch) {
+        const shown = watch['lastEnd'] as number | null
+        const fromPicture = kept.length === 0 ? null : Math.max(...kept.map((k) => snap.items[k]!.end))
+        if (shown !== fromPicture) {
+          said.push(`watch says lastEnd=${String(shown)}, but the rightmost kept bar ends at ${String(fromPicture)}`)
+        }
+        // The counter beside the picture counts exactly the red bars, on every frame.
+        if (watch['removed'] !== removed.length) {
+          said.push(`watch says ${String(watch['removed'])} removed, picture shows ${removed.length}`)
+        }
+      }
+      return said
+    }),
+    `${label}: the picture's claims hold on every frame`,
+  )
   expect(framesChecked, `${label}: no frame carried the intervals structure`).toBeGreaterThan(0)
 
-  // Every bar reaches a verdict, and the red ones are the answer.
+  // The boundary never retreats. Stateful across frames — needs the previous frame's value — so
+  // it does not fit `eachFrame`'s pure-per-frame shape, but it still walks every frame.
+  let previousBoundary: number | null = null
+  for (let i = 0; i <= last; i += 1) {
+    const watch = reader.watchAt(i)
+    if (!watch || !('lastEnd' in watch)) continue
+    const shown = watch['lastEnd'] as number | null
+    if (shown === null) continue
+    if (previousBoundary !== null) {
+      expect(
+        shown,
+        `${label} frame ${i}: the boundary went backwards, ${previousBoundary} -> ${shown}`,
+      ).toBeGreaterThanOrEqual(previousBoundary)
+    }
+    previousBoundary = shown
+  }
+
+  // Every bar reaches exactly one verdict — `result` or `excluded`, never both, never neither.
+  // Deliberately *not* checked against an independent "which one is correct" oracle here: that is
+  // `expectKeptSetOptimal`'s job, kept as a separate call so a picture that is self-consistent but
+  // not optimal (`the picture checks have teeth` below) fails the right one of the two.
   const kept = persistent(final!, 'result')
   const removed = persistent(final!, 'excluded')
-  expect(
-    [...kept, ...removed].sort((a, b) => a - b),
-    `${label}: ${kept.length} kept + ${removed.length} removed does not account for all ${n} intervals`,
-  ).toEqual([...Array(n).keys()])
+  expectMarksPartition(
+    final!.marks,
+    n,
+    (i) => (kept.includes(i) ? 'result' : 'excluded'),
+    `${label}: every interval carries exactly one verdict`,
+  )
   expect(
     removed,
     `${label}: the picture removes ${removed.length} intervals but the solution returned ${returned}`,
@@ -252,7 +254,7 @@ describe('Non-overlapping Intervals — reference trace semantics', () => {
     // One per interval after the first: the first has no incumbent to compare against.
     expect(compareFrames).toHaveLength(3)
     for (const frame of compareFrames) {
-      const snap = frame.snapshots[idOf(trace, IVL)]
+      const snap = frame.snapshots[structureId(trace, IVL)]
       expect(snap?.kind).toBe('intervals')
       const lit = snap?.kind === 'intervals' ? snap.marks.filter((m) => m.class === 'compare') : []
       expect(lit, `frame ${frame.index} lights ${lit.length} bars`).toHaveLength(2)
@@ -268,7 +270,7 @@ describe('Non-overlapping Intervals — reference trace semantics', () => {
     const comparedIncumbents = trace.frames
       .filter((f) => f.op === 'compare')
       .flatMap((f) => {
-        const snap = f.snapshots[idOf(trace, IVL)]
+        const snap = f.snapshots[structureId(trace, IVL)]
         return snap?.kind === 'intervals' ? snap.marks.filter((m) => m.class === 'compare').map((m) => m.index) : []
       })
     // Bar 0 is the incumbent for the very first comparison and is kept, so it is the witness.
@@ -333,8 +335,9 @@ export default function eraseOverlapIntervals(intervals, viz) {
     expect(run.diagnostics).toEqual([])
     // It gets the right answer, and it does create the structure — the trace looks populated.
     expect(run.results[0]?.passed).toBe(true)
-    expect(() => expectGreedyPictureFaithful(run.results[0]!.trace, 1, 'marks nothing')).toThrow(
-      /does not account for all 4 intervals/,
+    expectRejects(
+      () => expectGreedyPictureFaithful(run.results[0]!.trace, 1, 'marks nothing'),
+      /is unmarked/,
     )
   })
 
@@ -358,7 +361,8 @@ export default function eraseOverlapIntervals(intervals, viz) {
     const run = executeRun({ problem: PROBLEM, source, caseIndex: 0 })
     expect(run.diagnostics).toEqual([])
     expect(run.results[0]?.passed).toBe(true)
-    expect(() => expectGreedyPictureFaithful(run.results[0]!.trace, 1, 'marks everything')).toThrow(
+    expectRejects(
+      () => expectGreedyPictureFaithful(run.results[0]!.trace, 1, 'marks everything'),
       /overlap/,
     )
   })
